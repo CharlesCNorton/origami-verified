@@ -7,7 +7,6 @@
     - Constructibility predicates defining what can be built via origami operations
     - Algebraic characterization: origami numbers include all rationals, square roots,
       and cubic roots (going beyond compass-and-straightedge constructions)
-    - Proof that all constructions remain within OrigamiNum (no axioms or admits used)
 
     Author: Charles C Norton
     Date: November 22, 2025
@@ -1859,8 +1858,6 @@ Proof.
   - simpl. unfold Rdiv. nra.
 Qed.
 
-
-
 (** Bisector of x-axis and y-axis has A=-1, B=1, C=0. *)
 Lemma bisector_xy_coeffs :
   A (bisector line_xaxis line_yaxis) = -1 /\
@@ -1924,11 +1921,6 @@ Qed.
 
 End Reverse_Completeness.
 
-(* All seven Huzita-Hatori origami axioms are implemented (O1-O7).
-   The mutual recursion ConstructiblePoint_good/ConstructibleLine_good/ConstructibleFold_good
-   establishes that all origami-constructible objects have coordinates in OrigamiNum.
-   No axioms or admitted lemmas are used in this development. *)
-
 Section Construction_Examples.
 
 (** Example: Point X = (1, 0) is a base constructible point. *)
@@ -1979,8 +1971,6 @@ Qed.
     4. This bisector intersects the line through O at 45° at point (1,1)
     5. The distance from O to (1,1) is √(1² + 1²) = √2
 
-    Simpler: construct (1,1) directly, whose distance from origin is √2.
-    We use perpendicular lines through X to get the intersection at (1,1). *)
 
 Definition sqrt_2_point : Point :=
   line_intersection (fold_line (fold_O4 point_X line_xaxis))
