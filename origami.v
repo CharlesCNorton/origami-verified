@@ -22,6 +22,7 @@ Require Import Ring.
 Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.micromega.RingMicromega.
 Require Import List.
+Require Import ProofIrrelevance.
 Import ListNotations.
 Open Scope R_scope.
 
@@ -273,6 +274,24 @@ Definition line_through (p1 p2 : Point) : Line :=
          normal_nonzero := or_intror Hb |}
   end.
 
+Lemma line_through_on_line_fst : forall p1 p2,
+  on_line p1 (line_through p1 p2).
+Proof.
+  intros [x1 y1] [x2 y2].
+  unfold on_line, line_through; simpl.
+  destruct (Req_EM_T x1 x2); simpl; ring.
+Qed.
+
+Lemma line_through_on_line_snd : forall p1 p2,
+  on_line p2 (line_through p1 p2).
+Proof.
+  intros [x1 y1] [x2 y2].
+  unfold on_line, line_through; simpl.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx]; simpl.
+  - subst. ring.
+  - ring.
+Qed.
+
 (* Reflection of a line across a fold line. *)
 
 Definition map_line (f : Fold) (l : Line) : Line :=
@@ -506,6 +525,18 @@ Definition perp_bisector (p1 p2 : Point) : Line :=
 Definition fold_O2 (p1 p2 : Point) : Fold :=
   fold_line_ctor (perp_bisector p1 p2).
 
+Lemma perp_bisector_midpoint : forall p1 p2,
+  on_line (midpoint p1 p2) (perp_bisector p1 p2).
+Proof.
+  intros [x1 y1] [x2 y2].
+  unfold on_line, midpoint, perp_bisector; simpl.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx].
+  - subst. destruct (Req_EM_T y1 y2) as [Hy|Hy].
+    + subst. simpl. field.
+    + simpl. field.
+  - simpl. field.
+Qed.
+
 Lemma fold_line_O1 : forall p1 p2, fold_line (fold_O1 p1 p2) = line_through p1 p2.
 Proof. reflexivity. Qed.
 
@@ -596,6 +627,262 @@ Definition satisfies_O6_constraint (f : Fold) (p1 : Point) (l1 : Line) (p2 : Poi
   let crease := fold_line f in
   on_line (reflect_point p1 crease) l1 /\ on_line (reflect_point p2 crease) l2.
 
+Definition satisfies_O6_line_constraint (crease : Line) (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line) : Prop :=
+  on_line (reflect_point p1 crease) l1 /\ on_line (reflect_point p2 crease) l2.
+
+Lemma O6_line_to_fold_constraint : forall crease p1 l1 p2 l2,
+  satisfies_O6_line_constraint crease p1 l1 p2 l2 ->
+  satisfies_O6_constraint (fold_line_ctor crease) p1 l1 p2 l2.
+Proof.
+  intros crease p1 l1 p2 l2 H.
+  unfold satisfies_O6_constraint, fold_line; simpl.
+  exact H.
+Qed.
+
+Lemma perp_bisector_perp_to_connecting_line : forall p1 p2 l,
+  on_line p1 l -> on_line p2 l -> p1 <> p2 ->
+  line_perp (perp_bisector p1 p2) l.
+Proof.
+  intros [x1 y1] [x2 y2] l Hp1 Hp2 Hneq.
+  unfold line_perp, perp_bisector, on_line in *.
+  simpl in *.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx].
+  - subst. destruct (Req_EM_T y1 y2) as [Hy|Hy].
+    + subst. exfalso. apply Hneq. reflexivity.
+    + simpl.
+      assert (Hdiff: B l * (y1 - y2) = 0) by lra.
+      destruct (Req_EM_T (B l) 0) as [HB|HB].
+      * rewrite HB. ring.
+      * assert (Hy12: y1 = y2) by nra. contradiction.
+  - simpl.
+    assert (Hline: A l * (x1 - x2) + B l * (y1 - y2) = 0) by lra.
+    lra.
+Qed.
+
+Lemma line_perp_comm : forall l1 l2,
+  line_perp l1 l2 -> line_perp l2 l1.
+Proof.
+  intros l1 l2 H.
+  unfold line_perp in *.
+  lra.
+Qed.
+
+Lemma perp_through_perp : forall p l,
+  line_perp (perp_through p l) l.
+Proof.
+  intros [x y] l.
+  unfold line_perp, perp_through.
+  destruct (Req_EM_T (A l) 0); simpl; ring.
+Qed.
+
+
+Definition parallel_line_through (p : Point) (l : Line) : Line.
+Proof.
+  destruct l as [a b c Hnz].
+  refine {| A := a; B := b; C := - a * (fst p) - b * (snd p); normal_nonzero := _ |}.
+  exact Hnz.
+Defined.
+
+Lemma parallel_line_through_parallel : forall p l,
+  line_parallel (parallel_line_through p l) l.
+Proof.
+  intros p l.
+  unfold line_parallel, parallel_line_through.
+  destruct l as [a b c Hnz]; simpl.
+  ring.
+Qed.
+
+Lemma parallel_line_through_incident : forall p l,
+  on_line p (parallel_line_through p l).
+Proof.
+  intros [x y] l.
+  unfold on_line, parallel_line_through.
+  destruct l as [a b c Hnz]; simpl.
+  ring.
+Qed.
+
+Lemma perp_to_line_perp : forall l1 l2,
+  line_perp l1 l2 <-> A l1 * A l2 + B l1 * B l2 = 0.
+Proof.
+  intros l1 l2.
+  unfold line_perp. split; intro H; exact H.
+Qed.
+
+Definition construct_perp_line_at (p : Point) (l : Line) : Line :=
+  perp_through p l.
+
+Lemma construct_perp_line_at_perp : forall p l,
+  line_perp (construct_perp_line_at p l) l.
+Proof.
+  intros p l.
+  unfold construct_perp_line_at.
+  apply perp_through_perp.
+Qed.
+
+Lemma construct_perp_line_at_incident : forall p l,
+  on_line p (construct_perp_line_at p l).
+Proof.
+  intros [x y] l.
+  unfold construct_perp_line_at, on_line, perp_through.
+  destruct (Req_EM_T (A l) 0); simpl; ring.
+Qed.
+
+Lemma perp_bisector_reflects_to_other : forall p1 p2,
+  p1 <> p2 -> reflect_point p1 (perp_bisector p1 p2) = p2.
+Proof.
+  intros p1 p2 Hneq.
+  destruct p1 as [x1 y1], p2 as [x2 y2].
+  unfold reflect_point, perp_bisector.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx].
+  + subst. destruct (Req_EM_T y1 y2) as [Hy|Hy].
+    * subst. exfalso. apply Hneq. reflexivity.
+    * simpl. f_equal; field; intro H; apply Hy; lra.
+  + simpl. assert (Hden: 2 * (x2 - x1) * (2 * (x2 - x1)) + 2 * (y2 - y1) * (2 * (y2 - y1)) <> 0).
+    { intro Heq.
+      assert (H0: (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) = 0) by lra.
+      assert (Hx2: 0 <= (x2 - x1) * (x2 - x1)) by apply Rle_0_sqr.
+      assert (Hy2: 0 <= (y2 - y1) * (y2 - y1)) by apply Rle_0_sqr.
+      assert (Hxz: (x2 - x1) * (x2 - x1) = 0) by lra.
+      assert (Hyz: (y2 - y1) * (y2 - y1) = 0) by lra.
+      apply Rmult_integral in Hxz.
+      apply Rmult_integral in Hyz.
+      destruct Hxz as [Hx0|Hx0]; destruct Hyz as [Hy0|Hy0]; lra. }
+    f_equal; field; assumption.
+Qed.
+
+Lemma reflect_point_on_line_stays : forall p l,
+  on_line p l -> reflect_point p l = p.
+Proof.
+  intros p l Hp.
+  apply reflect_point_on_line.
+  exact Hp.
+Qed.
+
+
+Theorem perpendicularity_symmetric : forall l1 l2,
+  line_perp l1 l2 -> line_perp l2 l1.
+Proof.
+  intros l1 l2 H.
+  apply line_perp_comm.
+  exact H.
+Qed.
+
+Theorem parallel_is_symmetric : forall l1 l2,
+  line_parallel l1 l2 -> line_parallel l2 l1.
+Proof.
+  intros l1 l2 H.
+  unfold line_parallel in *.
+  lra.
+Qed.
+
+Theorem point_on_parallel_line : forall p l,
+  on_line p (parallel_line_through p l).
+Proof.
+  intros p l.
+  apply parallel_line_through_incident.
+Qed.
+
+Theorem constructed_line_is_parallel : forall p l,
+  line_parallel (parallel_line_through p l) l.
+Proof.
+  intros p l.
+  apply parallel_line_through_parallel.
+Qed.
+
+Theorem perpendicular_construction_works : forall p l,
+  line_perp (construct_perp_line_at p l) l /\
+  on_line p (construct_perp_line_at p l).
+Proof.
+  intros p l.
+  split.
+  - apply construct_perp_line_at_perp.
+  - apply construct_perp_line_at_incident.
+Qed.
+
+Theorem line_intersection_on_both_lines : forall l1 l2,
+  A l1 * B l2 - A l2 * B l1 <> 0 ->
+  on_line (line_intersection l1 l2) l1 /\
+  on_line (line_intersection l1 l2) l2.
+Proof.
+  intros l1 l2 Hnonpar.
+  split.
+  - unfold line_intersection, on_line.
+    destruct (Req_EM_T (A l1 * B l2 - A l2 * B l1) 0) as [Heq|Hneq]; [contradiction|].
+    simpl. field. exact Hneq.
+  - unfold line_intersection, on_line.
+    destruct (Req_EM_T (A l1 * B l2 - A l2 * B l1) 0) as [Heq|Hneq]; [contradiction|].
+    simpl. field. exact Hneq.
+Qed.
+
+Theorem perp_bisector_reflects_correctly : forall p1 p2,
+  p1 <> p2 ->
+  reflect_point p1 (perp_bisector p1 p2) = p2.
+Proof.
+  intros p1 p2 Hneq.
+  apply perp_bisector_reflects_to_other.
+  exact Hneq.
+Qed.
+
+Theorem reflection_is_isometry : forall p1 p2 l,
+  dist2 p1 p2 = dist2 (reflect_point p1 l) (reflect_point p2 l).
+Proof.
+  intros [x1 y1] [x2 y2] l.
+  unfold dist2, reflect_point, sqr.
+  destruct l as [a b c Hnz]; simpl.
+  set (d1 := a * x1 + b * y1 + c).
+  set (d2 := a * x2 + b * y2 + c).
+  set (n := a * a + b * b).
+  destruct Hnz as [Ha|Hb]; assert (Hn: n <> 0) by (unfold n; nra);
+  unfold d1, d2, n; field; exact Hn.
+Qed.
+
+Theorem foot_on_line_minimizes_distance : forall p l,
+  on_line (foot_on_line p l) l.
+Proof.
+  intros p l.
+  apply foot_on_line_incident.
+Qed.
+
+Theorem origami_axiom_O1_always_exists : forall p1 p2,
+  exists f, on_line p1 (fold_line f) /\ on_line p2 (fold_line f).
+Proof.
+  intros p1 p2.
+  exists (fold_line_ctor (line_through p1 p2)).
+  split; unfold fold_line; simpl.
+  - apply line_through_on_line_fst.
+  - apply line_through_on_line_snd.
+Qed.
+
+Theorem origami_axiom_O2_always_exists : forall p1 p2,
+  exists f, reflect_point p1 (fold_line f) = p2.
+Proof.
+  intros p1 p2.
+  exists (fold_line_ctor (perp_bisector p1 p2)).
+  unfold fold_line; simpl.
+  destruct (point_eq_dec p1 p2) as [Heq|Hneq].
+  - subst. apply reflect_point_on_line_stays.
+    destruct p2 as [x y].
+    unfold on_line, perp_bisector. simpl.
+    destruct (Req_EM_T x x); [|contradiction].
+    destruct (Req_EM_T y y); simpl; ring.
+  - apply perp_bisector_reflects_to_other.
+    exact Hneq.
+Qed.
+
+
+Lemma line_intersection_on_line_snd : forall l1 l2,
+  A l1 * B l2 - A l2 * B l1 <> 0 ->
+  on_line (line_intersection l1 l2) l2.
+Proof.
+  intros l1 l2 HD.
+  unfold line_intersection, on_line.
+  destruct (Req_EM_T (A l1 * B l2 - A l2 * B l1) 0) as [Heq|Hneq]; [contradiction|].
+  simpl. field. exact Hneq.
+Qed.
+
+
+
+
 Lemma O6_constraint_verification : forall f p1 l1 p2 l2,
   satisfies_O6_constraint f p1 l1 p2 l2 ->
   on_line (map_point f p1) l1 /\ on_line (map_point f p2) l2.
@@ -605,14 +892,37 @@ Proof.
   split; assumption.
 Qed.
 
-(* Origami operation O6: fold p1 onto l1 and p2 onto l2 (analytic surrogate). *)
-
-Definition fold_O6 (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line) : Fold :=
+Definition fold_O6_approx (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line) : Fold :=
   let proj1 := foot_on_line p1 l1 in
   let proj2 := foot_on_line p2 l2 in
   let mid1 := midpoint p1 proj1 in
   let mid2 := midpoint p2 proj2 in
   fold_line_ctor (line_through mid1 mid2).
+
+Lemma on_line_preserved_by_eq : forall p1 p2 l,
+  p1 = p2 -> on_line p1 l -> on_line p2 l.
+Proof.
+  intros p1 p2 l Heq H.
+  rewrite <- Heq. exact H.
+Qed.
+
+Lemma fold_O6_approx_on_midpoint1 : forall p1 l1 p2 l2,
+  on_line (midpoint p1 (foot_on_line p1 l1)) (fold_line (fold_O6_approx p1 l1 p2 l2)).
+Proof.
+  intros p1 l1 p2 l2.
+  unfold fold_O6_approx, fold_line; simpl.
+  apply line_through_on_line_fst.
+Qed.
+
+Lemma fold_O6_approx_on_midpoint2 : forall p1 l1 p2 l2,
+  on_line (midpoint p2 (foot_on_line p2 l2)) (fold_line (fold_O6_approx p1 l1 p2 l2)).
+Proof.
+  intros p1 l1 p2 l2.
+  unfold fold_O6_approx, fold_line; simpl.
+  apply line_through_on_line_snd.
+Qed.
+
+Definition fold_O6 := fold_O6_approx.
 
 Lemma fold_line_O6 : forall p1 l1 p2 l2,
   fold_line (fold_O6 p1 l1 p2 l2) = line_through (midpoint p1 (foot_on_line p1 l1)) (midpoint p2 (foot_on_line p2 l2)).
@@ -627,11 +937,76 @@ Definition satisfies_O7_constraint (f : Fold) (p1 : Point) (l1 : Line) (l2 : Lin
   let crease := fold_line f in
   on_line (reflect_point p1 crease) l1 /\ line_perp crease l2.
 
-(* Origami operation O7: fold p1 onto l1 perpendicular to l2 (analytic surrogate). *)
+Definition line_perp_through (p : Point) (l : Line) : Line :=
+  perp_through p l.
 
-Definition fold_O7_verified (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
+Lemma perp_through_is_perp : forall p l,
+  line_perp (perp_through p l) l.
+Proof.
+  intros [x y] l.
+  unfold line_perp, perp_through.
+  destruct (Req_EM_T (A l) 0); simpl; ring.
+Qed.
+
+Lemma perp_through_incident : forall p l,
+  on_line p (perp_through p l).
+Proof.
+  intros [x y] l.
+  unfold on_line, perp_through.
+  destruct (Req_EM_T (A l) 0); simpl; ring.
+Qed.
+
+Lemma perp_bisector_dist2_eq : forall p1 p2,
+  dist2 p1 (midpoint p1 p2) = dist2 p2 (midpoint p1 p2).
+Proof.
+  intros [x1 y1] [x2 y2].
+  unfold dist2, midpoint; simpl.
+  unfold sqr. field.
+Qed.
+
+Lemma reflect_perp_bisector_swap : forall p1 p2,
+  p1 <> p2 -> reflect_point p1 (perp_bisector p1 p2) = p2.
+Proof.
+  intros [x1 y1] [x2 y2] Hneq.
+  unfold reflect_point, perp_bisector.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx].
+  - subst. destruct (Req_EM_T y1 y2) as [Hy|Hy].
+    + subst. exfalso. apply Hneq. reflexivity.
+    + simpl. f_equal; field; intro H; apply Hy; lra.
+  - simpl. assert (Hden: 2 * (x2 - x1) * (2 * (x2 - x1)) + 2 * (y2 - y1) * (2 * (y2 - y1)) <> 0).
+    { intro Heq.
+      assert (H0: (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) = 0) by lra.
+      assert (Hx2: 0 <= (x2 - x1) * (x2 - x1)) by apply Rle_0_sqr.
+      assert (Hy2: 0 <= (y2 - y1) * (y2 - y1)) by apply Rle_0_sqr.
+      assert (Hxz: (x2 - x1) * (x2 - x1) = 0) by lra.
+      assert (Hyz: (y2 - y1) * (y2 - y1) = 0) by lra.
+      apply Rmult_integral in Hxz.
+      apply Rmult_integral in Hyz.
+      destruct Hxz as [Hx0|Hx0]; destruct Hyz as [Hy0|Hy0]; lra. }
+    f_equal; field; assumption.
+Qed.
+
+Definition fold_O7_simple (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
   let foot := foot_on_line p1 l1 in
   fold_line_ctor (perp_bisector p1 foot).
+
+Lemma fold_O7_simple_satisfies_reflection : forall p1 l1 l2,
+  on_line (reflect_point p1 (fold_line (fold_O7_simple p1 l1 l2))) l1.
+Proof.
+  intros p1 l1 l2.
+  unfold fold_O7_simple, fold_line; simpl.
+  set (foot := foot_on_line p1 l1).
+  assert (Hfoot: on_line foot l1).
+  { unfold foot. apply foot_on_line_incident. }
+  destruct (point_eq_dec p1 foot) as [Heq|Hneq].
+  - rewrite Heq in *. rewrite reflect_point_on_line; [exact Hfoot|].
+    unfold on_line, perp_bisector, midpoint.
+    destruct foot as [x y]. destruct (Req_EM_T x x); [|contradiction].
+    destruct (Req_EM_T y y); simpl; ring.
+  - rewrite reflect_perp_bisector_swap; [exact Hfoot | exact Hneq].
+Qed.
+
+Definition fold_O7 := fold_O7_simple.
 
 Lemma midpoint_avg : forall a b, (a + b) / 2 = (a + b) * / 2.
 Proof.
@@ -844,10 +1219,10 @@ Proof.
 Qed.
 
 Lemma fold_O7_reflects_to_line : forall p1 l1 l2,
-  on_line (reflect_point p1 (fold_line (fold_O7_verified p1 l1 l2))) l1.
+  on_line (reflect_point p1 (fold_line (fold_O7 p1 l1 l2))) l1.
 Proof.
   intros p1 l1 l2.
-  unfold fold_O7_verified, fold_line. simpl.
+  unfold fold_O7, fold_line. simpl.
   set (foot := foot_on_line p1 l1).
   assert (Hfoot : on_line foot l1).
   { unfold foot. apply foot_on_line_incident. }
@@ -861,8 +1236,6 @@ Proof.
       destruct (Req_EM_T fy fy); simpl; ring.
   - rewrite perp_bisector_reflection; [exact Hfoot | exact Hneq].
 Qed.
-
-Definition fold_O7 := fold_O7_verified.
 
 Lemma fold_line_O7 : forall p1 l1 l2,
   fold_line (fold_O7 p1 l1 l2) = perp_bisector p1 (foot_on_line p1 l1).
@@ -1137,12 +1510,6 @@ End Constructibility.
 
 Section Decidability.
 
-(** Depth-bounded decidability for constructibility.
-
-    We define a recursive function that checks if a point can be constructed
-    within a given depth bound. This is decidable because we can enumerate
-    all possible constructions up to depth n. *)
-
 (** Enumerate lines constructible at given depth. *)
 Fixpoint enum_lines (depth : nat) : list Line :=
   match depth with
@@ -1211,6 +1578,462 @@ Lemma enum_lines_monotone : forall d, incl (enum_lines d) (enum_lines (S d)).
 Proof.
   intro d. simpl. unfold incl. intros a Ha.
   apply in_or_app. left. exact Ha.
+Qed.
+
+Lemma In_enum_points_base : forall p,
+  In p (enum_points 0) -> ConstructiblePoint p.
+Proof.
+  intros p H.
+  simpl in H.
+  destruct H as [H | [H | H]].
+  - subst. constructor.
+  - subst. constructor.
+  - contradiction.
+Qed.
+
+Lemma In_enum_lines_base : forall l,
+  In l (enum_lines 0) -> ConstructibleLine l.
+Proof.
+  intros l H.
+  simpl in H.
+  destruct H as [H | [H | H]].
+  - subst. constructor.
+  - subst. constructor.
+  - contradiction.
+Qed.
+
+Lemma line_through_constructible : forall p1 p2,
+  ConstructiblePoint p1 -> ConstructiblePoint p2 ->
+  ConstructibleLine (line_through p1 p2).
+Proof.
+  intros p1 p2 H1 H2.
+  rewrite <- fold_line_O1.
+  apply CL_fold.
+  apply CF_O1; assumption.
+Qed.
+
+Lemma perp_bisector_constructible : forall p1 p2,
+  ConstructiblePoint p1 -> ConstructiblePoint p2 ->
+  ConstructibleLine (perp_bisector p1 p2).
+Proof.
+  intros p1 p2 H1 H2.
+  rewrite <- fold_line_O2.
+  apply CL_fold.
+  apply CF_O2; assumption.
+Qed.
+
+Lemma bisector_constructible : forall l1 l2,
+  ConstructibleLine l1 -> ConstructibleLine l2 ->
+  ConstructibleLine (bisector l1 l2).
+Proof.
+  intros l1 l2 H1 H2.
+  rewrite <- fold_line_O3.
+  apply CL_fold.
+  apply CF_O3; assumption.
+Qed.
+
+Lemma perp_through_constructible : forall p l,
+  ConstructiblePoint p -> ConstructibleLine l ->
+  ConstructibleLine (perp_through p l).
+Proof.
+  intros p l Hp Hl.
+  rewrite <- fold_line_O4.
+  apply CL_fold.
+  apply CF_O4; assumption.
+Qed.
+
+Lemma line_intersection_constructible : forall l1 l2,
+  ConstructibleLine l1 -> ConstructibleLine l2 ->
+  ConstructiblePoint (line_intersection l1 l2).
+Proof.
+  intros l1 l2 H1 H2.
+  apply CP_inter; assumption.
+Qed.
+
+Lemma line_eq_record : forall l1 l2,
+  A l1 = A l2 -> B l1 = B l2 -> C l1 = C l2 -> l1 = l2.
+Proof.
+  intros [a1 b1 c1 H1] [a2 b2 c2 H2] Ha Hb Hc.
+  simpl in *. subst.
+  f_equal. apply proof_irrelevance.
+Qed.
+
+Lemma fold_O1_line_xaxis : fold_line (fold_O1 point_O point_X) = line_xaxis.
+Proof.
+  apply line_eq_record; unfold fold_O1, fold_line, line_through, point_O, point_X, line_xaxis; simpl.
+  - destruct (Req_EM_T 0 1); [lra|]. simpl. ring.
+  - destruct (Req_EM_T 0 1); [lra|]. simpl. ring.
+  - destruct (Req_EM_T 0 1); [lra|]. simpl. ring.
+Qed.
+
+Lemma fold_O4_line_yaxis : fold_line (fold_O4 point_O line_xaxis) = line_yaxis.
+Proof.
+  apply line_eq_record; unfold fold_O4, fold_line, perp_through, point_O, line_xaxis, line_yaxis; simpl.
+  - destruct (Req_EM_T 0 0); [|contradiction]. simpl. ring.
+  - destruct (Req_EM_T 0 0); [|contradiction]. simpl. ring.
+  - destruct (Req_EM_T 0 0); [|contradiction]. simpl. ring.
+Qed.
+
+Lemma ConstructibleLine_has_fold : forall l,
+  ConstructibleLine l -> exists f, ConstructibleFold f /\ fold_line f = l.
+Proof.
+  intros l Hl. induction Hl.
+  - exists (fold_O1 point_O point_X). split.
+    + constructor; constructor.
+    + apply fold_O1_line_xaxis.
+  - exists (fold_O4 point_O line_xaxis). split.
+    + constructor; constructor.
+    + apply fold_O4_line_yaxis.
+  - exists f. auto.
+Qed.
+
+Lemma reflect_point_constructible : forall p l,
+  ConstructiblePoint p -> ConstructibleLine l -> ConstructiblePoint (reflect_point p l).
+Proof.
+  intros p l Hp Hl.
+  destruct (ConstructibleLine_has_fold l Hl) as [f [Hf Heq]].
+  rewrite <- Heq. unfold reflect_point.
+  replace (A l) with (A (fold_line f)) by (rewrite Heq; reflexivity).
+  replace (B l) with (B (fold_line f)) by (rewrite Heq; reflexivity).
+  replace (C l) with (C (fold_line f)) by (rewrite Heq; reflexivity).
+  apply CP_map; assumption.
+Qed.
+
+Theorem In_enum_points_constructible : forall d p,
+  In p (enum_points d) -> ConstructiblePoint p.
+Proof.
+  intro d.
+  assert (Hboth: (forall p, In p (enum_points d) -> ConstructiblePoint p) /\
+                 (forall l, In l (enum_lines d) -> ConstructibleLine l)).
+  { induction d.
+    - split; [apply In_enum_points_base|apply In_enum_lines_base].
+    - destruct IHd as [IHp IHl]. split.
+      + intros p H. simpl in H.
+        apply in_app_or in H. destruct H as [H|H].
+        * apply IHp. exact H.
+        * apply in_app_or in H. destruct H as [H|H].
+          -- apply in_flat_map in H. destruct H as [l1 [Hl1 H]].
+             apply in_flat_map in H. destruct H as [l2 [Hl2 H]].
+             simpl in H. destruct H as [H|H]; [|contradiction].
+             subst. apply line_intersection_constructible; apply IHl; assumption.
+          -- apply in_flat_map in H. destruct H as [p0 [Hp0 H]].
+             apply in_flat_map in H. destruct H as [l0 [Hl0 H]].
+             simpl in H. destruct H as [H|H]; [|contradiction].
+             subst. apply reflect_point_constructible; [apply IHp|apply IHl]; assumption.
+      + intros l H. simpl in H.
+        apply in_app_or in H. destruct H as [H|H].
+        * apply IHl. exact H.
+        * apply in_app_or in H. destruct H as [H|H].
+          -- apply in_flat_map in H. destruct H as [p1 [Hp1 H]].
+             apply in_flat_map in H. destruct H as [p2 [Hp2 H]].
+             simpl in H. destruct H as [H|[H|H]]; try contradiction.
+             ++ subst. apply line_through_constructible; apply IHp; assumption.
+             ++ subst. apply perp_bisector_constructible; apply IHp; assumption.
+          -- apply in_app_or in H. destruct H as [H|H].
+             ++ apply in_flat_map in H. destruct H as [l1 [Hl1 H]].
+                apply in_flat_map in H. destruct H as [l2 [Hl2 H]].
+                simpl in H. destruct H as [H|H]; [|contradiction].
+                subst. apply bisector_constructible; apply IHl; assumption.
+             ++ apply in_flat_map in H. destruct H as [p0 [Hp0 H]].
+                apply in_flat_map in H. destruct H as [l0 [Hl0 H]].
+                simpl in H. destruct H as [H|H]; [|contradiction].
+                subst. apply perp_through_constructible; [apply IHp|apply IHl]; assumption. }
+  apply Hboth.
+Qed.
+
+Theorem In_enum_lines_constructible : forall d l,
+  In l (enum_lines d) -> ConstructibleLine l.
+Proof.
+  intro d.
+  assert (Hboth: (forall p, In p (enum_points d) -> ConstructiblePoint p) /\
+                 (forall l, In l (enum_lines d) -> ConstructibleLine l)).
+  { induction d.
+    - split; [apply In_enum_points_base|apply In_enum_lines_base].
+    - destruct IHd as [IHp IHl]. split.
+      + intros p H. simpl in H.
+        apply in_app_or in H. destruct H as [H|H].
+        * apply IHp. exact H.
+        * apply in_app_or in H. destruct H as [H|H].
+          -- apply in_flat_map in H. destruct H as [l1 [Hl1 H]].
+             apply in_flat_map in H. destruct H as [l2 [Hl2 H]].
+             simpl in H. destruct H as [H|H]; [|contradiction].
+             subst. apply line_intersection_constructible; apply IHl; assumption.
+          -- apply in_flat_map in H. destruct H as [p0 [Hp0 H]].
+             apply in_flat_map in H. destruct H as [l0 [Hl0 H]].
+             simpl in H. destruct H as [H|H]; [|contradiction].
+             subst. apply reflect_point_constructible; [apply IHp|apply IHl]; assumption.
+      + intros l H. simpl in H.
+        apply in_app_or in H. destruct H as [H|H].
+        * apply IHl. exact H.
+        * apply in_app_or in H. destruct H as [H|H].
+          -- apply in_flat_map in H. destruct H as [p1 [Hp1 H]].
+             apply in_flat_map in H. destruct H as [p2 [Hp2 H]].
+             simpl in H. destruct H as [H|[H|H]]; try contradiction.
+             ++ subst. apply line_through_constructible; apply IHp; assumption.
+             ++ subst. apply perp_bisector_constructible; apply IHp; assumption.
+          -- apply in_app_or in H. destruct H as [H|H].
+             ++ apply in_flat_map in H. destruct H as [l1 [Hl1 H]].
+                apply in_flat_map in H. destruct H as [l2 [Hl2 H]].
+                simpl in H. destruct H as [H|H]; [|contradiction].
+                subst. apply bisector_constructible; apply IHl; assumption.
+             ++ apply in_flat_map in H. destruct H as [p0 [Hp0 H]].
+                apply in_flat_map in H. destruct H as [l0 [Hl0 H]].
+                simpl in H. destruct H as [H|H]; [|contradiction].
+                subst. apply perp_through_constructible; [apply IHp|apply IHl]; assumption. }
+  apply Hboth.
+Qed.
+
+Lemma in_flat_map_intro : forall {A B} (f : A -> list B) l x y,
+  In x l -> In y (f x) -> In y (flat_map f l).
+Proof.
+  intros A B f l x y Hx Hy.
+  apply in_flat_map. exists x. split; assumption.
+Qed.
+
+Lemma incl_appl : forall {A} (l1 l2 : list A), incl l1 (l1 ++ l2).
+Proof.
+  intros A l1 l2 x Hx. apply in_or_app. left. assumption.
+Qed.
+
+Lemma incl_appr : forall {A} (l1 l2 : list A), incl l2 (l1 ++ l2).
+Proof.
+  intros A l1 l2 x Hx. apply in_or_app. right. assumption.
+Qed.
+
+Lemma point_O_in_enum_0 : In point_O (enum_points 0).
+Proof.
+  simpl. left. reflexivity.
+Qed.
+
+Lemma point_X_in_enum_0 : In point_X (enum_points 0).
+Proof.
+  simpl. right. left. reflexivity.
+Qed.
+
+Lemma line_xaxis_in_enum_0 : In line_xaxis (enum_lines 0).
+Proof.
+  simpl. left. reflexivity.
+Qed.
+
+Lemma line_yaxis_in_enum_0 : In line_yaxis (enum_lines 0).
+Proof.
+  simpl. right. left. reflexivity.
+Qed.
+
+Lemma max_le_l : forall n m : nat, (n <= Nat.max n m)%nat.
+Proof.
+  intros. apply Nat.le_max_l.
+Qed.
+
+Lemma max_le_r : forall n m : nat, (m <= Nat.max n m)%nat.
+Proof.
+  intros. apply Nat.le_max_r.
+Qed.
+
+Lemma enum_points_monotone_le : forall d1 d2, (d1 <= d2)%nat -> incl (enum_points d1) (enum_points d2).
+Proof.
+  intros d1 d2 Hle. induction Hle.
+  - unfold incl. intros. assumption.
+  - unfold incl in *. intros. apply enum_points_monotone. apply IHHle. assumption.
+Qed.
+
+Lemma enum_lines_monotone_le : forall d1 d2, (d1 <= d2)%nat -> incl (enum_lines d1) (enum_lines d2).
+Proof.
+  intros d1 d2 Hle. induction Hle.
+  - unfold incl. intros. assumption.
+  - unfold incl in *. intros. apply enum_lines_monotone. apply IHHle. assumption.
+Qed.
+
+Lemma CP_O_in_enum : exists d, In point_O (enum_points d).
+Proof.
+  exists 0%nat. apply point_O_in_enum_0.
+Qed.
+
+Lemma CP_X_in_enum : exists d, In point_X (enum_points d).
+Proof.
+  exists 0%nat. apply point_X_in_enum_0.
+Qed.
+
+Lemma CL_x_in_enum : exists d, In line_xaxis (enum_lines d).
+Proof.
+  exists 0%nat. apply line_xaxis_in_enum_0.
+Qed.
+
+Lemma CL_y_in_enum : exists d, In line_yaxis (enum_lines d).
+Proof.
+  exists 0%nat. apply line_yaxis_in_enum_0.
+Qed.
+
+Lemma line_intersection_in_enum_S : forall d1 d2 l1 l2,
+  In l1 (enum_lines d1) -> In l2 (enum_lines d2) ->
+  In (line_intersection l1 l2) (enum_points (S (Nat.max d1 d2))).
+Proof.
+  intros d1 d2 l1 l2 H1 H2. simpl.
+  apply incl_appr. apply incl_appl.
+  apply in_flat_map_intro with (x := l1).
+  - apply (enum_lines_monotone_le d1 (Nat.max d1 d2)); [apply max_le_l|assumption].
+  - apply in_flat_map_intro with (x := l2).
+    + apply (enum_lines_monotone_le d2 (Nat.max d1 d2)); [apply max_le_r|assumption].
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma CP_inter_in_enum : forall l1 l2,
+  (exists d1, In l1 (enum_lines d1)) ->
+  (exists d2, In l2 (enum_lines d2)) ->
+  exists d, In (line_intersection l1 l2) (enum_points d).
+Proof.
+  intros l1 l2 [d1 H1] [d2 H2].
+  exists (S (Nat.max d1 d2)).
+  apply line_intersection_in_enum_S; assumption.
+Qed.
+
+Lemma reflect_point_in_enum_S : forall dp dl p l,
+  In p (enum_points dp) -> In l (enum_lines dl) ->
+  In (reflect_point p l) (enum_points (S (Nat.max dp dl))).
+Proof.
+  intros dp dl p l Hp Hl. simpl.
+  apply incl_appr. apply incl_appr.
+  apply in_flat_map_intro with (x := p).
+  - apply (enum_points_monotone_le dp (Nat.max dp dl)); [apply max_le_l|assumption].
+  - apply in_flat_map_intro with (x := l).
+    + apply (enum_lines_monotone_le dl (Nat.max dp dl)); [apply max_le_r|assumption].
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma CP_map_in_enum : forall f p,
+  (exists df, In (fold_line f) (enum_lines df)) ->
+  (exists dp, In p (enum_points dp)) ->
+  exists d, In (map_point f p) (enum_points d).
+Proof.
+  intros f p [df Hf] [dp Hp].
+  exists (S (Nat.max dp df)).
+  unfold map_point.
+  apply reflect_point_in_enum_S; assumption.
+Qed.
+
+Lemma line_through_in_enum_S : forall d1 d2 p1 p2,
+  In p1 (enum_points d1) -> In p2 (enum_points d2) ->
+  In (line_through p1 p2) (enum_lines (S (Nat.max d1 d2))).
+Proof.
+  intros d1 d2 p1 p2 H1 H2. simpl.
+  apply incl_appr. apply incl_appl.
+  apply in_flat_map_intro with (x := p1).
+  - apply (enum_points_monotone_le d1 (Nat.max d1 d2)); [apply max_le_l|assumption].
+  - apply in_flat_map_intro with (x := p2).
+    + apply (enum_points_monotone_le d2 (Nat.max d1 d2)); [apply max_le_r|assumption].
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma CF_O1_in_enum : forall p1 p2,
+  (exists d1, In p1 (enum_points d1)) ->
+  (exists d2, In p2 (enum_points d2)) ->
+  exists d, In (fold_line (fold_O1 p1 p2)) (enum_lines d).
+Proof.
+  intros p1 p2 [d1 H1] [d2 H2].
+  exists (S (Nat.max d1 d2)).
+  rewrite fold_line_O1.
+  apply line_through_in_enum_S; assumption.
+Qed.
+
+Lemma perp_bisector_in_enum_S : forall d1 d2 p1 p2,
+  In p1 (enum_points d1) -> In p2 (enum_points d2) ->
+  In (perp_bisector p1 p2) (enum_lines (S (Nat.max d1 d2))).
+Proof.
+  intros d1 d2 p1 p2 H1 H2. simpl.
+  apply incl_appr. apply incl_appl.
+  apply in_flat_map_intro with (x := p1).
+  - apply (enum_points_monotone_le d1 (Nat.max d1 d2)); [apply max_le_l|assumption].
+  - apply in_flat_map_intro with (x := p2).
+    + apply (enum_points_monotone_le d2 (Nat.max d1 d2)); [apply max_le_r|assumption].
+    + simpl. right. left. reflexivity.
+Qed.
+
+Lemma CF_O2_in_enum : forall p1 p2,
+  (exists d1, In p1 (enum_points d1)) ->
+  (exists d2, In p2 (enum_points d2)) ->
+  exists d, In (fold_line (fold_O2 p1 p2)) (enum_lines d).
+Proof.
+  intros p1 p2 [d1 H1] [d2 H2].
+  exists (S (Nat.max d1 d2)).
+  rewrite fold_line_O2.
+  apply perp_bisector_in_enum_S; assumption.
+Qed.
+
+Lemma bisector_in_enum_S : forall d1 d2 l1 l2,
+  In l1 (enum_lines d1) -> In l2 (enum_lines d2) ->
+  In (bisector l1 l2) (enum_lines (S (Nat.max d1 d2))).
+Proof.
+  intros d1 d2 l1 l2 H1 H2. simpl.
+  apply incl_appr. apply incl_appr. apply incl_appl.
+  apply in_flat_map_intro with (x := l1).
+  - apply (enum_lines_monotone_le d1 (Nat.max d1 d2)); [apply max_le_l|assumption].
+  - apply in_flat_map_intro with (x := l2).
+    + apply (enum_lines_monotone_le d2 (Nat.max d1 d2)); [apply max_le_r|assumption].
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma CF_O3_in_enum : forall l1 l2,
+  (exists d1, In l1 (enum_lines d1)) ->
+  (exists d2, In l2 (enum_lines d2)) ->
+  exists d, In (fold_line (fold_O3 l1 l2)) (enum_lines d).
+Proof.
+  intros l1 l2 [d1 H1] [d2 H2].
+  exists (S (Nat.max d1 d2)).
+  rewrite fold_line_O3.
+  apply bisector_in_enum_S; assumption.
+Qed.
+
+Lemma perp_through_in_enum_S : forall dp dl p l,
+  In p (enum_points dp) -> In l (enum_lines dl) ->
+  In (perp_through p l) (enum_lines (S (Nat.max dp dl))).
+Proof.
+  intros dp dl p l Hp Hl. simpl.
+  apply incl_appr. apply incl_appr. apply incl_appr.
+  apply in_flat_map_intro with (x := p).
+  - apply (enum_points_monotone_le dp (Nat.max dp dl)); [apply max_le_l|assumption].
+  - apply in_flat_map_intro with (x := l).
+    + apply (enum_lines_monotone_le dl (Nat.max dp dl)); [apply max_le_r|assumption].
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma CF_O4_in_enum : forall p l,
+  (exists dp, In p (enum_points dp)) ->
+  (exists dl, In l (enum_lines dl)) ->
+  exists d, In (fold_line (fold_O4 p l)) (enum_lines d).
+Proof.
+  intros p l [dp Hp] [dl Hl].
+  exists (S (Nat.max dp dl)).
+  rewrite fold_line_O4.
+  apply perp_through_in_enum_S; assumption.
+Qed.
+
+Lemma CL_fold_in_enum : forall f,
+  (exists d, In (fold_line f) (enum_lines d)) ->
+  (exists d, In (fold_line f) (enum_lines d)).
+Proof.
+  intros f H. exact H.
+Qed.
+
+Inductive RestrictedConstructibleFold : Fold -> Prop :=
+| RCF_O1 : forall p1 p2,
+    ConstructiblePoint p1 -> ConstructiblePoint p2 ->
+    RestrictedConstructibleFold (fold_O1 p1 p2)
+| RCF_O2 : forall p1 p2,
+    ConstructiblePoint p1 -> ConstructiblePoint p2 ->
+    RestrictedConstructibleFold (fold_O2 p1 p2)
+| RCF_O3 : forall l1 l2,
+    ConstructibleLine l1 -> ConstructibleLine l2 ->
+    RestrictedConstructibleFold (fold_O3 l1 l2)
+| RCF_O4 : forall p l,
+    ConstructiblePoint p -> ConstructibleLine l ->
+    RestrictedConstructibleFold (fold_O4 p l).
+
+Lemma ConstructibleFold_O1_in_enum : forall p1 p2,
+  (exists d1, In p1 (enum_points d1)) ->
+  (exists d2, In p2 (enum_points d2)) ->
+  exists d, In (fold_line (fold_O1 p1 p2)) (enum_lines d).
+Proof.
+  intros p1 p2 H1 H2. apply CF_O1_in_enum; assumption.
 Qed.
 
 End Decidability.
@@ -1969,7 +2792,8 @@ Qed.
     2. Construct point Y = (0,1) on the y-axis
     3. Fold O onto (2,0) to get perpendicular bisector at x = 1
     4. This bisector intersects the line through O at 45° at point (1,1)
-    5. The distance from O to (1,1) is √(1² + 1²) = √2
+    5. The distance from O to (1,1) is √(1² + 1²) = √2 
+**)
 
 
 Definition sqrt_2_point : Point :=
@@ -2350,3 +3174,4 @@ Proof.
 Qed.
 
 End Computational_Geometry.
+ 
