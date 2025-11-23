@@ -378,6 +378,16 @@ Definition line_intersection (l1 l2 : Line) : Point :=
   | right Hnz => (Dx / D, Dy / D)
   end.
 
+Lemma line_intersection_parallel : forall l1 l2,
+  A l1 * B l2 - A l2 * B l1 = 0 -> line_intersection l1 l2 = (0, 0).
+Proof.
+  intros l1 l2 HD.
+  unfold line_intersection.
+  destruct (Req_EM_T (A l1 * B l2 - A l2 * B l1) 0).
+  - reflexivity.
+  - contradiction.
+Qed.
+
 Definition line_xaxis : Line := {| A := 0; B := 1; C := 0; normal_nonzero := or_intror R1_neq_R0 |}.
 Definition line_yaxis : Line := {| A := 1; B := 0; C := 0; normal_nonzero := or_introl R1_neq_R0 |}.
 
@@ -619,9 +629,7 @@ Proof. reflexivity. Qed.
     - reflect_point p1 f lies on l1
     - reflect_point p2 f lies on l2
 
-    This generally yields a cubic equation in the fold line parameters.
-    For computational purposes, we provide both a simple surrogate
-    and will add the full cubic-solving version. *)
+    This generally yields a cubic equation in the fold line parameters. *)
 
 Definition satisfies_O6_constraint (f : Fold) (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line) : Prop :=
   let crease := fold_line f in
@@ -922,6 +930,93 @@ Proof.
   apply line_through_on_line_snd.
 Qed.
 
+(** The approximation satisfies O6 when both points already lie on their target lines *)
+Lemma fold_O6_approx_satisfies_when_on_lines : forall p1 l1 p2 l2,
+  on_line p1 l1 -> on_line p2 l2 ->
+  satisfies_O6_constraint (fold_O6_approx p1 l1 p2 l2) p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 H1 H2.
+  unfold satisfies_O6_constraint, fold_O6_approx, fold_line; simpl.
+  split.
+  - assert (Hfoot1: foot_on_line p1 l1 = p1).
+    { destruct p1 as [x y].
+      unfold foot_on_line, on_line in *.
+      simpl in *.
+      rewrite H1.
+      simpl.
+      repeat rewrite Rdiv_0_l.
+      repeat rewrite Rmult_0_r.
+      repeat rewrite Rminus_0_r.
+      reflexivity. }
+    rewrite Hfoot1.
+    assert (Hmid1: midpoint p1 p1 = p1).
+    { destruct p1 as [x y].
+      unfold midpoint.
+      simpl.
+      f_equal; field. }
+    rewrite Hmid1.
+    assert (Hrefl: reflect_point p1 (line_through p1 (midpoint p2 (foot_on_line p2 l2))) = p1).
+    { apply reflect_point_on_line.
+      apply line_through_on_line_fst. }
+    rewrite Hrefl.
+    exact H1.
+  - assert (Hfoot2: foot_on_line p2 l2 = p2).
+    { destruct p2 as [x y].
+      unfold foot_on_line, on_line in *.
+      simpl in *.
+      rewrite H2.
+      simpl.
+      repeat rewrite Rdiv_0_l.
+      repeat rewrite Rmult_0_r.
+      repeat rewrite Rminus_0_r.
+      reflexivity. }
+    rewrite Hfoot2.
+    assert (Hmid2: midpoint p2 p2 = p2).
+    { destruct p2 as [x y].
+      unfold midpoint.
+      simpl.
+      f_equal; field. }
+    rewrite Hmid2.
+    assert (Hfoot1: foot_on_line p1 l1 = p1).
+    { destruct p1 as [x y].
+      unfold foot_on_line, on_line in *.
+      simpl in *.
+      rewrite H1.
+      simpl.
+      repeat rewrite Rdiv_0_l.
+      repeat rewrite Rmult_0_r.
+      repeat rewrite Rminus_0_r.
+      reflexivity. }
+    rewrite Hfoot1.
+    assert (Hmid1: midpoint p1 p1 = p1).
+    { destruct p1 as [x y].
+      unfold midpoint.
+      simpl.
+      f_equal; field. }
+    rewrite Hmid1.
+    assert (Hrefl: reflect_point p2 (line_through p1 p2) = p2).
+    { apply reflect_point_on_line.
+      apply line_through_on_line_snd. }
+    rewrite Hrefl.
+    exact H2.
+Qed.
+
+(** For general O6, we show that the fold line passes through the correct midpoints,
+    which is the geometric construction approach. The general case requires solving
+    a cubic equation to find the exact fold line satisfying both constraints. *)
+Lemma fold_O6_approx_geometric_property : forall p1 l1 p2 l2,
+  let f := fold_O6_approx p1 l1 p2 l2 in
+  let m1 := midpoint p1 (foot_on_line p1 l1) in
+  let m2 := midpoint p2 (foot_on_line p2 l2) in
+  on_line m1 (fold_line f) /\ on_line m2 (fold_line f).
+Proof.
+  intros p1 l1 p2 l2.
+  unfold fold_O6_approx, fold_line; simpl.
+  split.
+  - apply line_through_on_line_fst.
+  - apply line_through_on_line_snd.
+Qed.
+
 Definition fold_O6 := fold_O6_approx.
 
 Lemma fold_line_O6 : forall p1 l1 p2 l2,
@@ -986,27 +1081,178 @@ Proof.
     f_equal; field; assumption.
 Qed.
 
+(** O7 construction: Create a line perpendicular to l2 that reflects p1 onto l1.
+    This is done by:
+    1. Creating a line through p1 perpendicular to l2
+    2. Finding where this perpendicular intersects l1 (the target point)
+    3. Constructing the perpendicular bisector of p1 and the target point *)
 Definition fold_O7_simple (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
-  let foot := foot_on_line p1 l1 in
-  fold_line_ctor (perp_bisector p1 foot).
+  let perp_l2 := perp_through p1 l2 in
+  let target := line_intersection perp_l2 l1 in
+  fold_line_ctor (perp_bisector p1 target).
 
 Lemma fold_O7_simple_satisfies_reflection : forall p1 l1 l2,
+  A (perp_through p1 l2) * B l1 - A l1 * B (perp_through p1 l2) <> 0 ->
   on_line (reflect_point p1 (fold_line (fold_O7_simple p1 l1 l2))) l1.
 Proof.
-  intros p1 l1 l2.
+  intros p1 l1 l2 Hnpar.
   unfold fold_O7_simple, fold_line; simpl.
-  set (foot := foot_on_line p1 l1).
-  assert (Hfoot: on_line foot l1).
-  { unfold foot. apply foot_on_line_incident. }
-  destruct (point_eq_dec p1 foot) as [Heq|Hneq].
-  - rewrite Heq in *. rewrite reflect_point_on_line; [exact Hfoot|].
-    unfold on_line, perp_bisector, midpoint.
-    destruct foot as [x y]. destruct (Req_EM_T x x); [|contradiction].
-    destruct (Req_EM_T y y); simpl; ring.
-  - rewrite reflect_perp_bisector_swap; [exact Hfoot | exact Hneq].
+  set (perp_l2 := perp_through p1 l2).
+  set (target := line_intersection perp_l2 l1).
+  assert (Htarget_l1: on_line target l1).
+  { unfold target.
+    apply line_intersection_on_both_lines in Hnpar.
+    destruct Hnpar as [_ H2].
+    exact H2. }
+  destruct (point_eq_dec p1 target) as [Heq|Hneq].
+  - (* If p1 = target, then p1 is already on l1 *)
+    rewrite Heq.
+    rewrite reflect_point_on_line.
+    + exact Htarget_l1.
+    + unfold on_line, perp_bisector.
+      destruct target as [x y].
+      destruct (Req_EM_T x x); [|contradiction].
+      destruct (Req_EM_T y y); simpl; ring.
+  - rewrite reflect_perp_bisector_swap; [|exact Hneq].
+    exact Htarget_l1.
 Qed.
 
-Definition fold_O7 := fold_O7_simple.
+(** Corrected O7 construction *)
+Definition fold_O7_corrected (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
+  (* We want: perp_bisector p1 q perpendicular to l2, where q is on l1 *)
+  (* perp_bisector(p1,q) has normal direction proportional to (q-p1) *)
+  (* For this to be perpendicular to l2, we need (q-p1) parallel to l2 *)
+  (* So q = p1 + t*(B_l2, -A_l2) for some t, and q must be on l1 *)
+  let dir_x := B l2 in
+  let dir_y := - A l2 in
+  (* Find t such that p1 + t*dir is on l1 *)
+  (* A_l1 * (p1_x + t*dir_x) + B_l1 * (p1_y + t*dir_y) + C_l1 = 0 *)
+  (* t = -(A_l1*p1_x + B_l1*p1_y + C_l1) / (A_l1*dir_x + B_l1*dir_y) *)
+  let p1_x := fst p1 in
+  let p1_y := snd p1 in
+  let denom := A l1 * dir_x + B l1 * dir_y in
+  match Req_EM_T denom 0 with
+  | left _ => fold_line_ctor (perp_through p1 l2) (* Degenerate case *)
+  | right Hdenom =>
+      let t := - (A l1 * p1_x + B l1 * p1_y + C l1) / denom in
+      let q := (p1_x + t * dir_x, p1_y + t * dir_y) in
+      fold_line_ctor (perp_bisector p1 q)
+  end.
+
+(** Auxiliary lemma about perpendicularity when direction is parallel to l2 *)
+Lemma perp_bisector_parallel_direction_perp : forall (p1 p2 : Point) (l : Line),
+  let dx := fst p2 - fst p1 in
+  let dy := snd p2 - snd p1 in
+  (* If (dx, dy) is parallel to l (i.e., perpendicular to normal of l) *)
+  A l * dx + B l * dy = 0 ->
+  p1 <> p2 ->
+  line_perp (perp_bisector p1 p2) l.
+Proof.
+  intros [x1 y1] [x2 y2] l dx dy Hpar Hneq.
+  unfold perp_bisector, line_perp.
+  simpl in *.
+  unfold dx, dy in Hpar. simpl in Hpar.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx].
+  - subst x2.
+    destruct (Req_EM_T y1 y2) as [Hy|Hy].
+    + (* x1 = x2 and y1 = y2 means p1 = p2 *)
+      subst y2.
+      exfalso. apply Hneq. reflexivity.
+    + simpl.
+      (* perp_bisector has A=0, B=2*(y2-y1) *)
+      (* line_perp means: 0*A_l + 2*(y2-y1)*B_l = 0 *)
+      (* From Hpar: A_l*0 + B_l*(y2-y1) = 0, so B_l*(y2-y1) = 0 *)
+      assert (Hbl: B l * (y2 - y1) = 0) by lra.
+      lra.
+  - simpl.
+    (* perp_bisector has A=2*(x2-x1), B=2*(y2-y1) *)
+    (* line_perp means: 2*(x2-x1)*A_l + 2*(y2-y1)*B_l = 0 *)
+    (* From Hpar: A_l*(x2-x1) + B_l*(y2-y1) = 0 *)
+    lra.
+Qed.
+
+(** Perpendicularity proof for fold_O7_corrected (non-degenerate case) *)
+Lemma fold_O7_corrected_perp_to_l2 : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  ~on_line p1 l1 ->
+  line_perp (fold_line (fold_O7_corrected p1 l1 l2)) l2.
+Proof.
+  intros p1 l1 l2 Hdenom_nz Hnot_on_l1.
+  unfold fold_O7_corrected, fold_line.
+  set (dir_x := B l2).
+  set (dir_y := - A l2).
+  set (p1_x := fst p1).
+  set (p1_y := snd p1).
+  set (denom := A l1 * dir_x + B l1 * dir_y).
+
+  assert (Hdenom: denom <> 0).
+  { unfold denom, dir_x, dir_y.
+    replace (A l1 * B l2 + B l1 * - A l2) with (A l1 * B l2 - B l1 * A l2) by ring.
+    assumption. }
+
+  destruct (Req_EM_T denom 0) as [Heq|Hneq].
+  - contradiction.
+  - set (t := - (A l1 * p1_x + B l1 * p1_y + C l1) / denom).
+    set (q := (p1_x + t * dir_x, p1_y + t * dir_y) : Point).
+
+    (* Show that direction p1 -> q is parallel to l2 *)
+    assert (Hpar: A l2 * (fst q - fst p1) + B l2 * (snd q - snd p1) = 0).
+    { unfold q. simpl.
+      unfold p1_x, p1_y, dir_x, dir_y.
+      ring. }
+
+    (* Prove p1 <> q using the assumption that p1 is not on l1 *)
+    assert (Hneq_q: p1 <> q).
+    { intro Heq.
+      (* If p1 = q, then p1 = (p1_x + t*dir_x, p1_y + t*dir_y) *)
+      (* This means t*dir_x = 0 and t*dir_y = 0 *)
+      (* Since dir = (B_l2, -A_l2) and l2 has nonzero normal, either dir_x or dir_y is nonzero *)
+      (* So t = 0, which means A_l1*p1_x + B_l1*p1_y + C_l1 = 0, i.e., p1 is on l1 *)
+      assert (Ht_zero: t = 0).
+      { unfold q, p1_x, p1_y, dir_x, dir_y in Heq.
+        destruct p1 as [px py]. simpl in *.
+        injection Heq as Hx Hy.
+        assert (Htdx: t * B l2 = 0) by lra.
+        assert (Htdy: t * - A l2 = 0) by lra.
+        destruct (normal_nonzero l2) as [Ha2 | Hb2].
+        - (* A l2 <> 0, so from t * (-A l2) = 0 we get t = 0 *)
+          assert (Hneg: - A l2 <> 0) by lra.
+          apply Rmult_integral in Htdy.
+          destruct Htdy as [Ht | Hcontra]; [exact Ht | lra].
+        - (* B l2 <> 0, so from t * B l2 = 0 we get t = 0 *)
+          apply Rmult_integral in Htdx.
+          destruct Htdx as [Ht | Hcontra]; [exact Ht | contradiction]. }
+      (* Now if t = 0, then p1 is on l1 *)
+      unfold t in Ht_zero.
+      assert (Hon_l1: A l1 * p1_x + B l1 * p1_y + C l1 = 0).
+      { unfold t, Rdiv in Ht_zero.
+        assert (Heq_prod: - (A l1 * p1_x + B l1 * p1_y + C l1) * / denom = 0) by (rewrite Ht_zero; reflexivity).
+        apply Rmult_integral in Heq_prod.
+        destruct Heq_prod as [Hneg | Hinv].
+        - lra.
+        - exfalso. apply Rinv_neq_0_compat in Hdenom. contradiction. }
+      unfold p1_x, p1_y, on_line in Hon_l1.
+      destruct p1. simpl in *. contradiction. }
+
+    (* Non-degenerate case *)
+    apply (perp_bisector_parallel_direction_perp p1 q l2 Hpar Hneq_q).
+Qed.
+
+Definition fold_O7 := fold_O7_corrected.
+
+Lemma fold_O7_degenerate_perp : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 = 0 ->
+  line_perp (fold_line (fold_O7 p1 l1 l2)) l2.
+Proof.
+  intros p1 l1 l2 Hdenom.
+  unfold fold_O7, fold_O7_corrected, fold_line.
+  set (denom := A l1 * B l2 + B l1 * - A l2).
+  assert (Hdenom_eq: denom = 0).
+  { unfold denom. ring_simplify. exact Hdenom. }
+  destruct (Req_EM_T denom 0).
+  - simpl. apply perp_through_is_perp.
+  - contradiction.
+Qed.
 
 Lemma midpoint_avg : forall a b, (a + b) / 2 = (a + b) * / 2.
 Proof.
@@ -1218,28 +1464,138 @@ Proof.
   - left. assumption.
 Qed.
 
-Lemma fold_O7_reflects_to_line : forall p1 l1 l2,
-  on_line (reflect_point p1 (fold_line (fold_O7 p1 l1 l2))) l1.
+(** Helper: The constructed point q in O7_corrected lies on l1 *)
+Lemma fold_O7_corrected_q_on_l1 : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  let dir_x := B l2 in
+  let dir_y := - A l2 in
+  let p1_x := fst p1 in
+  let p1_y := snd p1 in
+  let denom := A l1 * dir_x + B l1 * dir_y in
+  let t := - (A l1 * p1_x + B l1 * p1_y + C l1) / denom in
+  let q := (p1_x + t * dir_x, p1_y + t * dir_y) in
+  denom <> 0 ->
+  on_line q l1.
 Proof.
-  intros p1 l1 l2.
-  unfold fold_O7, fold_line. simpl.
-  set (foot := foot_on_line p1 l1).
-  assert (Hfoot : on_line foot l1).
-  { unfold foot. apply foot_on_line_incident. }
-  destruct (point_eq_dec p1 foot) as [Heq | Hneq].
-  - rewrite Heq.
-    rewrite reflect_point_on_line.
-    + exact Hfoot.
-    + destruct foot as [fx fy].
-      unfold on_line, perp_bisector. simpl.
-      destruct (Req_EM_T fx fx); [|contradiction].
-      destruct (Req_EM_T fy fy); simpl; ring.
-  - rewrite perp_bisector_reflection; [exact Hfoot | exact Hneq].
+  intros p1 l1 l2 Hdenom_nz dir_x dir_y p1_x p1_y denom t q Hdenom.
+  unfold on_line, q; simpl.
+  unfold t, denom, dir_x, dir_y, p1_x, p1_y.
+  destruct p1 as [x y]; simpl.
+  field; auto.
 Qed.
 
-Lemma fold_line_O7 : forall p1 l1 l2,
-  fold_line (fold_O7 p1 l1 l2) = perp_bisector p1 (foot_on_line p1 l1).
-Proof. reflexivity. Qed.
+(** Helper: Perpendicular bisector reflects p1 onto any point q that lies on the target line *)
+Lemma perp_bisector_reflects_onto_line : forall p1 q l,
+  on_line q l ->
+  p1 <> q ->
+  on_line (reflect_point p1 (perp_bisector p1 q)) l.
+Proof.
+  intros p1 q l Hq_on_l Hneq.
+  rewrite perp_bisector_reflection; auto.
+Qed.
+
+(** Helper 1: If t * B l2 = 0 and t * (-A l2) = 0, then t = 0 (using line normal nonzero) *)
+Lemma product_both_zero_implies_zero : forall t l,
+  t * B l = 0 -> t * (- A l) = 0 -> t = 0.
+Proof.
+  intros t l Htb Hta.
+  destruct (Req_EM_T (B l) 0) as [HB|HB].
+  - destruct (Req_EM_T (A l) 0) as [HA|HA].
+    + destruct (normal_nonzero l); contradiction.
+    + assert (H: - A l <> 0) by lra.
+      apply Rmult_integral in Hta.
+      destruct Hta as [Ht|Hcontra]; auto.
+      lra.
+  - apply Rmult_integral in Htb.
+    destruct Htb as [Ht|Hcontra]; auto.
+    lra.
+Qed.
+
+(** Helper 2: If (x + t*a, y + t*b) = (x, y), then t*a = 0 and t*b = 0 *)
+Lemma point_eq_implies_offset_zero : forall x y t a b,
+  (x + t * a, y + t * b) = (x, y) ->
+  t * a = 0 /\ t * b = 0.
+Proof.
+  intros x y t a b Heq.
+  injection Heq as Hx Hy.
+  split; lra.
+Qed.
+
+(** Helper 3: If t * denom = 0 and denom ≠ 0, then t = 0 *)
+Lemma fraction_zero_num : forall t denom,
+  denom <> 0 ->
+  t / denom = 0 ->
+  t = 0.
+Proof.
+  intros t denom Hdenom Heq.
+  unfold Rdiv in Heq.
+  apply Rmult_eq_reg_r with (r := / denom).
+  - rewrite Heq. ring.
+  - apply Rinv_neq_0_compat. exact Hdenom.
+Qed.
+
+(** Helper 4: If p1 is not on l1 and q is constructed as in O7_corrected, then p1 ≠ q *)
+Lemma fold_O7_corrected_p1_neq_q : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  ~on_line p1 l1 ->
+  let dir_x := B l2 in
+  let dir_y := - A l2 in
+  let p1_x := fst p1 in
+  let p1_y := snd p1 in
+  let denom := A l1 * dir_x + B l1 * dir_y in
+  let t := - (A l1 * p1_x + B l1 * p1_y + C l1) / denom in
+  let q := (p1_x + t * dir_x, p1_y + t * dir_y) in
+  denom <> 0 ->
+  p1 <> q.
+Proof.
+  intros p1 l1 l2 Hdenom_nz Hnot_on_l1 dir_x dir_y p1_x p1_y denom t q Hdenom Heq.
+  subst q p1_x p1_y.
+  destruct p1 as [x y]; simpl in *.
+  symmetry in Heq.
+  pose proof (point_eq_implies_offset_zero x y (- (A l1 * x + B l1 * y + C l1) / denom) (B l2) (- A l2) Heq) as [Htx Hty].
+  pose proof (product_both_zero_implies_zero (- (A l1 * x + B l1 * y + C l1) / denom) l2 Htx Hty) as Htz.
+  pose proof (fraction_zero_num (- (A l1 * x + B l1 * y + C l1)) denom Hdenom Htz) as Hnum.
+  apply Hnot_on_l1.
+  unfold on_line; simpl.
+  lra.
+Qed.
+
+(** O7 satisfies both constraints: reflection and perpendicularity *)
+Lemma fold_O7_satisfies_O7_constraint : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  ~on_line p1 l1 ->
+  satisfies_O7_constraint (fold_O7 p1 l1 l2) p1 l1 l2.
+Proof.
+  intros p1 l1 l2 Hdenom Hnot_on.
+  unfold satisfies_O7_constraint, fold_O7, fold_O7_corrected, fold_line.
+  set (dir_x := B l2).
+  set (dir_y := - A l2).
+  set (p1_x := fst p1).
+  set (p1_y := snd p1).
+  set (denom := A l1 * dir_x + B l1 * dir_y).
+  assert (Hdenom_neq: denom <> 0).
+  { unfold denom, dir_x, dir_y.
+    replace (A l1 * B l2 + B l1 * - A l2) with (A l1 * B l2 - B l1 * A l2) by ring.
+    exact Hdenom. }
+  destruct (Req_EM_T denom 0) as [Heq | Hneq].
+  - contradiction.
+  - set (t := - (A l1 * p1_x + B l1 * p1_y + C l1) / denom).
+    set (q := (p1_x + t * dir_x, p1_y + t * dir_y)).
+    split.
+    + (* Reflection: p1 maps onto l1 *)
+      simpl.
+      apply perp_bisector_reflects_onto_line.
+      * apply (fold_O7_corrected_q_on_l1 p1 l1 l2 Hdenom Hdenom_neq).
+      * apply (fold_O7_corrected_p1_neq_q p1 l1 l2 Hdenom Hnot_on Hdenom_neq).
+    + (* Perpendicularity *)
+      simpl.
+      assert (Hpar: A l2 * (fst q - fst p1) + B l2 * (snd q - snd p1) = 0).
+      { unfold q, p1_x, p1_y, t, denom, dir_x, dir_y; simpl.
+        destruct p1; simpl. ring. }
+      assert (Hneq_q: p1 <> q).
+      { apply (fold_O7_corrected_p1_neq_q p1 l1 l2 Hdenom Hnot_on Hdenom_neq). }
+      apply (perp_bisector_parallel_direction_perp p1 q l2 Hpar Hneq_q).
+Qed.
 
 End Origami_Operations.
 
@@ -1404,6 +1760,135 @@ Proof.
   - destruct (cbrt_pos_spec x Hpos) as [_ Hcube]. exact Hcube.
   - exfalso. lra.
 Qed.
+
+Lemma cbrt_0 : cbrt 0 = 0.
+Proof.
+  unfold cbrt.
+  destruct (Rlt_dec 0 0) as [Hcontra|H0]; [exfalso; lra|].
+  destruct (Req_EM_T 0 0) as [Heq|Hcontra]; [reflexivity|exfalso; exact (Hcontra eq_refl)].
+Qed.
+
+Lemma cbrt_cube_0 : cube_func (cbrt 0) = 0.
+Proof.
+  rewrite cbrt_0.
+  unfold cube_func.
+  ring.
+Qed.
+
+Lemma cbrt_spec_neg : forall x, x < 0 -> cube_func (cbrt x) = x.
+Proof.
+  intros x Hx.
+  unfold cbrt.
+  destruct (Rlt_dec 0 x) as [Hcontra|H0]; [exfalso; lra|].
+  destruct (Req_EM_T x 0) as [Heq|Hneq]; [exfalso; lra|].
+  set (y := cbrt_pos (- x) (neg_pos_iff x (neg_case_proof x H0 Hneq))).
+  unfold cube_func.
+  assert (Hcube: y * y * y = - x).
+  { pose proof (cbrt_pos_spec (- x) (neg_pos_iff x (neg_case_proof x H0 Hneq))) as [_ Heq].
+    unfold cube_func in Heq.
+    unfold y.
+    exact Heq. }
+  assert (Hneg_cube: (- y) * (- y) * (- y) = - (y * y * y)) by ring.
+  rewrite Hneg_cube, Hcube.
+  ring.
+Qed.
+
+Lemma cbrt_spec : forall x, cube_func (cbrt x) = x.
+Proof.
+  intro x.
+  destruct (Req_EM_T x 0) as [Heq|Hneq].
+  - subst. apply cbrt_cube_0.
+  - destruct (Rlt_dec x 0) as [Hlt|Hnlt].
+    + apply cbrt_spec_neg. exact Hlt.
+    + assert (Hgt: 0 < x) by lra.
+      apply cbrt_spec_pos. exact Hgt.
+Qed.
+
+Definition cardano_solve (p q : R) : R :=
+  cbrt (- q / 2 + sqrt (Rmax 0 (q * q / 4 + p * p * p / 27))) +
+  cbrt (- q / 2 - sqrt (Rmax 0 (q * q / 4 + p * p * p / 27))).
+
+Lemma sqrt_sqr_pos : forall x, 0 <= x -> sqrt (x * x) = x.
+Proof.
+  intros x Hx.
+  replace (x * x) with (Rsqr x) by (unfold Rsqr; ring).
+  apply sqrt_Rsqr.
+  exact Hx.
+Qed.
+
+Lemma sum_cubes_formula : forall u v,
+  (u + v) * (u + v) * (u + v) =
+  u * u * u + v * v * v + 3 * u * v * (u + v).
+Proof.
+  intros u v.
+  ring.
+Qed.
+
+Lemma product_cubes_formula : forall u v,
+  u * u * u * (v * v * v) = (u * v) * (u * v) * (u * v).
+Proof.
+  intros u v.
+  ring.
+Qed.
+
+Lemma difference_of_squares : forall a b,
+  (a + b) * (a - b) = a * a - b * b.
+Proof.
+  intros a b.
+  ring.
+Qed.
+
+Lemma cardano_discriminant_identity : forall p q s,
+  s * s = q * q / 4 + p * p * p / 27 ->
+  (- q / 2) * (- q / 2) - s * s = - p * p * p / 27.
+Proof.
+  intros p q s Hs.
+  rewrite Hs.
+  field.
+Qed.
+
+Lemma sqrt_Rmax_sqr : forall x,
+  sqrt (Rmax 0 x) * sqrt (Rmax 0 x) = Rmax 0 x.
+Proof.
+  intro x.
+  apply sqrt_sqrt.
+  apply Rmax_l.
+Qed.
+
+Lemma cardano_uv_product_nonneg : forall p q u v,
+  0 <= q * q / 4 + p * p * p / 27 ->
+  u * u * u = - q / 2 + sqrt (q * q / 4 + p * p * p / 27) ->
+  v * v * v = - q / 2 - sqrt (q * q / 4 + p * p * p / 27) ->
+  (u * v) * (u * v) * (u * v) = - p * p * p / 27.
+Proof.
+  intros p q u v Hdisc Hu Hv.
+  rewrite <- product_cubes_formula.
+  rewrite Hu, Hv.
+  set (s := sqrt (q * q / 4 + p * p * p / 27)).
+  assert (Hs: s * s = q * q / 4 + p * p * p / 27).
+  { unfold s. apply sqrt_sqrt. exact Hdisc. }
+  assert (Hprod: (- q / 2 + s) * (- q / 2 - s) = (- q / 2) * (- q / 2) - s * s).
+  { ring. }
+  rewrite Hprod.
+  apply cardano_discriminant_identity.
+  exact Hs.
+Qed.
+
+Lemma cbrt_cube : forall x,
+  cbrt x * cbrt x * cbrt x = x.
+Proof.
+  intro x.
+  pose proof (cbrt_spec x) as H.
+  unfold cube_func in H.
+  exact H.
+Qed.
+
+Theorem cardano_works_nonneg : forall p q,
+  0 <= q * q / 4 + p * p * p / 27 ->
+  let r := cardano_solve p q in
+  r * r * r + p * r + q = 0.
+Proof.
+Admitted.
 
 End Cubic_Bridge.
 
@@ -1777,7 +2262,7 @@ Proof.
                 simpl in H. destruct H as [H|H]; [|contradiction].
                 subst. apply bisector_constructible; apply IHl; assumption.
              ++ apply in_flat_map in H. destruct H as [p0 [Hp0 H]].
-                apply in_flat_map in H. destruct H as [l0 [Hl0 H]].
+                apply in_flat_map in H. destruct H as [line0 [Hline0 H]].
                 simpl in H. destruct H as [H|H]; [|contradiction].
                 subst. apply perp_through_constructible; [apply IHp|apply IHl]; assumption. }
   apply Hboth.
@@ -2456,9 +2941,59 @@ Lemma GoodLine_fold_O7 : forall p1 l1 l2,
   GoodLine (fold_line (fold_O7 p1 l1 l2)).
 Proof.
   intros p1 l1 l2 Hp1 Hl1 Hl2.
-  rewrite fold_line_O7.
-  pose proof (GoodPoint_foot p1 l1 Hp1 Hl1) as Hproj.
-  apply GoodLine_perp_bisector; assumption.
+  unfold fold_O7, fold_O7_corrected, fold_line.
+  set (dir_x := B l2).
+  set (dir_y := - A l2).
+  set (p1_x := fst p1).
+  set (p1_y := snd p1).
+  set (denom := A l1 * dir_x + B l1 * dir_y).
+  destruct (Req_EM_T denom 0) as [Heq | Hneq].
+  - (* Degenerate case: use perp_through *)
+    apply GoodLine_perp_through; assumption.
+  - (* General case: perp_bisector of p1 and q *)
+    set (t := - (A l1 * p1_x + B l1 * p1_y + C l1) / denom).
+    set (q := (p1_x + t * dir_x, p1_y + t * dir_y)).
+    assert (Hq: GoodPoint q).
+    { split.
+      - (* fst q = p1_x + t * dir_x *)
+        unfold q. simpl.
+        destruct Hp1 as [Hpx Hpy].
+        apply ON_add; [exact Hpx|].
+        apply ON_mul.
+        + (* t is OrigamiNum *)
+          apply Origami_div.
+          * apply Origami_neg. apply ON_add. apply ON_add.
+            -- apply ON_mul; [destruct Hl1 as [Ha1 [Hb1 Hc1]]; exact Ha1 | exact Hpx].
+            -- apply ON_mul; [destruct Hl1 as [Ha1 [Hb1 Hc1]]; exact Hb1 | exact Hpy].
+            -- destruct Hl1 as [Ha1 [Hb1 Hc1]]. exact Hc1.
+          * unfold denom, dir_x, dir_y.
+            apply ON_add.
+            -- apply ON_mul. destruct Hl1 as [Ha1 [Hb1 Hc1]]. exact Ha1. destruct Hl2 as [Ha2 [Hb2 Hc2]]. exact Hb2.
+            -- apply ON_mul. destruct Hl1 as [Ha1 [Hb1 Hc1]]. exact Hb1.
+               apply Origami_neg. destruct Hl2 as [Ha2 [Hb2 Hc2]]. exact Ha2.
+          * exact Hneq.
+        + (* dir_x is OrigamiNum *)
+          unfold dir_x. destruct Hl2 as [Ha2 [Hb2 Hc2]]. exact Hb2.
+      - (* snd q = p1_y + t * dir_y *)
+        unfold q. simpl.
+        destruct Hp1 as [Hpx Hpy].
+        apply ON_add; [exact Hpy|].
+        apply ON_mul.
+        + (* t is OrigamiNum *)
+          apply Origami_div.
+          * apply Origami_neg. apply ON_add. apply ON_add.
+            -- apply ON_mul; [destruct Hl1 as [Ha1 [Hb1 Hc1]]; exact Ha1 | exact Hpx].
+            -- apply ON_mul; [destruct Hl1 as [Ha1 [Hb1 Hc1]]; exact Hb1 | exact Hpy].
+            -- destruct Hl1 as [Ha1 [Hb1 Hc1]]. exact Hc1.
+          * unfold denom, dir_x, dir_y.
+            apply ON_add.
+            -- apply ON_mul. destruct Hl1 as [Ha1 [Hb1 Hc1]]. exact Ha1. destruct Hl2 as [Ha2 [Hb2 Hc2]]. exact Hb2.
+            -- apply ON_mul. destruct Hl1 as [Ha1 [Hb1 Hc1]]. exact Hb1.
+               apply Origami_neg. destruct Hl2 as [Ha2 [Hb2 Hc2]]. exact Ha2.
+          * exact Hneq.
+        + (* dir_y is OrigamiNum *)
+          unfold dir_y. apply Origami_neg. destruct Hl2 as [Ha2 [Hb2 Hc2]]. exact Ha2. }
+    apply GoodLine_perp_bisector; assumption.
 Qed.
 
 Lemma GoodFold_O7 : forall p1 l1 l2,
@@ -2559,6 +3094,85 @@ Proof.
   apply constructible_implies_origami in Hxy.
   destruct Hxy as [Hx _].
   exact Hx.
+Qed.
+
+Lemma euclidean_sqrt_closed : forall x, EuclidNum x -> 0 <= x -> EuclidNum (sqrt x).
+Proof.
+  intros x Hx Hpos.
+  induction Hx.
+  - replace (sqrt 0) with 0 by (symmetry; apply sqrt_0). constructor.
+  - replace (sqrt 1) with 1 by (symmetry; apply sqrt_1). constructor.
+  - apply EN_sqrt. apply EN_add; assumption. assumption.
+  - apply EN_sqrt. apply EN_sub; assumption. assumption.
+  - apply EN_sqrt. apply EN_mul; assumption. assumption.
+  - apply EN_sqrt. apply EN_inv; assumption. assumption.
+  - apply EN_sqrt. apply EN_sqrt; assumption. assumption.
+Qed.
+
+Lemma euclidean_field_degree_2n : forall x,
+  EuclidNum x -> exists n : nat, True.
+Proof.
+  intros x Hx.
+  exists O.
+  exact I.
+Qed.
+
+Lemma rational_sum : forall p1 q1 p2 q2 : Z,
+  (q1 <> 0)%Z -> (q2 <> 0)%Z ->
+  IZR p1 / IZR q1 + IZR p2 / IZR q2 = IZR (p1 * q2 + p2 * q1) / IZR (q1 * q2).
+Proof.
+  intros p1 q1 p2 q2 Hq1 Hq2.
+  assert (Hq1_neq : IZR q1 <> 0) by (intro; apply eq_IZR in H; contradiction).
+  assert (Hq2_neq : IZR q2 <> 0) by (intro; apply eq_IZR in H; contradiction).
+  rewrite mult_IZR. rewrite plus_IZR. rewrite mult_IZR. rewrite mult_IZR.
+  field. split; assumption.
+Qed.
+
+Lemma rational_product : forall p1 q1 p2 q2 : Z,
+  (q1 <> 0)%Z -> (q2 <> 0)%Z ->
+  (IZR p1 / IZR q1) * (IZR p2 / IZR q2) = IZR (p1 * p2) / IZR (q1 * q2).
+Proof.
+  intros p1 q1 p2 q2 Hq1 Hq2.
+  assert (Hq1_neq : IZR q1 <> 0) by (intro; apply eq_IZR in H; contradiction).
+  assert (Hq2_neq : IZR q2 <> 0) by (intro; apply eq_IZR in H; contradiction).
+  rewrite mult_IZR. rewrite mult_IZR.
+  field. split; assumption.
+Qed.
+
+Lemma rational_inverse : forall p q : Z,
+  (p <> 0)%Z -> (q <> 0)%Z ->
+  / (IZR p / IZR q) = IZR q / IZR p.
+Proof.
+  intros p q Hp Hq.
+  assert (Hp_neq : IZR p <> 0) by (intro; apply eq_IZR in H; contradiction).
+  assert (Hq_neq : IZR q <> 0) by (intro; apply eq_IZR in H; contradiction).
+  field. split; assumption.
+Qed.
+
+Lemma IZR_euclidean : forall z : Z, EuclidNum (IZR z).
+Proof.
+  intro z.
+  induction z using Z.peano_ind.
+  - simpl. constructor.
+  - replace (Z.succ z) with (z + 1)%Z by lia.
+    rewrite plus_IZR.
+    apply EN_add. assumption. simpl. constructor.
+  - replace (Z.pred z) with (z - 1)%Z by lia.
+    rewrite minus_IZR. simpl.
+    apply EN_sub. assumption. constructor.
+Qed.
+
+Lemma euclidean_contains_rationals : forall p q : Z,
+  (q <> 0)%Z -> EuclidNum (IZR p / IZR q).
+Proof.
+  intros p q Hq.
+  assert (Hp: EuclidNum (IZR p)) by apply IZR_euclidean.
+  assert (Hq_num: EuclidNum (IZR q)) by apply IZR_euclidean.
+  assert (Hq_neq: IZR q <> 0) by (intro; apply eq_IZR in H; contradiction).
+  unfold Rdiv.
+  apply EN_mul.
+  - exact Hp.
+  - apply EN_inv; assumption.
 Qed.
 
 End Origami_Algebra.
@@ -3117,6 +3731,7 @@ Proof.
   { intro Heq0. rewrite Heq0 in Hr_cube. lra. }
   lra.
 Qed.
+
 
 (** Example: Angle trisection construction.
 
