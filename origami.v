@@ -3056,6 +3056,60 @@ Proof.
   apply ON_add; constructor; constructor.
 Qed.
 
+Theorem origami_field_structure :
+  OrigamiNum 0 /\ OrigamiNum 1 /\
+  (forall x y, OrigamiNum x -> OrigamiNum y -> OrigamiNum (x + y)) /\
+  (forall x y, OrigamiNum x -> OrigamiNum y -> OrigamiNum (x * y)) /\
+  (forall x, OrigamiNum x -> OrigamiNum (- x)) /\
+  (forall x, OrigamiNum x -> x <> 0 -> OrigamiNum (/ x)).
+Proof.
+  repeat split; intros.
+  - constructor.
+  - constructor.
+  - apply ON_add; assumption.
+  - apply ON_mul; assumption.
+  - apply Origami_neg; assumption.
+  - apply ON_inv; assumption.
+Qed.
+
+Theorem origami_sqrt_extension :
+  forall x, OrigamiNum x -> 0 <= x -> OrigamiNum (sqrt x).
+Proof.
+  intros x Hx Hpos.
+  apply ON_sqrt; assumption.
+Qed.
+
+Theorem origami_cubic_extension :
+  forall a b r, OrigamiNum a -> OrigamiNum b ->
+  r * r * r + a * r + b = 0 -> OrigamiNum r.
+Proof.
+  intros a b r Ha Hb Hroot.
+  apply ON_cubic_root with (a := a) (b := b); assumption.
+Qed.
+
+Theorem euclid_subset_origami :
+  forall x, EuclidNum x -> OrigamiNum x.
+Proof.
+  apply Euclid_in_Origami.
+Qed.
+
+Lemma origami_closed_under_subtraction :
+  forall x y, OrigamiNum x -> OrigamiNum y -> OrigamiNum (x - y).
+Proof.
+  intros x y Hx Hy.
+  apply ON_sub; assumption.
+Qed.
+
+Theorem origami_tower_sqrt_sqrt :
+  forall x, OrigamiNum x -> 0 <= x -> 0 <= sqrt x ->
+  OrigamiNum (sqrt (sqrt x)).
+Proof.
+  intros x Hx Hpos Hpos2.
+  apply ON_sqrt.
+  - apply ON_sqrt; assumption.
+  - apply sqrt_pos.
+Qed.
+
 Lemma Origami_three : OrigamiNum 3.
 Proof.
   replace 3 with (2 + 1) by lra.
