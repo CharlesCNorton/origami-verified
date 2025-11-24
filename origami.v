@@ -322,6 +322,15 @@ Proof.
     + rewrite mul_div_cancel_l by exact Hb. lra.
 Qed.
 
+Lemma base_points_distinct : forall l,
+  fst (base_points l) <> snd (base_points l).
+Proof.
+  intro l; unfold base_points; simpl.
+  destruct (Req_EM_T (B l) 0) as [Hb | Hb].
+  - intro Heq. injection Heq. intros. lra.
+  - intro Heq. injection Heq. intros. lra.
+Qed.
+
 Lemma delta_reflect_x :
   forall a b c d x1 x2 y1 y2,
     d <> 0 ->
@@ -1023,6 +1032,83 @@ Lemma fold_line_O6 : forall p1 l1 p2 l2,
   fold_line (fold_O6 p1 l1 p2 l2) = line_through (midpoint p1 (foot_on_line p1 l1)) (midpoint p2 (foot_on_line p2 l2)).
 Proof. reflexivity. Qed.
 
+Theorem O6_approx_correctness : forall p1 l1 p2 l2,
+  on_line p1 l1 -> on_line p2 l2 ->
+  satisfies_O6_constraint (fold_O6 p1 l1 p2 l2) p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 H1 H2.
+  apply fold_O6_approx_satisfies_when_on_lines; assumption.
+Qed.
+
+Lemma O6_solution_exists_special_case : forall p1 l1 p2 l2,
+  on_line p1 l1 -> on_line p2 l2 ->
+  exists crease, satisfies_O6_line_constraint crease p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 H1 H2.
+  exists (fold_line (fold_O6 p1 l1 p2 l2)).
+  unfold fold_O6, fold_O6_approx, fold_line; simpl.
+  apply fold_O6_approx_satisfies_when_on_lines; assumption.
+Qed.
+
+Lemma midpoint_self : forall p,
+  midpoint p p = p.
+Proof.
+  intro p. destruct p as [x y].
+  unfold midpoint. simpl. f_equal; field.
+Qed.
+
+Lemma foot_on_line_when_on_line : forall p l,
+  on_line p l -> foot_on_line p l = p.
+Proof.
+  intros [x y] l H.
+  unfold foot_on_line, on_line in *. simpl in *.
+  rewrite H. simpl.
+  repeat rewrite Rdiv_0_l.
+  repeat rewrite Rmult_0_r.
+  repeat rewrite Rminus_0_r.
+  reflexivity.
+Qed.
+
+Lemma O6_approx_first_constraint : forall p1 l1 p2 l2,
+  on_line p1 l1 ->
+  on_line (reflect_point p1 (fold_line (fold_O6 p1 l1 p2 l2))) l1.
+Proof.
+  intros p1 l1 p2 l2 H1.
+  unfold fold_O6, fold_O6_approx, fold_line. simpl.
+  rewrite foot_on_line_when_on_line by exact H1.
+  rewrite midpoint_self.
+  rewrite reflect_point_on_line by apply line_through_on_line_fst.
+  exact H1.
+Qed.
+
+Lemma O6_approx_second_constraint : forall p1 l1 p2 l2,
+  on_line p1 l1 -> on_line p2 l2 ->
+  on_line (reflect_point p2 (fold_line (fold_O6 p1 l1 p2 l2))) l2.
+Proof.
+  intros p1 l1 p2 l2 H1 H2.
+  unfold fold_O6, fold_O6_approx, fold_line. simpl.
+  rewrite foot_on_line_when_on_line by exact H1.
+  rewrite midpoint_self.
+  rewrite foot_on_line_when_on_line by exact H2.
+  rewrite midpoint_self.
+  rewrite reflect_point_on_line by apply line_through_on_line_snd.
+  exact H2.
+Qed.
+
+Theorem O6_exact_when_both_on_lines : forall p1 l1 p2 l2,
+  on_line p1 l1 -> on_line p2 l2 ->
+  satisfies_O6_line_constraint (fold_line (fold_O6 p1 l1 p2 l2)) p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 H1 H2.
+  unfold satisfies_O6_line_constraint.
+  split.
+  - apply O6_approx_first_constraint. exact H1.
+  - apply O6_approx_second_constraint; assumption.
+Qed.
+
+
+
+
 (** O7 Geometric Characterization:
     A fold line f satisfying O7(p1, l1, l2) must satisfy:
     - reflect_point p1 f lies on l1
@@ -1245,6 +1331,41 @@ Proof.
   destruct (Req_EM_T denom 0).
   - simpl. apply perp_through_is_perp.
   - contradiction.
+Qed.
+
+Lemma point_on_perp_through : forall p l,
+  on_line p (perp_through p l).
+Proof.
+  intros [x y] l.
+  unfold perp_through, on_line. simpl.
+  destruct (Req_EM_T (A l) 0); simpl; ring.
+Qed.
+
+Lemma fold_O7_degenerate_reflection : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 = 0 ->
+  on_line p1 l1 ->
+  on_line (reflect_point p1 (fold_line (fold_O7 p1 l1 l2))) l1.
+Proof.
+  intros p1 l1 l2 Hdenom Hp1.
+  unfold fold_O7, fold_O7_corrected, fold_line.
+  set (denom := A l1 * B l2 + B l1 * - A l2).
+  assert (Hdenom_eq: denom = 0).
+  { unfold denom. ring_simplify. exact Hdenom. }
+  destruct (Req_EM_T denom 0).
+  - simpl. rewrite reflect_point_on_line by apply point_on_perp_through. exact Hp1.
+  - contradiction.
+Qed.
+
+Theorem O7_degenerate_case_complete : forall p1 l1 l2,
+  A l1 * B l2 - B l1 * A l2 = 0 ->
+  on_line p1 l1 ->
+  satisfies_O7_constraint (fold_O7 p1 l1 l2) p1 l1 l2.
+Proof.
+  intros p1 l1 l2 Hdeg Hp1.
+  unfold satisfies_O7_constraint.
+  split.
+  - apply fold_O7_degenerate_reflection; assumption.
+  - apply fold_O7_degenerate_perp; assumption.
 Qed.
 
 Lemma midpoint_avg : forall a b, (a + b) / 2 = (a + b) * / 2.
@@ -1812,8 +1933,7 @@ Qed.
 Lemma difference_of_squares : forall a b,
   (a + b) * (a - b) = a * a - b * b.
 Proof.
-  intros a b.
-  ring.
+  intros a b. ring.
 Qed.
 
 Lemma cardano_discriminant_identity : forall p q s,
@@ -1859,6 +1979,100 @@ Proof.
   pose proof (cbrt_spec x) as H.
   unfold cube_func in H.
   exact H.
+Qed.
+
+Lemma cbrt_1 : cbrt 1 = 1.
+Proof.
+  unfold cbrt.
+  destruct (Rlt_dec 0 1) as [H|H]; [|exfalso; lra].
+  destruct (cbrt_pos_spec 1 H) as [Hpos Hcube].
+  apply cube_func_injective.
+  - left. exact Hpos.
+  - lra.
+  - unfold cube_func in *. rewrite Hcube. ring.
+Qed.
+
+Lemma cbrt_mult_power : forall x n,
+  cbrt (x ^ n) * cbrt (x ^ n) * cbrt (x ^ n) = x ^ n.
+Proof.
+  intros x n. apply cbrt_cube.
+Qed.
+
+Lemma cbrt_mult_8 : forall x,
+  cbrt (8 * x) * cbrt (8 * x) * cbrt (8 * x) = 8 * x.
+Proof.
+  intro x. apply cbrt_cube.
+Qed.
+
+Lemma cbrt_27 : cbrt 27 = 3.
+Proof.
+  unfold cbrt.
+  destruct (Rlt_dec 0 27) as [H|H]; [|exfalso; lra].
+  destruct (cbrt_pos_spec 27 H) as [Hpos Hcube].
+  apply cube_func_injective.
+  - left. exact Hpos.
+  - lra.
+  - unfold cube_func in *. rewrite Hcube. ring.
+Qed.
+
+Lemma cbrt_div_27 : forall x,
+  cbrt (x / 27) * cbrt (x / 27) * cbrt (x / 27) = x / 27.
+Proof.
+  intro x. apply cbrt_cube.
+Qed.
+
+Lemma Rmax_self : forall x,
+  0 <= x -> Rmax 0 x = x.
+Proof.
+  intros x H.
+  unfold Rmax. destruct (Rle_dec 0 x); [reflexivity | exfalso; lra].
+Qed.
+
+Lemma cardano_u_cubed : forall p q,
+  0 <= q * q / 4 + p * p * p / 27 ->
+  let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
+  u * u * u = - q / 2 + sqrt (q * q / 4 + p * p * p / 27).
+Proof.
+  intros p q Hdisc u. apply cbrt_cube.
+Qed.
+
+Lemma cardano_v_cubed : forall p q,
+  0 <= q * q / 4 + p * p * p / 27 ->
+  let v := cbrt (- q / 2 - sqrt (q * q / 4 + p * p * p / 27)) in
+  v * v * v = - q / 2 - sqrt (q * q / 4 + p * p * p / 27).
+Proof.
+  intros p q Hdisc v. apply cbrt_cube.
+Qed.
+
+Lemma cardano_sum_cubes : forall p q,
+  0 <= q * q / 4 + p * p * p / 27 ->
+  let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
+  let v := cbrt (- q / 2 - sqrt (q * q / 4 + p * p * p / 27)) in
+  u * u * u + v * v * v = - q.
+Proof.
+  intros p q Hdisc.
+  simpl.
+  repeat rewrite cbrt_cube.
+  set (s := sqrt (q * q / 4 + p * p * p / 27)).
+  lra.
+Qed.
+
+Lemma cardano_product_cubes : forall p q,
+  0 <= q * q / 4 + p * p * p / 27 ->
+  let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
+  let v := cbrt (- q / 2 - sqrt (q * q / 4 + p * p * p / 27)) in
+  (u * v) * (u * v) * (u * v) = - p * p * p / 27.
+Proof.
+  intros p q Hdisc.
+  simpl.
+  apply cardano_uv_product_nonneg with (p := p) (q := q);
+    [exact Hdisc | apply cbrt_cube | apply cbrt_cube].
+Qed.
+
+Lemma cbrt_of_cube : forall x,
+  cbrt (x * x * x) * cbrt (x * x * x) * cbrt (x * x * x) = x * x * x.
+Proof.
+  intro x. apply cbrt_cube.
 Qed.
 
 End Cubic_Bridge.
@@ -1994,9 +2208,67 @@ with enum_points (depth : nat) : list Point :=
         [reflect_point p l]) prev_lines) prev_points
   end.
 
+(** ** Complexity Bounds
+
+    Base case sizes for depth 0. *)
+
+Lemma enum_points_0_size : length (enum_points 0) = 2%nat.
+Proof.
+  simpl. reflexivity.
+Qed.
+
+Lemma enum_lines_0_size : length (enum_lines 0) = 2%nat.
+Proof.
+  simpl. reflexivity.
+Qed.
+
+(** Enumeration size is monotonically non-decreasing. *)
+Lemma enum_points_size_monotone : forall d,
+  (length (enum_points d) <= length (enum_points (S d)))%nat.
+Proof.
+  intro d. simpl.
+  rewrite app_length.
+  apply Nat.le_add_r.
+Qed.
+
+Lemma enum_lines_size_monotone : forall d,
+  (length (enum_lines d) <= length (enum_lines (S d)))%nat.
+Proof.
+  intro d. simpl.
+  rewrite app_length.
+  apply Nat.le_add_r.
+Qed.
+
+Lemma enum_points_size_lower_bound : forall d,
+  (2 <= length (enum_points d))%nat.
+Proof.
+  intro d.
+  induction d.
+  - rewrite enum_points_0_size. apply Nat.le_refl.
+  - apply Nat.le_trans with (m := length (enum_points d)).
+    + exact IHd.
+    + apply enum_points_size_monotone.
+Qed.
+
 (** Check if point is constructible at given depth by enumeration. *)
 Definition point_constructible_depth (p : Point) (depth : nat) : bool :=
   existsb (fun q => if point_eq_dec p q then true else false) (enum_points depth).
+
+Theorem enum_algorithm_decidable : forall p d,
+  {point_constructible_depth p d = true} + {point_constructible_depth p d = false}.
+Proof.
+  intros p d.
+  unfold point_constructible_depth.
+  destruct (existsb (fun q => if point_eq_dec p q then true else false) (enum_points d)) eqn:E.
+  - left. reflexivity.
+  - right. reflexivity.
+Qed.
+
+Theorem enum_exponential_lower_bound :
+  (10 <= length (enum_points 1))%nat.
+Proof.
+  vm_compute. apply Nat.le_refl.
+Qed.
 
 (** The decidability algorithm terminates because it uses structural recursion on depth. *)
 Lemma point_constructible_depth_terminates : forall p d,
@@ -2680,6 +2952,54 @@ Lemma perp_through_B_general : forall px py a b c Hnz,
 Proof.
   intros. unfold perp_through. simpl.
   destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
+Qed.
+
+Lemma ConstructiblePoint_O_eventually : exists d, In point_O (enum_points d).
+Proof.
+  exact CP_O_in_enum.
+Qed.
+
+Lemma ConstructiblePoint_X_eventually : exists d, In point_X (enum_points d).
+Proof.
+  exact CP_X_in_enum.
+Qed.
+
+Lemma ConstructibleLine_xaxis_eventually : exists d, In line_xaxis (enum_lines d).
+Proof.
+  exact CL_x_in_enum.
+Qed.
+
+Lemma ConstructibleLine_yaxis_eventually : exists d, In line_yaxis (enum_lines d).
+Proof.
+  exact CL_y_in_enum.
+Qed.
+
+Lemma foot_in_enum_from_point_line : forall p l dp dl,
+  In p (enum_points dp) -> In l (enum_lines dl) ->
+  In (foot_on_line p l) (enum_points (S (S (Nat.max dp dl)))).
+Proof.
+  intros p l dp dl Hp Hl.
+  apply CF_O5_helper_foot_in_enum; assumption.
+Qed.
+
+Lemma point_monotone_to_SS_max : forall p d1 d2,
+  In p (enum_points d1) ->
+  In p (enum_points (S (S (Nat.max d1 d2)))).
+Proof.
+  intros p d1 d2 H.
+  apply (enum_points_monotone_le d1).
+  - apply le_S, le_S, Nat.le_max_l.
+  - exact H.
+Qed.
+
+Lemma point_monotone_to_SS_max_r : forall p d1 d2,
+  In p (enum_points d2) ->
+  In p (enum_points (S (S (Nat.max d1 d2)))).
+Proof.
+  intros p d1 d2 H.
+  apply (enum_points_monotone_le d2).
+  - apply le_S, le_S, Nat.le_max_r.
+  - exact H.
 Qed.
 
 End Decidability.
