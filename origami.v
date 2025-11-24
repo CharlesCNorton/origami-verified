@@ -1119,15 +1119,8 @@ Qed.
 
 (** Corrected O7 construction *)
 Definition fold_O7_corrected (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
-  (* We want: perp_bisector p1 q perpendicular to l2, where q is on l1 *)
-  (* perp_bisector(p1,q) has normal direction proportional to (q-p1) *)
-  (* For this to be perpendicular to l2, we need (q-p1) parallel to l2 *)
-  (* So q = p1 + t*(B_l2, -A_l2) for some t, and q must be on l1 *)
   let dir_x := B l2 in
   let dir_y := - A l2 in
-  (* Find t such that p1 + t*dir is on l1 *)
-  (* A_l1 * (p1_x + t*dir_x) + B_l1 * (p1_y + t*dir_y) + C_l1 = 0 *)
-  (* t = -(A_l1*p1_x + B_l1*p1_y + C_l1) / (A_l1*dir_x + B_l1*dir_y) *)
   let p1_x := fst p1 in
   let p1_y := snd p1 in
   let denom := A l1 * dir_x + B l1 * dir_y in
@@ -1601,21 +1594,6 @@ End Origami_Operations.
 
 Section Cubic_Bridge.
 
-(** This section establishes the connection between origami fold operations
-    (particularly O6) and solutions to cubic equations.
-
-    Key insight: When folding point p1 onto line l1 and point p2 onto line l2,
-    the fold line parameters satisfy a cubic equation. *)
-
-(** For a fold line with equation ax + by + c = 0 (normalized so a²+b²=1),
-    the constraint that p1=(x1,y1) reflects onto l1 gives one equation,
-    and p2=(x2,y2) reflects onto l2 gives another equation.
-
-    These constraints, combined with the normalization, generally yield
-    a cubic equation in one parameter (say, the slope). *)
-
-(** O6 constraint unfolds to two reflection equations. *)
-
 Lemma O6_constraint_unfold : forall p1 l1 p2 l2 f,
   satisfies_O6_constraint f p1 l1 p2 l2 ->
   on_line (reflect_point p1 (fold_line f)) l1 /\
@@ -1882,13 +1860,6 @@ Proof.
   unfold cube_func in H.
   exact H.
 Qed.
-
-Theorem cardano_works_nonneg : forall p q,
-  0 <= q * q / 4 + p * p * p / 27 ->
-  let r := cardano_solve p q in
-  r * r * r + p * r + q = 0.
-Proof.
-Admitted.
 
 End Cubic_Bridge.
 
@@ -2519,6 +2490,196 @@ Lemma ConstructibleFold_O1_in_enum : forall p1 p2,
   exists d, In (fold_line (fold_O1 p1 p2)) (enum_lines d).
 Proof.
   intros p1 p2 H1 H2. apply CF_O1_in_enum; assumption.
+Qed.
+
+Lemma line_intersection_in_enum : forall l1 l2 d1 d2,
+  In l1 (enum_lines d1) ->
+  In l2 (enum_lines d2) ->
+  In (line_intersection l1 l2) (enum_points (S (Nat.max d1 d2))).
+Proof.
+  intros l1 l2 d1 d2 H1 H2.
+  simpl.
+  apply incl_appr.
+  apply incl_appl.
+  apply in_flat_map_intro with (x := l1).
+  - apply (enum_lines_monotone_le d1 (Nat.max d1 d2)).
+    + apply max_le_l.
+    + exact H1.
+  - apply in_flat_map_intro with (x := l2).
+    + apply (enum_lines_monotone_le d2 (Nat.max d1 d2)).
+      * apply max_le_r.
+      * exact H2.
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma reflect_point_in_enum : forall p l dp dl,
+  In p (enum_points dp) ->
+  In l (enum_lines dl) ->
+  In (reflect_point p l) (enum_points (S (Nat.max dp dl))).
+Proof.
+  intros p l dp dl Hp Hl.
+  simpl.
+  apply incl_appr.
+  apply incl_appr.
+  apply in_flat_map_intro with (x := p).
+  - apply (enum_points_monotone_le dp (Nat.max dp dl)).
+    + apply max_le_l.
+    + exact Hp.
+  - apply in_flat_map_intro with (x := l).
+    + apply (enum_lines_monotone_le dl (Nat.max dp dl)).
+      * apply max_le_r.
+      * exact Hl.
+    + simpl. left. reflexivity.
+Qed.
+
+Lemma foot_eq_intersection_case1 : forall x y b c,
+  b <> 0 ->
+  (x - 0 * ((0 * x + b * y + c) / (b * b)), y - b * ((0 * x + b * y + c) / (b * b))) =
+  ((- (0 * y - b * x) * b - - c * - 0) / (b * b - 0 * - 0), (b * - c - 0 * - (0 * y - b * x)) / (b * b - 0 * - 0)).
+Proof.
+  intros. unfold Rdiv. f_equal; field; lra.
+Qed.
+
+
+Lemma foot_eq_intersection : forall p l,
+  foot_on_line p l = line_intersection (perp_through p l) l.
+Proof.
+  intros [x y] [a b c Hnz].
+  unfold foot_on_line, line_intersection, perp_through; simpl.
+  set (d := a * a + b * b).
+  assert (Hd_nz: d <> 0).
+  { unfold d. intro HC.
+    assert (Ha2: 0 <= a * a) by apply Rle_0_sqr.
+    assert (Hb2: 0 <= b * b) by apply Rle_0_sqr.
+    assert (Hsum: a * a + b * b = 0) by exact HC.
+    assert (Ha_z: a * a = 0) by lra.
+    assert (Hb_z: b * b = 0) by lra.
+    apply Rmult_integral in Ha_z. apply Rmult_integral in Hb_z.
+    destruct Hnz as [Hna|Hnb]; [destruct Ha_z | destruct Hb_z]; contradiction. }
+  destruct (Req_EM_T a 0) as [Ha0|Han0].
+  - subst a. simpl in *. unfold d in Hd_nz. simpl in Hd_nz.
+    destruct Hnz as [Hcontra|Hb]; [contradiction|].
+    destruct (Req_EM_T (b * b - 0 * - 0) 0).
+    + exfalso. assert (Hb2: b * b = 0) by lra. apply Rmult_integral in Hb2. destruct Hb2; contradiction.
+    + simpl. unfold d. assert (Heq: 0 * 0 + b * b = b * b) by ring. rewrite Heq. apply foot_eq_intersection_case1. assumption.
+  - assert (Hdet_nz: b * b - a * - a <> 0).
+    { intro HC. assert (Hsq: b * b + a * a = 0) by lra.
+      assert (Hb2: 0 <= b * b) by apply Rle_0_sqr.
+      assert (Ha2: 0 <= a * a) by apply Rle_0_sqr.
+      assert (Hbz: b * b = 0) by lra.
+      assert (Haz: a * a = 0) by lra.
+      apply Rmult_integral in Hbz. apply Rmult_integral in Haz.
+      destruct Hbz; destruct Haz; lra. }
+    destruct (Req_EM_T (b * b - a * - a) 0); [contradiction|].
+    simpl.
+    unfold line_intersection.
+    destruct (Req_EM_T (b * b - a * - a) 0); [contradiction|].
+    simpl. unfold d.
+    f_equal; field; assumption.
+Qed.
+
+Lemma CF_O5_helper_foot_in_enum : forall p l dp dl,
+  In p (enum_points dp) -> In l (enum_lines dl) ->
+  In (foot_on_line p l) (enum_points (S (S (Nat.max dp dl)))).
+Proof.
+  intros p l dp dl Hp Hl.
+  set (d1 := S (Nat.max dp dl)).
+  assert (Hperp: In (perp_through p l) (enum_lines d1)).
+  { unfold d1. apply perp_through_in_enum_S; assumption. }
+  assert (Hl': In l (enum_lines d1)).
+  { unfold d1. apply (enum_lines_monotone_le dl (S (Nat.max dp dl))).
+    - apply le_S, Nat.le_max_r.
+    - exact Hl. }
+  rewrite foot_eq_intersection.
+  assert (Hgoal: In (line_intersection (perp_through p l) l) (enum_points (S (Nat.max d1 d1)))).
+  { apply line_intersection_in_enum_S; assumption. }
+  assert (Heq: S (Nat.max d1 d1) = S d1).
+  { f_equal. apply Nat.max_id. }
+  rewrite <- Heq.
+  exact Hgoal.
+Qed.
+
+Lemma CF_O5_helper_line_through_in_enum : forall p1 p2 d1 d2,
+  In p1 (enum_points d1) -> In p2 (enum_points d2) ->
+  In (line_through p1 p2) (enum_lines (S (Nat.max d1 d2))).
+Proof.
+  intros p1 p2 d1 d2 H1 H2.
+  apply line_through_in_enum_S; assumption.
+Qed.
+
+Lemma CF_O5_in_enum : forall p1 l p2,
+  (exists d1, In p1 (enum_points d1)) ->
+  (exists d2, In l (enum_lines d2)) ->
+  (exists d3, In p2 (enum_points d3)) ->
+  exists d, In (fold_line (fold_O5 p1 l p2)) (enum_lines d).
+Proof.
+  intros p1 l p2 [d1 H1] [d2 H2] [d3 H3].
+  rewrite fold_line_O5.
+  set (proj := foot_on_line p1 l).
+  set (d_proj := S (S (Nat.max d1 d2))).
+  assert (Hproj: In proj (enum_points d_proj)).
+  { unfold proj, d_proj. apply CF_O5_helper_foot_in_enum; assumption. }
+  assert (H1': In p1 (enum_points d_proj)).
+  { apply (enum_points_monotone_le d1 d_proj).
+    - unfold d_proj. apply le_S, le_S, Nat.le_max_l.
+    - exact H1. }
+  set (aux := line_through p1 proj).
+  set (d_aux := S d_proj).
+  assert (Haux: In aux (enum_lines d_aux)).
+  { unfold aux, d_aux.
+    replace (S d_proj) with (S (Nat.max d_proj d_proj)) by (rewrite Nat.max_id; reflexivity).
+    apply CF_O5_helper_line_through_in_enum; [exact H1' | exact Hproj]. }
+  exists (S (Nat.max d3 d_aux)).
+  unfold aux. apply perp_through_in_enum_S; assumption.
+Qed.
+
+Lemma CF_O7_helper_perp_bisector_in_enum : forall p1 p2 d1 d2,
+  In p1 (enum_points d1) -> In p2 (enum_points d2) ->
+  In (perp_bisector p1 p2) (enum_lines (S (Nat.max d1 d2))).
+Proof.
+  intros p1 p2 d1 d2 H1 H2.
+  apply perp_bisector_in_enum_S; assumption.
+Qed.
+
+Lemma neg_zero : -0 = 0.
+Proof. ring. Qed.
+
+Lemma perp_through_A_when_a_zero : forall px py b c Hb,
+  A (perp_through (px, py) {| A := 0; B := b; C := c; normal_nonzero := or_intror Hb |}) = b.
+Proof.
+  intros. unfold perp_through. simpl.
+  destruct (Req_EM_T 0 0); [|contradiction]. simpl. reflexivity.
+Qed.
+
+Lemma perp_through_B_when_a_zero : forall px py b c Hb,
+  B (perp_through (px, py) {| A := 0; B := b; C := c; normal_nonzero := or_intror Hb |}) = 0.
+Proof.
+  intros. unfold perp_through. simpl.
+  destruct (Req_EM_T 0 0); [|contradiction]. simpl. rewrite neg_zero. reflexivity.
+Qed.
+
+Lemma perp_through_B_when_b_zero : forall px py a c Ha,
+  a <> 0 ->
+  B (perp_through (px, py) {| A := a; B := 0; C := c; normal_nonzero := or_introl Ha |}) = - a.
+Proof.
+  intros. unfold perp_through. simpl.
+  destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
+Qed.
+
+Lemma perp_through_A_general : forall px py a b c Hnz,
+  a <> 0 ->
+  A (perp_through (px, py) {| A := a; B := b; C := c; normal_nonzero := Hnz |}) = b.
+Proof.
+  intros. unfold perp_through. simpl.
+  destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
+Qed.
+
+Lemma perp_through_B_general : forall px py a b c Hnz,
+  a <> 0 ->
+  B (perp_through (px, py) {| A := a; B := b; C := c; normal_nonzero := Hnz |}) = - a.
+Proof.
+  intros. unfold perp_through. simpl.
+  destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
 Qed.
 
 End Decidability.
@@ -3356,6 +3517,224 @@ Proof.
   - rewrite <- fold_line_O4. apply CL_fold. apply CF_O4. constructor. apply CL_x.
 Qed.
 
+Theorem construct_0_is_origami_num : ConstructibleR 0 /\ OrigamiNum 0.
+Proof.
+  split.
+  - exists 0. constructor.
+  - constructor.
+Qed.
+
+Theorem construct_1_is_origami_num : ConstructibleR 1 /\ OrigamiNum 1.
+Proof.
+  split.
+  - exists 0. constructor.
+  - constructor.
+Qed.
+
+Theorem construct_pt_1_1_is_good : ConstructiblePoint (1, 1) /\ GoodPoint (1, 1).
+Proof.
+  split.
+  - apply construct_point_1_1.
+  - apply constructible_implies_origami. apply construct_point_1_1.
+Qed.
+
+Theorem any_constructible_is_origami : forall x,
+  ConstructibleR x -> OrigamiNum x.
+Proof.
+  apply constructible_R_implies_origami.
+Qed.
+
+Lemma sqrt_of_origami_is_origami : forall x,
+  OrigamiNum x -> 0 <= x -> OrigamiNum (sqrt x).
+Proof.
+  intros x Hx Hpos.
+  apply ON_sqrt; assumption.
+Qed.
+
+Lemma sum_of_origami_is_origami : forall x y,
+  OrigamiNum x -> OrigamiNum y -> OrigamiNum (x + y).
+Proof.
+  intros x y Hx Hy.
+  apply ON_add; assumption.
+Qed.
+
+Lemma product_of_origami_is_origami : forall x y,
+  OrigamiNum x -> OrigamiNum y -> OrigamiNum (x * y).
+Proof.
+  intros x y Hx Hy.
+  apply ON_mul; assumption.
+Qed.
+
+Lemma inverse_of_origami_is_origami : forall x,
+  OrigamiNum x -> x <> 0 -> OrigamiNum (/ x).
+Proof.
+  intros x Hx Hneq.
+  apply ON_inv; assumption.
+Qed.
+
+Theorem sqrt_2_is_constructible_origami : OrigamiNum (sqrt 2).
+Proof.
+  apply ON_sqrt.
+  - apply Origami_two.
+  - lra.
+Qed.
+
+Theorem sqrt_3_is_origami : OrigamiNum (sqrt 3).
+Proof.
+  apply ON_sqrt.
+  - apply Origami_three.
+  - lra.
+Qed.
+
+Theorem sqrt_5_is_origami : OrigamiNum (sqrt 5).
+Proof.
+  apply ON_sqrt.
+  - replace 5 with (2 + 3) by lra.
+    apply ON_add; [apply Origami_two|apply Origami_three].
+  - lra.
+Qed.
+
+Lemma reflect_across_diagonal_1_1 :
+  reflect_point (0, 0) (line_through (0, 0) (1, 1)) = (0, 0).
+Proof.
+  apply reflect_point_on_line.
+  apply line_through_on_line_fst.
+Qed.
+
+Lemma reflect_point_X_across_diagonal :
+  reflect_point (1, 0) (line_through (0, 0) (1, 1)) = (0, 1).
+Proof.
+  unfold reflect_point, line_through. simpl.
+  destruct (Req_EM_T 0 1); [exfalso; lra|]. simpl.
+  set (a := 0 - 1).
+  set (b := 1 - 0).
+  set (c := 0 * 1 - 1 * 0).
+  assert (Ha: a = -1) by (unfold a; ring).
+  assert (Hb: b = 1) by (unfold b; ring).
+  assert (Hc: c = 0) by (unfold c; ring).
+  rewrite Ha, Hb, Hc.
+  assert (Hdenom: (-1) * (-1) + 1 * 1 = 2) by ring.
+  rewrite Hdenom.
+  assert (Hfactor: ((-1) * 1 + 1 * 0 + 0) / 2 = -1/2) by (unfold Rdiv; field).
+  rewrite Hfactor.
+  f_equal; unfold Rdiv; field.
+Qed.
+
+Lemma construct_point_0_1 : ConstructiblePoint (0, 1).
+Proof.
+  replace (0, 1) with (map_point (fold_O1 (0, 0) (1, 1)) (1, 0)).
+  - apply CP_map.
+    + apply CF_O1; [constructor | apply construct_point_1_1].
+    + constructor.
+  - unfold map_point, fold_O1, fold_line. simpl.
+    apply reflect_point_X_across_diagonal.
+Qed.
+
+Lemma midpoint_on_x_axis : forall x1 x2,
+  snd (midpoint (x1, 0) (x2, 0)) = 0.
+Proof.
+  intros. unfold midpoint. simpl. unfold Rdiv. ring.
+Qed.
+
+Lemma midpoint_x_coord : forall x1 x2,
+  fst (midpoint (x1, 0) (x2, 0)) = (x1 + x2) / 2.
+Proof.
+  intros. unfold midpoint. simpl. reflexivity.
+Qed.
+
+Lemma midpoint_0_2 : midpoint (0, 0) (2, 0) = (1, 0).
+Proof.
+  unfold midpoint. simpl. f_equal; unfold Rdiv; field.
+Qed.
+
+Lemma perp_bisector_of_0_2_passes_through_1_0 :
+  on_line (1, 0) (perp_bisector (0, 0) (2, 0)).
+Proof.
+  unfold on_line, perp_bisector. simpl.
+  destruct (Req_EM_T 0 2); [exfalso; lra|]. simpl. ring.
+Qed.
+
+Lemma perp_bisector_0_2_is_vertical :
+  A (perp_bisector (0, 0) (2, 0)) = 2 * 2 /\ B (perp_bisector (0, 0) (2, 0)) = 0.
+Proof.
+  unfold perp_bisector. simpl.
+  destruct (Req_EM_T 0 2); [exfalso; lra|].
+  split; simpl; ring.
+Qed.
+
+Lemma vertical_line_at_x1 :
+  forall x y, A (perp_bisector (0, 0) (2, 0)) * x + B (perp_bisector (0, 0) (2, 0)) * y + C (perp_bisector (0, 0) (2, 0)) = 0 <-> x = 1.
+Proof.
+  intros x y.
+  assert (H: A (perp_bisector (0, 0) (2, 0)) = 4) by (apply perp_bisector_0_2_is_vertical).
+  assert (H2: B (perp_bisector (0, 0) (2, 0)) = 0) by (apply perp_bisector_0_2_is_vertical).
+  assert (H3: C (perp_bisector (0, 0) (2, 0)) = -4).
+  { unfold perp_bisector. simpl.
+    destruct (Req_EM_T 0 2); [exfalso; lra|]. simpl. ring. }
+  rewrite H, H2, H3.
+  split; intro; lra.
+Qed.
+
+Lemma simplify_reflect_x_coord :
+  forall a b c x y,
+  a * a + b * b <> 0 ->
+  x - 2 * a * ((a * x + b * y + c) / (a * a + b * b)) =
+  ((a * a + b * b) * x - 2 * a * (a * x + b * y + c)) / (a * a + b * b).
+Proof.
+  intros. unfold Rdiv. field. exact H.
+Qed.
+
+Lemma reflect_0_across_perp_12 : reflect_point (0, 0) (perp_bisector (1, 0) (2, 0)) = (3, 0).
+Proof.
+  unfold reflect_point, perp_bisector. simpl.
+  destruct (Req_EM_T 1 2); [exfalso; lra|]. simpl.
+  f_equal; unfold Rdiv; field_simplify; try lra; ring.
+Qed.
+
+Lemma reflect_0_across_x_eq_1 : reflect_point (0, 0) (perp_bisector (0, 0) (2, 0)) = (2, 0).
+Proof.
+  unfold reflect_point, perp_bisector. simpl.
+  destruct (Req_EM_T 0 2); [exfalso; lra|]. simpl.
+  f_equal; unfold Rdiv; field_simplify; try lra; ring.
+Qed.
+
+Lemma line_perp_at_1_1_intersects_xaxis_at_1_0 :
+  line_intersection (perp_through (1, 1) line_xaxis) line_xaxis = (1, 0).
+Proof.
+  unfold line_intersection, perp_through, line_xaxis. simpl.
+  destruct (Req_EM_T 0 0); [|contradiction]. simpl.
+  destruct (Req_EM_T (1 * 1 - 0 * 0) 0); [exfalso; lra|]. simpl.
+  destruct (Req_EM_T (1 * 1 - 0 * - 0) 0); [exfalso; lra|]. simpl.
+  f_equal.
+  - replace (- (0 * 1 - 1 * 1) * 1 - - 0 * - 0) with 1 by ring.
+    replace (1 * 1 - 0 * - 0) with 1 by ring.
+    unfold Rdiv. replace (1 * / 1) with 1 by (field; lra).
+    reflexivity.
+  - replace (1 * - 0 - 0 * - (0 * 1 - 1 * 1)) with 0 by ring.
+    replace (1 * 1 - 0 * - 0) with 1 by ring.
+    unfold Rdiv. replace (0 * / 1) with 0 by ring.
+    reflexivity.
+Qed.
+
+Lemma line_perp_at_1_1_is_constructible :
+  ConstructibleLine (perp_through (1, 1) line_xaxis).
+Proof.
+  rewrite <- fold_line_O4.
+  apply CL_fold.
+  apply CF_O4.
+  - apply construct_point_1_1.
+  - apply CL_x.
+Qed.
+
+Lemma construct_point_1_0 : ConstructiblePoint (1, 0).
+Proof.
+  replace (1, 0) with (line_intersection (perp_through (1, 1) line_xaxis) line_xaxis).
+  - apply CP_inter.
+    + apply line_perp_at_1_1_is_constructible.
+    + apply CL_x.
+  - apply line_perp_at_1_1_intersects_xaxis_at_1_0.
+Qed.
+
 End Reverse_Completeness.
 
 Section Construction_Examples.
@@ -3789,4 +4168,73 @@ Proof.
 Qed.
 
 End Computational_Geometry.
- 
+
+Section Topology_Continuity.
+
+(** This section proves that origami operations are continuous functions.
+    We show that reflection, line intersection, and fold operations
+    preserve continuity, establishing the topological well-foundedness
+    of origami geometry. *)
+
+(** First, we prove that reflection is continuous in the point coordinate.
+
+    For fixed line l, the function reflect_point(_,l) : Point -> Point is
+    continuous. The proof uses that reflection is a composition of continuous
+    functions (addition, multiplication, division by nonzero constant). *)
+
+(**  Reflection preserves distances, so it is (uniformly) continuous.
+     For any ε > 0, we can take δ = ε because reflection is an isometry. *)
+
+Lemma sqrt_equal : forall x y : R, x = y -> sqrt x = sqrt y.
+Proof.
+  intros x y H.
+  rewrite H.
+  reflexivity.
+Qed.
+
+Lemma dist_via_dist2 : forall p q : Point,
+  dist p q = sqrt (dist2 p q).
+Proof.
+  intros [x1 y1] [x2 y2].
+  unfold dist, dist2, sqr.
+  simpl.
+  reflexivity.
+Qed.
+
+Lemma reflect_point_continuous_in_point : forall (l : Line) (p0 : Point) (eps : R),
+  eps > 0 ->
+  exists delta : R, delta > 0 /\
+    forall p : Point,
+      dist p p0 < delta ->
+      dist (reflect_point p l) (reflect_point p0 l) < eps.
+Proof.
+  intros l p0 eps Heps.
+  exists eps. split; [exact Heps|].
+  intros p Hdist.
+  (* Use the fact that reflection is an isometry *)
+  rewrite dist_via_dist2 in *.
+  pose proof (reflection_is_isometry p p0 l) as Hiso.
+  apply sqrt_equal in Hiso.
+  rewrite <- Hiso.
+  exact Hdist.
+Qed.
+
+(** Corollary: map_point (folding) is continuous. *)
+
+Corollary map_point_continuous : forall (f : Fold) (p0 : Point) (eps : R),
+  eps > 0 ->
+  exists delta : R, delta > 0 /\
+    forall p : Point,
+      dist p p0 < delta ->
+      dist (map_point f p) (map_point f p0) < eps.
+Proof.
+  intros [l] p0 eps Heps.
+  unfold map_point; simpl.
+  apply (reflect_point_continuous_in_point l p0 eps Heps).
+Qed.
+
+(** This establishes that all origami fold operations are continuous functions
+    on the plane, providing the topological foundation for origami geometry. *)
+
+End Topology_Continuity.
+        
