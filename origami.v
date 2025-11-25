@@ -1495,6 +1495,52 @@ Proof.
   - contradiction.
 Qed.
 
+(** When p1 is on l1, the parameter t in fold_O7_corrected equals 0. *)
+Lemma fold_O7_t_zero_when_on_line : forall p1 l1 l2,
+  on_line p1 l1 ->
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  - (A l1 * fst p1 + B l1 * snd p1 + C l1) / (A l1 * B l2 + B l1 * - A l2) = 0.
+Proof.
+  intros [px py] l1 l2 Hon Hnonpar.
+  unfold on_line in Hon. simpl in *.
+  rewrite Hon. field. lra.
+Qed.
+
+(** When p1 is on l1 (non-parallel case), p1 lies on the fold line. *)
+Lemma fold_O7_p1_on_fold_when_on_l1 : forall p1 l1 l2,
+  on_line p1 l1 ->
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  on_line p1 (fold_line (fold_O7 p1 l1 l2)).
+Proof.
+  intros [px py] l1 l2 Hon Hnonpar.
+  unfold fold_O7, fold_O7_corrected, fold_line.
+  set (denom := A l1 * B l2 + B l1 * - A l2).
+  assert (Hdenom: denom <> 0) by (unfold denom; lra).
+  destruct (Req_EM_T denom 0); [contradiction|].
+  simpl.
+  assert (Ht: - (A l1 * px + B l1 * py + C l1) / denom = 0).
+  { unfold on_line in Hon. simpl in Hon. rewrite Hon. field. exact Hdenom. }
+  unfold perp_bisector, on_line. simpl.
+  rewrite Ht.
+  replace (px + 0 * B l2) with px by ring.
+  replace (py + 0 * - A l2) with py by ring.
+  destruct (Req_EM_T px px) as [_|Hne]; [|exfalso; apply Hne; reflexivity].
+  destruct (Req_EM_T py py) as [_|Hne]; [|exfalso; apply Hne; reflexivity].
+  simpl. ring.
+Qed.
+
+(** When p1 is on l1 (non-parallel case), reflection is trivial. *)
+Lemma fold_O7_reflection_when_on_l1 : forall p1 l1 l2,
+  on_line p1 l1 ->
+  A l1 * B l2 - B l1 * A l2 <> 0 ->
+  on_line (reflect_point p1 (fold_line (fold_O7 p1 l1 l2))) l1.
+Proof.
+  intros p1 l1 l2 Hon Hnonpar.
+  rewrite reflect_point_on_line.
+  - exact Hon.
+  - apply fold_O7_p1_on_fold_when_on_l1; assumption.
+Qed.
+
 Theorem O7_degenerate_case_complete : forall p1 l1 l2,
   A l1 * B l2 - B l1 * A l2 = 0 ->
   on_line p1 l1 ->
@@ -1850,6 +1896,18 @@ Proof.
       assert (Hneq_q: p1 <> q).
       { apply (fold_O7_corrected_p1_neq_q p1 l1 l2 Hwf2 Hdenom Hnot_on Hdenom_neq). }
       apply (perp_bisector_parallel_direction_perp p1 q l2 Hpar Hneq_q).
+Qed.
+
+(** Unified O7: fold_O7 satisfies constraints whenever solvable. *)
+Theorem O7_unified : forall p1 l1 l2,
+  line_wf l2 ->
+  (A l1 * B l2 - B l1 * A l2 = 0 /\ on_line p1 l1) \/
+  (A l1 * B l2 - B l1 * A l2 <> 0 /\ ~on_line p1 l1) ->
+  satisfies_O7_constraint (fold_O7 p1 l1 l2) p1 l1 l2.
+Proof.
+  intros p1 l1 l2 Hwf2 [[Hpar Hon] | [Hnpar Hnot_on]].
+  - apply O7_degenerate_case_complete; assumption.
+  - apply fold_O7_satisfies_O7_constraint; assumption.
 Qed.
 
 End Origami_Operations.
@@ -4756,6 +4814,302 @@ Proof.
   destruct (Req_EM_T 0 0); [|contradiction]. simpl. f_equal; field.
 Qed.
 
+(** Reflect across perp_bisector of two x-axis points. *)
+Lemma reflect_across_perp_bisector_xaxis : forall x y z,
+  x <> y ->
+  reflect_point (z, 0) (perp_bisector (x, 0) (y, 0)) = (x + y - z, 0).
+Proof.
+  intros x y z Hneq.
+  unfold reflect_point, perp_bisector. simpl.
+  destruct (Req_EM_T x y); [contradiction|]. simpl.
+  f_equal; field; lra.
+Qed.
+
+(** Addition on x-axis when x ≠ y. *)
+Lemma add_xaxis_constructible_neq : forall x y,
+  x <> y ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x + y, 0).
+Proof.
+  intros x y Hneq Hx Hy.
+  replace (x + y, 0) with (map_point (fold_O2 (x, 0) (y, 0)) (0, 0)).
+  - apply CP_map.
+    + apply CF_O2; assumption.
+    + constructor.
+  - unfold map_point, fold_O2, fold_line.
+    rewrite reflect_across_perp_bisector_xaxis by assumption. f_equal; ring.
+Qed.
+
+(** Addition on x-axis, general case. *)
+Lemma add_xaxis_constructible : forall x y,
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x + y, 0).
+Proof.
+  intros x y Hx Hy.
+  destruct (Req_EM_T x y) as [Heq | Hneq].
+  - subst. replace (y + y) with (2 * y) by ring.
+    apply double_xaxis_constructible. exact Hy.
+  - apply add_xaxis_constructible_neq; assumption.
+Qed.
+
+(** Subtraction on x-axis. *)
+Lemma sub_xaxis_constructible : forall x y,
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x - y, 0).
+Proof.
+  intros x y Hx Hy.
+  replace (x - y) with (x + (- y)) by ring.
+  apply add_xaxis_constructible.
+  - exact Hx.
+  - apply neg_xaxis_constructible. exact Hy.
+Qed.
+
+(** Reflection across diagonal y=x swaps coordinates. *)
+Lemma reflect_across_diagonal : forall x y,
+  reflect_point (x, y) (line_through (0, 0) (1, 1)) = (y, x).
+Proof.
+  intros x y.
+  unfold reflect_point, line_through. simpl.
+  destruct (Req_EM_T 0 1); [lra|]. simpl.
+  f_equal; field.
+Qed.
+
+(** Diagonal line is constructible. *)
+Lemma diagonal_line_constructible : ConstructibleLine (line_through (0, 0) (1, 1)).
+Proof.
+  rewrite <- fold_line_O1. apply CL_fold. apply CF_O1; [constructor | apply construct_point_1_1].
+Qed.
+
+(** Swapping coordinates preserves constructibility. *)
+Lemma swap_coords_constructible : forall x y,
+  ConstructiblePoint (x, y) -> ConstructiblePoint (y, x).
+Proof.
+  intros x y H.
+  replace (y, x) with (map_point (fold_O1 (0, 0) (1, 1)) (x, y)).
+  - apply CP_map; [apply CF_O1; [constructor | apply construct_point_1_1] | exact H].
+  - unfold map_point, fold_O1, fold_line. apply reflect_across_diagonal.
+Qed.
+
+(** (0, y) constructible from (y, 0). *)
+Lemma yaxis_from_xaxis : forall y,
+  ConstructiblePoint (y, 0) -> ConstructiblePoint (0, y).
+Proof.
+  intros y H. apply swap_coords_constructible. exact H.
+Qed.
+
+(** Vertical line through (x, 0) is constructible. *)
+Lemma vertical_at_constructible : forall x,
+  ConstructiblePoint (x, 0) -> ConstructibleLine (perp_through (x, 0) line_xaxis).
+Proof.
+  intros x Hx. rewrite <- fold_line_O4. apply CL_fold. apply CF_O4; [exact Hx | apply CL_x].
+Qed.
+
+(** Horizontal line through (0, y) is constructible. *)
+Lemma horizontal_at_constructible : forall y,
+  ConstructiblePoint (0, y) -> ConstructibleLine (perp_through (0, y) line_yaxis).
+Proof.
+  intros y Hy. rewrite <- fold_line_O4. apply CL_fold. apply CF_O4; [exact Hy | apply CL_y].
+Qed.
+
+(** Vertical line x=1. *)
+Lemma vertical_at_1 : perp_through (1, 0) line_xaxis = {| A := 1; B := 0; C := -1 |}.
+Proof.
+  unfold perp_through, line_xaxis. simpl. f_equal; ring.
+Qed.
+
+(** Horizontal line y=c. *)
+Lemma horizontal_at_y : forall y, perp_through (0, y) line_yaxis = {| A := 0; B := -1; C := y |}.
+Proof.
+  intro y. unfold perp_through, line_yaxis. simpl. f_equal; ring.
+Qed.
+
+(** Intersection of x=1 and y=c. *)
+Lemma intersection_vert_horiz : forall y,
+  line_intersection (perp_through (1, 0) line_xaxis) (perp_through (0, y) line_yaxis) = (1, y).
+Proof.
+  intro y. unfold line_intersection, perp_through, line_xaxis, line_yaxis. simpl.
+  match goal with |- context [Req_EM_T ?e 0] => destruct (Req_EM_T e 0) as [H|Hne] end.
+  - exfalso. lra.
+  - unfold Rdiv. f_equal; field; lra.
+Qed.
+
+(** Point (1, y) is constructible from (y, 0). *)
+Lemma point_1_y_constructible : forall y,
+  ConstructiblePoint (y, 0) -> ConstructiblePoint (1, y).
+Proof.
+  intros y Hy.
+  rewrite <- intersection_vert_horiz.
+  apply CP_inter.
+  - apply vertical_at_constructible. constructor.
+  - apply horizontal_at_constructible. apply yaxis_from_xaxis. exact Hy.
+Qed.
+
+(** Line through origin and (1, y) is constructible. *)
+Lemma line_through_origin_1y : forall y,
+  ConstructiblePoint (y, 0) -> ConstructibleLine (line_through (0, 0) (1, y)).
+Proof.
+  intros y Hy.
+  rewrite <- fold_line_O1. apply CL_fold. apply CF_O1.
+  - constructor.
+  - apply point_1_y_constructible. exact Hy.
+Qed.
+
+(** Intersection of line through origin with slope y and vertical at x gives (x, xy). *)
+Lemma intersection_slope_vertical : forall x y,
+  y <> 0 ->
+  line_intersection (line_through (0, 0) (1, y)) (perp_through (x, 0) line_xaxis) = (x, x * y).
+Proof.
+  intros x y Hyne.
+  unfold line_intersection, line_through, perp_through, line_xaxis. simpl.
+  destruct (Req_EM_T 0 1) as [H01|_]; [lra|]. simpl.
+  match goal with |- context [Req_EM_T ?e 0] => destruct (Req_EM_T e 0) as [H|Hne] end.
+  - exfalso. lra.
+  - unfold Rdiv. f_equal; field; lra.
+Qed.
+
+(** Point (x, xy) is constructible when y ≠ 0. *)
+Lemma point_x_xy_constructible : forall x y,
+  y <> 0 ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x, x * y).
+Proof.
+  intros x y Hyne Hx Hy.
+  rewrite <- intersection_slope_vertical by assumption.
+  apply CP_inter.
+  - apply line_through_origin_1y. exact Hy.
+  - apply vertical_at_constructible. exact Hx.
+Qed.
+
+(** Horizontal through (a, b) intersects y-axis at (0, b). *)
+Lemma horizontal_yaxis_intersection : forall a b,
+  line_intersection (perp_through (a, b) line_yaxis) line_yaxis = (0, b).
+Proof.
+  intros a b. unfold line_intersection, perp_through, line_yaxis. simpl.
+  match goal with |- context [Req_EM_T ?e 0] => destruct (Req_EM_T e 0) as [H|Hne] end.
+  - exfalso. lra.
+  - apply injective_projections; unfold fst, snd; field; lra.
+Qed.
+
+(** (0, b) from (a, b). *)
+Lemma project_to_yaxis : forall a b,
+  ConstructiblePoint (a, b) -> ConstructiblePoint (0, b).
+Proof.
+  intros a b Hab.
+  rewrite <- (horizontal_yaxis_intersection a b).
+  apply CP_inter.
+  - rewrite <- fold_line_O4. apply CL_fold. apply CF_O4; [exact Hab | apply CL_y].
+  - apply CL_y.
+Qed.
+
+(** (xy, 0) constructible from (x, 0), (y, 0) when y ≠ 0. *)
+Lemma mul_xaxis_constructible_neq : forall x y,
+  y <> 0 ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x * y, 0).
+Proof.
+  intros x y Hyne Hx Hy.
+  apply swap_coords_constructible.
+  apply (project_to_yaxis x (x * y)).
+  apply point_x_xy_constructible; assumption.
+Qed.
+
+(** General multiplication on x-axis. *)
+Lemma mul_xaxis_constructible : forall x y,
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x * y, 0).
+Proof.
+  intros x y Hx Hy.
+  destruct (Req_EM_T y 0) as [Hy0 | Hyne].
+  - subst. replace (x * 0) with 0 by ring. constructor.
+  - apply mul_xaxis_constructible_neq; assumption.
+Qed.
+
+(** Line through (0, 1) and (x, 0) intersects line y=1/x at (1, 1/x) when x ≠ 0.
+    Using similar triangles: the line from (0, 1) to (x, 0) has equation
+    X/x + Y/1 = 1, i.e., X + xY = x.
+    Intersecting with vertical X = 1 gives Y = (x-1)/x = 1 - 1/x.
+    We need a different approach. *)
+
+(** Inverse: line through (1, 1) and (x, 0) intersects y-axis at (0, 1/(1-x)) for x ≠ 1.
+    Using: line through (0, 0) and (1, x) intersected with y=1 gives (1/x, 1). *)
+Lemma intersection_origin_slope_horizontal : forall x,
+  x <> 0 ->
+  line_intersection (line_through (0, 0) (1, x)) (perp_through (0, 1) line_yaxis) = (1/x, 1).
+Proof.
+  intros x Hxne.
+  unfold line_intersection, line_through, perp_through, line_yaxis. simpl.
+  destruct (Req_EM_T 0 1) as [H|_]; [lra|]. simpl.
+  match goal with |- context [Req_EM_T ?e 0] => destruct (Req_EM_T e 0) as [H|Hne] end.
+  - exfalso. lra.
+  - apply injective_projections; unfold fst, snd; field; lra.
+Qed.
+
+(** (a, 0) from (a, b). *)
+Lemma project_to_xaxis : forall a b,
+  ConstructiblePoint (a, b) -> ConstructiblePoint (a, 0).
+Proof.
+  intros a b Hab.
+  apply swap_coords_constructible.
+  apply (project_to_yaxis b a).
+  apply swap_coords_constructible. exact Hab.
+Qed.
+
+(** Division on x-axis when y ≠ 0. *)
+Lemma div_xaxis_constructible : forall x y,
+  y <> 0 ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (y, 0) ->
+  ConstructiblePoint (x / y, 0).
+Proof.
+  intros x y Hyne Hx Hy.
+  replace (x / y) with (x * (1/y)) by (field; lra).
+  apply mul_xaxis_constructible; [exact Hx|].
+  apply (project_to_xaxis (1/y) 1).
+  rewrite <- (intersection_origin_slope_horizontal y Hyne).
+  apply CP_inter.
+  - apply line_through_origin_1y. exact Hy.
+  - apply horizontal_at_constructible. apply construct_point_0_1.
+Qed.
+
+(** sqrt requires O5 geometric mean construction. *)
+Hypothesis sqrt_xaxis_constructible : forall x,
+  0 <= x -> ConstructiblePoint (x, 0) -> ConstructiblePoint (sqrt x, 0).
+
+(** EuclidNum implies ConstructibleR (modulo sqrt hypothesis). *)
+Theorem EuclidNum_implies_ConstructibleR : forall x,
+  EuclidNum x -> ConstructibleR x.
+Proof.
+  intros x H. induction H.
+  - exists 0. constructor.
+  - exists 0. constructor.
+  - destruct IHEuclidNum1 as [y1 H1]. destruct IHEuclidNum2 as [y2 H2].
+    exists 0. apply add_xaxis_constructible.
+    + apply (project_to_xaxis x y1). exact H1.
+    + apply (project_to_xaxis y y2). exact H2.
+  - destruct IHEuclidNum1 as [y1 H1]. destruct IHEuclidNum2 as [y2 H2].
+    exists 0. apply sub_xaxis_constructible.
+    + apply (project_to_xaxis x y1). exact H1.
+    + apply (project_to_xaxis y y2). exact H2.
+  - destruct IHEuclidNum1 as [y1 H1]. destruct IHEuclidNum2 as [y2 H2].
+    exists 0. apply mul_xaxis_constructible.
+    + apply (project_to_xaxis x y1). exact H1.
+    + apply (project_to_xaxis y y2). exact H2.
+  - destruct IHEuclidNum as [y1 H1].
+    exists 0. replace (/ x) with (1 / x) by (field; assumption).
+    apply div_xaxis_constructible; try assumption.
+    + constructor.
+    + apply (project_to_xaxis x y1). exact H1.
+  - destruct IHEuclidNum as [y1 H1].
+    exists 0. apply sqrt_xaxis_constructible; try assumption.
+    apply (project_to_xaxis x y1). exact H1.
+Qed.
+
 End Reverse_Completeness.
 
 Section Construction_Examples.
@@ -5515,6 +5869,71 @@ Proof.
   intro n. split.
   - exact (origami_degree_implies_smooth n).
   - exact (smooth_implies_origami_degree n).
+Qed.
+
+(** OrigamiNum with tracked extension degree. *)
+Inductive OrigamiNum_deg : R -> nat -> Prop :=
+| OND_0 : OrigamiNum_deg 0 1
+| OND_1 : OrigamiNum_deg 1 1
+| OND_add : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
+    OrigamiNum_deg (x + y) (Nat.max n m)
+| OND_sub : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
+    OrigamiNum_deg (x - y) (Nat.max n m)
+| OND_mul : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
+    OrigamiNum_deg (x * y) (Nat.max n m)
+| OND_inv : forall x n, OrigamiNum_deg x n -> x <> 0 ->
+    OrigamiNum_deg (/ x) n
+| OND_sqrt : forall x n, OrigamiNum_deg x n -> 0 <= x ->
+    OrigamiNum_deg (sqrt x) (2 * n)
+| OND_cbrt : forall a b r n m, OrigamiNum_deg a n -> OrigamiNum_deg b m ->
+    r * r * r + a * r + b = 0 ->
+    OrigamiNum_deg r (3 * Nat.max n m).
+
+(** OrigamiNum_deg implies OrigamiNum. *)
+Lemma OrigamiNum_deg_is_OrigamiNum : forall x n,
+  OrigamiNum_deg x n -> OrigamiNum x.
+Proof.
+  intros x n H. induction H.
+  - constructor.
+  - constructor.
+  - apply ON_add; assumption.
+  - apply ON_sub; assumption.
+  - apply ON_mul; assumption.
+  - apply ON_inv; assumption.
+  - apply ON_sqrt; assumption.
+  - apply (ON_cubic_root a b); assumption.
+Qed.
+
+(** Max of OrigamiDegrees is OrigamiDegree. *)
+Lemma OrigamiDegree_max : forall n m,
+  OrigamiDegree n -> OrigamiDegree m -> OrigamiDegree (Nat.max n m).
+Proof.
+  intros n m Hn Hm.
+  destruct (Nat.max_spec n m) as [[_ Heq] | [_ Heq]]; rewrite Heq; assumption.
+Qed.
+
+(** OrigamiNum_deg degrees are always OrigamiDegree (2^a × 3^b). *)
+Theorem OrigamiNum_deg_has_OrigamiDegree : forall x n,
+  OrigamiNum_deg x n -> OrigamiDegree n.
+Proof.
+  intros x n H. induction H.
+  - constructor.
+  - constructor.
+  - apply OrigamiDegree_max; assumption.
+  - apply OrigamiDegree_max; assumption.
+  - apply OrigamiDegree_max; assumption.
+  - assumption.
+  - apply OD_ext2; assumption.
+  - apply OD_ext3. apply OrigamiDegree_max; assumption.
+Qed.
+
+(** Combined: OrigamiNum_deg links OrigamiNum to OrigamiDegree. *)
+Corollary OrigamiNum_has_smooth_degree : forall x n,
+  OrigamiNum_deg x n -> OrigamiNum x /\ OrigamiDegree n.
+Proof.
+  intros x n H. split.
+  - apply OrigamiNum_deg_is_OrigamiNum with n. exact H.
+  - apply OrigamiNum_deg_has_OrigamiDegree with x. exact H.
 Qed.
 
 (** n-gon criterion: constructible if φ(n) is 2-3 smooth. *)
