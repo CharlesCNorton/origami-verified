@@ -768,6 +768,100 @@ Definition fold_O5 (p1 : Point) (l : Line) (p2 : Point) : Fold :=
 Lemma fold_line_O5 : forall p1 l p2, fold_line (fold_O5 p1 l p2) = perp_through p2 (line_through p1 (foot_on_line p1 l)).
 Proof. reflexivity. Qed.
 
+(** Corrected O5 for vertical lines: fold p onto vertical line x=c through q.
+    The O5 fold places p onto the vertical line, passing through q.
+    The image p' is at (c, qy + sqrt(dist(q,p)^2 - (c-qx)^2)). *)
+
+Definition O5_vert_image_y (p q : Point) (c : R) : R :=
+  let d2 := (fst p - fst q)^2 + (snd p - snd q)^2 in
+  let dx2 := (c - fst q)^2 in
+  snd q + sqrt (d2 - dx2).
+
+Definition O5_vert_image (p q : Point) (c : R) : Point :=
+  (c, O5_vert_image_y p q c).
+
+Definition fold_O5_vert (p q : Point) (c : R) : Fold :=
+  fold_line_ctor (perp_bisector p (O5_vert_image p q c)).
+
+Lemma sqrt_4x_eq : forall x, 0 <= x -> sqrt (4 * x) = 2 * sqrt x.
+Proof.
+  intros x Hx.
+  assert (Hsq: sqrt x * sqrt x = x) by (apply sqrt_sqrt; lra).
+  assert (Heq: 4 * x = (2 * sqrt x) * (2 * sqrt x)).
+  { replace ((2 * sqrt x) * (2 * sqrt x)) with (4 * (sqrt x * sqrt x)) by ring.
+    rewrite Hsq. ring. }
+  rewrite Heq.
+  rewrite sqrt_square; [ring | ].
+  apply Rmult_le_pos; [lra | apply sqrt_pos].
+Qed.
+
+Lemma O5_vert_image_sqrt_case : forall x,
+  0 < x ->
+  O5_vert_image (0, 0) (1 + x, 0) 2 = (2, 2 * sqrt x).
+Proof.
+  intros x Hpos.
+  unfold O5_vert_image, O5_vert_image_y. simpl.
+  f_equal.
+  replace ((0 - (1 + x)) * ((0 - (1 + x)) * 1) + (0 - 0) * ((0 - 0) * 1))
+    with ((1 + x) ^ 2) by ring.
+  replace ((2 - (1 + x)) * ((2 - (1 + x)) * 1)) with ((1 - x) ^ 2) by ring.
+  replace ((1 + x) ^ 2 - (1 - x) ^ 2) with (4 * x) by ring.
+  rewrite sqrt_4x_eq by lra.
+  ring.
+Qed.
+
+(** Beloch Fold Construction for Cubic Equations.
+    The Beloch fold (O6) solves depressed cubics t³ + pt + q = 0.
+    Configuration:
+    - P1 = (0, 1), L1: y = -1 (parabola y = x²/4 has focus P1, directrix L1)
+    - P2 = (q, p), L2: x = -q
+    The common tangent (O6 fold) has slope t where t is a cubic root. *)
+
+Definition beloch_P1 : Point := (0, 1).
+Definition beloch_L1 : Line := {| A := 0; B := 1; C := 1 |}.
+Definition beloch_P2 (p q : R) : Point := (q, p).
+Definition beloch_L2 (q : R) : Line := {| A := 1; B := 0; C := q |}.
+
+(** The Beloch fold line: y = tx - t², i.e., tx - y - t² = 0 *)
+Definition beloch_fold_line (t : R) : Line := {| A := t; B := -1; C := -(t*t) |}.
+
+Definition fold_O6_beloch (p q t : R) : Fold :=
+  fold_line_ctor (beloch_fold_line t).
+
+Lemma beloch_L1_wf : line_wf beloch_L1.
+Proof. unfold line_wf, beloch_L1; simpl; right; lra. Qed.
+
+Lemma beloch_L2_wf : forall q, line_wf (beloch_L2 q).
+Proof. intro q; unfold line_wf, beloch_L2; simpl; left; lra. Qed.
+
+Lemma beloch_fold_line_wf : forall t, line_wf (beloch_fold_line t).
+Proof. intro t; unfold line_wf, beloch_fold_line; simpl; right; lra. Qed.
+
+(** Reflection of P1 = (0, 1) across Beloch fold line lands on L1: y = -1 *)
+Lemma beloch_P1_reflects_to_L1 : forall t,
+  on_line (reflect_point beloch_P1 (beloch_fold_line t)) beloch_L1.
+Proof.
+  intro t.
+  unfold reflect_point, beloch_P1, beloch_fold_line, on_line, beloch_L1; simpl.
+  assert (Ht2 : 0 <= t * t) by apply Rle_0_sqr.
+  assert (Hd_nz : t * t + (-1) * (-1) <> 0) by lra.
+  field_simplify; [|lra].
+  lra.
+Qed.
+
+(** Reflection of P2 = (q, p) across Beloch fold lands on L2: x = -q, when t³ + pt + q = 0 *)
+Lemma beloch_P2_reflects_to_L2 : forall p q t,
+  t * t * t + p * t + q = 0 ->
+  on_line (reflect_point (beloch_P2 p q) (beloch_fold_line t)) (beloch_L2 q).
+Proof.
+  intros p q t Hcubic.
+  unfold reflect_point, beloch_P2, beloch_fold_line, on_line, beloch_L2; simpl.
+  assert (Ht2 : 0 <= t * t) by apply Rle_0_sqr.
+  assert (Hd_nz : t * t + (-1) * (-1) <> 0) by lra.
+  field_simplify; [|lra].
+  nra.
+Qed.
+
 (** O6 Geometric Characterization:
     A fold line f satisfying O6(p1, l1, p2, l2) must satisfy:
     - reflect_point p1 f lies on l1
@@ -789,6 +883,18 @@ Proof.
   intros crease p1 l1 p2 l2 H.
   unfold satisfies_O6_constraint, fold_line; simpl.
   exact H.
+Qed.
+
+(** The Beloch fold satisfies O6 constraints when t is a cubic root *)
+Theorem beloch_fold_satisfies_O6 : forall p q t,
+  t * t * t + p * t + q = 0 ->
+  satisfies_O6_constraint (fold_O6_beloch p q t) beloch_P1 beloch_L1 (beloch_P2 p q) (beloch_L2 q).
+Proof.
+  intros p q t Hcubic.
+  unfold satisfies_O6_constraint, fold_O6_beloch, fold_line; simpl.
+  split.
+  - apply beloch_P1_reflects_to_L1.
+  - apply beloch_P2_reflects_to_L2. exact Hcubic.
 Qed.
 
 Lemma perp_bisector_perp_to_connecting_line : forall p1 p2 l,
@@ -2546,6 +2652,11 @@ End Construction_Algorithms.
 
 Section Constructibility.
 
+Definition O5_vert_valid (p q : Point) (c : R) : Prop :=
+  let px := fst p in let py := snd p in
+  let qx := fst q in let qy := snd q in
+  (c - qx)^2 <= (px - qx)^2 + (py - qy)^2.
+
 Inductive ConstructiblePoint : Point -> Prop :=
 | CP_O : ConstructiblePoint point_O
 | CP_X : ConstructiblePoint point_X
@@ -2593,7 +2704,17 @@ with ConstructibleFold : Fold -> Prop :=
 | CF_O7 :
     forall p1 l1 l2,
       ConstructiblePoint p1 -> ConstructibleLine l1 -> ConstructibleLine l2 ->
-      ConstructibleFold (fold_O7 p1 l1 l2).
+      ConstructibleFold (fold_O7 p1 l1 l2)
+| CF_O5_vert :
+    forall p q c,
+      ConstructiblePoint p -> ConstructiblePoint q -> ConstructiblePoint (c, 0) ->
+      O5_vert_valid p q c ->
+      ConstructibleFold (fold_O5_vert p q c)
+| CF_O6_beloch :
+    forall p q t,
+      ConstructiblePoint (p, 0) -> ConstructiblePoint (q, 0) ->
+      t * t * t + p * t + q = 0 ->
+      ConstructibleFold (fold_O6_beloch p q t).
 
 Scheme Constructible_mut :=
   Induction for ConstructiblePoint Sort Prop
@@ -3696,6 +3817,62 @@ Proof.
     contradiction.
 Qed.
 
+(** OrigamiNum with tracked extension degree.
+    Each origami number arises from a tower of field extensions,
+    where each step has degree 2 (sqrt) or 3 (cubic root).
+    The degree tracks the total extension degree over Q. *)
+Inductive OrigamiNum_deg : R -> nat -> Prop :=
+| OND_0 : OrigamiNum_deg 0 1
+| OND_1 : OrigamiNum_deg 1 1
+| OND_add : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
+    OrigamiNum_deg (x + y) (Nat.max n m)
+| OND_sub : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
+    OrigamiNum_deg (x - y) (Nat.max n m)
+| OND_mul : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
+    OrigamiNum_deg (x * y) (Nat.max n m)
+| OND_inv : forall x n, OrigamiNum_deg x n -> x <> 0 ->
+    OrigamiNum_deg (/ x) n
+| OND_sqrt : forall x n, OrigamiNum_deg x n -> 0 <= x ->
+    OrigamiNum_deg (sqrt x) (2 * n)
+| OND_cbrt : forall a b r n m, OrigamiNum_deg a n -> OrigamiNum_deg b m ->
+    r * r * r + a * r + b = 0 ->
+    OrigamiNum_deg r (3 * Nat.max n m).
+
+(** OrigamiNum_deg implies OrigamiNum: forgetting degree information. *)
+Lemma OrigamiNum_deg_is_OrigamiNum : forall x n,
+  OrigamiNum_deg x n -> OrigamiNum x.
+Proof.
+  intros x n H. induction H.
+  - constructor.
+  - constructor.
+  - apply ON_add; assumption.
+  - apply ON_sub; assumption.
+  - apply ON_mul; assumption.
+  - apply ON_inv; assumption.
+  - apply ON_sqrt; assumption.
+  - apply (ON_cubic_root a b); assumption.
+Qed.
+
+(** Converse: every OrigamiNum has a tracked degree. *)
+Theorem OrigamiNum_has_deg : forall x, OrigamiNum x -> exists n, OrigamiNum_deg x n.
+Proof.
+  intros x H. induction H.
+  - exists 1%nat. constructor.
+  - exists 1%nat. constructor.
+  - destruct IHOrigamiNum1 as [n1 Hn1]. destruct IHOrigamiNum2 as [n2 Hn2].
+    exists (Nat.max n1 n2). apply OND_add; assumption.
+  - destruct IHOrigamiNum1 as [n1 Hn1]. destruct IHOrigamiNum2 as [n2 Hn2].
+    exists (Nat.max n1 n2). apply OND_sub; assumption.
+  - destruct IHOrigamiNum1 as [n1 Hn1]. destruct IHOrigamiNum2 as [n2 Hn2].
+    exists (Nat.max n1 n2). apply OND_mul; assumption.
+  - destruct IHOrigamiNum as [n Hn].
+    exists n. apply OND_inv; assumption.
+  - destruct IHOrigamiNum as [n Hn].
+    exists (2 * n)%nat. apply OND_sqrt; assumption.
+  - destruct IHOrigamiNum1 as [n1 Hn1]. destruct IHOrigamiNum2 as [n2 Hn2].
+    exists (3 * Nat.max n1 n2)%nat. apply (OND_cbrt a b); assumption.
+Qed.
+
 Definition GoodPoint (p : Point) : Prop :=
   OrigamiNum (fst p) /\ OrigamiNum (snd p).
 
@@ -3949,6 +4126,8 @@ Proof.
       destruct (Req_EM_T (A l1 * B l2 + B l1 * - A l2) 0).
       * apply perp_through_wf; apply ConstructibleLine_wf; assumption.
       * apply perp_bisector_wf.
+    + unfold fold_O5_vert; simpl. apply perp_bisector_wf.
+    + unfold fold_O6_beloch; simpl. apply beloch_fold_line_wf.
 Qed.
 
 Lemma ConstructibleFold_line_wf : forall f, ConstructibleFold f -> line_wf (fold_line f).
@@ -4123,6 +4302,60 @@ Proof.
   apply GoodLine_fold_O4; assumption.
 Qed.
 
+Lemma GoodPoint_O5_vert_image : forall p q c,
+  GoodPoint p -> GoodPoint q -> OrigamiNum c ->
+  O5_vert_valid p q c ->
+  GoodPoint (O5_vert_image p q c).
+Proof.
+  intros [px py] [qx qy] c [Hpx Hpy] [Hqx Hqy] Hc Hvalid.
+  unfold O5_vert_image, O5_vert_image_y. simpl.
+  split.
+  - exact Hc.
+  - apply ON_add.
+    + exact Hqy.
+    + apply ON_sqrt.
+      * set (d2 := (px - qx) * ((px - qx) * 1) + (py - qy) * ((py - qy) * 1)).
+        set (dx2 := (c - qx) * ((c - qx) * 1)).
+        assert (Hd2_num : OrigamiNum d2).
+        { unfold d2.
+          apply ON_add; apply ON_mul; try apply ON_mul; try apply ON_sub; try constructor; assumption. }
+        assert (Hdx2_num : OrigamiNum dx2).
+        { unfold dx2.
+          apply ON_mul; try apply ON_mul; try apply ON_sub; try constructor; assumption. }
+        apply ON_sub; assumption.
+      * unfold O5_vert_valid in Hvalid. simpl in Hvalid.
+        replace ((px - qx) * ((px - qx) * 1)) with ((px - qx)^2) by ring.
+        replace ((py - qy) * ((py - qy) * 1)) with ((py - qy)^2) by ring.
+        replace ((c - qx) * ((c - qx) * 1)) with ((c - qx)^2) by ring.
+        lra.
+Qed.
+
+Lemma GoodFold_O5_vert : forall p q c,
+  GoodPoint p -> GoodPoint q -> OrigamiNum c ->
+  O5_vert_valid p q c ->
+  GoodFold (fold_O5_vert p q c).
+Proof.
+  intros p q c Hp Hq Hc Hvalid.
+  unfold GoodFold, fold_O5_vert. simpl.
+  apply GoodLine_perp_bisector.
+  - exact Hp.
+  - apply GoodPoint_O5_vert_image; assumption.
+Qed.
+
+Lemma GoodFold_O6_beloch : forall p q t,
+  OrigamiNum p -> OrigamiNum q ->
+  t * t * t + p * t + q = 0 ->
+  GoodFold (fold_O6_beloch p q t).
+Proof.
+  intros p q t Hp Hq Hcubic.
+  assert (Ht : OrigamiNum t) by (apply (ON_cubic_root p q t Hp Hq Hcubic)).
+  unfold GoodFold, fold_O6_beloch, beloch_fold_line; simpl.
+  repeat split.
+  - exact Ht.
+  - apply Origami_neg. constructor.
+  - apply Origami_neg. apply ON_mul; assumption.
+Qed.
+
 Fixpoint ConstructiblePoint_good (p : Point) (Hp : ConstructiblePoint p) {struct Hp} : GoodPoint p :=
   match Hp in ConstructiblePoint p0 return GoodPoint p0 with
   | CP_O => GoodPoint_O
@@ -4179,11 +4412,22 @@ with ConstructibleFold_good (f : Fold) (Hf : ConstructibleFold f) {struct Hf} : 
         (ConstructibleLine_good l1 Hl1)
         (ConstructiblePoint_good p2 Hp2)
         (ConstructibleLine_good l2 Hl2)
-  | CF_O7 p1 l1 l2 Hp1 Hl1 Hl2 => 
-      GoodFold_O7 p1 l1 l2 
-        (ConstructiblePoint_good p1 Hp1) 
-        (ConstructibleLine_good l1 Hl1) 
+  | CF_O7 p1 l1 l2 Hp1 Hl1 Hl2 =>
+      GoodFold_O7 p1 l1 l2
+        (ConstructiblePoint_good p1 Hp1)
+        (ConstructibleLine_good l1 Hl1)
         (ConstructibleLine_good l2 Hl2)
+  | CF_O5_vert p q c Hp Hq Hc Hvalid =>
+      GoodFold_O5_vert p q c
+        (ConstructiblePoint_good p Hp)
+        (ConstructiblePoint_good q Hq)
+        (proj1 (ConstructiblePoint_good (c, 0) Hc))
+        Hvalid
+  | CF_O6_beloch p q t Hp Hq Hcubic =>
+      GoodFold_O6_beloch p q t
+        (proj1 (ConstructiblePoint_good (p, 0) Hp))
+        (proj1 (ConstructiblePoint_good (q, 0) Hq))
+        Hcubic
   end.
 
 (** Completeness theorem: Constructible points have OrigamiNum coordinates. *)
@@ -5077,11 +5321,455 @@ Proof.
   - apply horizontal_at_constructible. apply construct_point_0_1.
 Qed.
 
-(** sqrt requires O5 geometric mean construction. *)
-Hypothesis sqrt_xaxis_constructible : forall x,
-  0 <= x -> ConstructiblePoint (x, 0) -> ConstructiblePoint (sqrt x, 0).
+(** Intersection of vertical at x with horizontal at y gives (x, y). *)
+Lemma intersection_vert_at_horiz_at : forall x y,
+  line_intersection (perp_through (x, 0) line_xaxis) (perp_through (0, y) line_yaxis) = (x, y).
+Proof.
+  intros x y.
+  unfold line_intersection, perp_through, line_xaxis, line_yaxis. simpl.
+  match goal with |- context [Req_EM_T ?e 0] => destruct (Req_EM_T e 0) as [H|Hne] end.
+  - exfalso. lra.
+  - unfold Rdiv. f_equal; field; lra.
+Qed.
 
-(** EuclidNum implies ConstructibleR (modulo sqrt hypothesis). *)
+(** Construct point (x, y) from (x, 0) and (0, y). *)
+Lemma point_xy_constructible : forall x y,
+  ConstructiblePoint (x, 0) -> ConstructiblePoint (0, y) ->
+  ConstructiblePoint (x, y).
+Proof.
+  intros x y Hx Hy.
+  rewrite <- intersection_vert_at_horiz_at.
+  apply CP_inter.
+  - apply vertical_at_constructible. exact Hx.
+  - apply horizontal_at_constructible. exact Hy.
+Qed.
+
+Lemma construct_1_plus_x : forall x,
+  ConstructiblePoint (x, 0) -> ConstructiblePoint (1 + x, 0).
+Proof.
+  intros x Hx.
+  replace (1 + x) with (x + 1) by ring.
+  apply add_xaxis_constructible; [exact Hx | constructor].
+Qed.
+
+Lemma construct_2_0 : ConstructiblePoint (2, 0).
+Proof.
+  replace 2 with (1 + 1) by ring.
+  apply construct_1_plus_x. constructor.
+Qed.
+
+Definition line_vert_2 : Line := perp_through (2, 0) line_xaxis.
+
+Lemma line_vert_2_wf : line_wf line_vert_2.
+Proof.
+  unfold line_vert_2. apply perp_through_wf. exact line_xaxis_wf.
+Qed.
+
+Lemma line_vert_2_constructible : ConstructibleLine line_vert_2.
+Proof.
+  unfold line_vert_2.
+  rewrite <- fold_line_O4.
+  apply CL_fold. apply CF_O4.
+  - exact construct_2_0.
+  - apply CL_x.
+Qed.
+
+Definition satisfies_O5_constraint (f : Fold) (p : Point) (l : Line) (q : Point) : Prop :=
+  on_line q (fold_line f) /\ on_line (reflect_point p (fold_line f)) l.
+
+Lemma geometric_mean_fold_line : forall x,
+  0 < x ->
+  let fold_ln := line_through (1 + x, 0) (1, sqrt x) in
+  on_line (1, sqrt x) fold_ln.
+Proof.
+  intros x Hpos fold_ln.
+  unfold fold_ln.
+  apply line_through_on_line_snd.
+Qed.
+
+Lemma geometric_mean_point_wf : forall x,
+  0 < x -> (1, sqrt x) <> (1 + x, 0).
+Proof.
+  intros x Hpos Heq.
+  injection Heq as H1 H2.
+  assert (Hsqrt_pos: sqrt x > 0) by (apply sqrt_lt_R0; lra).
+  lra.
+Qed.
+
+Lemma geometric_mean_line_wf : forall x,
+  0 < x -> line_wf (line_through (1 + x, 0) (1, sqrt x)).
+Proof.
+  intros x Hpos.
+  apply line_through_wf.
+Qed.
+
+Lemma geometric_mean_line_form : forall x,
+  0 < x ->
+  line_through (1 + x, 0) (1, sqrt x) =
+  {| A := - sqrt x; B := - x; C := (1 + x) * sqrt x |}.
+Proof.
+  intros x Hpos.
+  unfold line_through. simpl.
+  destruct (Req_EM_T (1 + x) 1) as [Heq|Hneq].
+  - exfalso. lra.
+  - f_equal; ring.
+Qed.
+
+Lemma reflect_origin_geometric_mean : forall x,
+  0 < x ->
+  reflect_point (0, 0) (line_through (1 + x, 0) (1, sqrt x)) = (2, 2 * sqrt x).
+Proof.
+  intros x Hpos.
+  rewrite geometric_mean_line_form by lra.
+  unfold reflect_point. simpl.
+  assert (Hsqrt_sq: sqrt x * sqrt x = x) by (apply sqrt_sqrt; lra).
+  assert (Hdenom: (- sqrt x) * (- sqrt x) + (- x) * (- x) = x + x * x).
+  { replace ((- sqrt x) * (- sqrt x)) with (sqrt x * sqrt x) by ring.
+    rewrite Hsqrt_sq. ring. }
+  assert (Hdenom_pos: x + x * x > 0) by nra.
+  assert (Hdenom_nz: x + x * x <> 0) by lra.
+  assert (Hx_nz: x <> 0) by lra.
+  assert (Hfactor: ((- sqrt x) * 0 + (- x) * 0 + (1 + x) * sqrt x) / (x + x * x) = sqrt x / x).
+  { replace ((- sqrt x) * 0 + (- x) * 0 + (1 + x) * sqrt x) with ((1 + x) * sqrt x) by ring.
+    replace (x + x * x) with (x * (1 + x)) by ring.
+    field. lra. }
+  rewrite Hdenom. rewrite Hfactor.
+  assert (Hgoal_x: 0 - 2 * (- sqrt x) * (sqrt x / x) = 2).
+  { replace (0 - 2 * (- sqrt x) * (sqrt x / x)) with (2 * (sqrt x * sqrt x) / x) by (field; lra).
+    rewrite Hsqrt_sq. field. lra. }
+  assert (Hgoal_y: 0 - 2 * (- x) * (sqrt x / x) = 2 * sqrt x).
+  { replace (0 - 2 * (- x) * (sqrt x / x)) with (2 * sqrt x) by (field; lra).
+    reflexivity. }
+  f_equal; lra.
+Qed.
+
+(** Construction of sqrt on x-axis using geometric mean.
+    For x > 0, we use the fact that the line through (1+x, 0) and (1, sqrt x)
+    reflects the origin to (2, 2*sqrt x). We then project to get sqrt x. *)
+
+Lemma construct_1_plus_x_point : forall x,
+  ConstructiblePoint (x, 0) -> ConstructiblePoint (1 + x, 0).
+Proof.
+  intros x Hx.
+  apply add_xaxis_constructible.
+  - constructor.
+  - exact Hx.
+Qed.
+
+Lemma construct_neg1_0 : ConstructiblePoint (-1, 0).
+Proof.
+  apply neg_xaxis_constructible. constructor.
+Qed.
+
+Lemma construct_0_1 : ConstructiblePoint (0, 1).
+Proof.
+  exact construct_point_0_1.
+Qed.
+
+Lemma line_through_0_1_x_0 : forall x,
+  x <> 0 ->
+  line_through (0, 1) (x, 0) = {| A := 1; B := x; C := -x |}.
+Proof.
+  intros x Hxnz.
+  unfold line_through. simpl.
+  destruct (Req_EM_T 0 x) as [H|_]; [exfalso; lra|].
+  f_equal; ring.
+Qed.
+
+Lemma line_0_1_to_x_0_constructible : forall x,
+  ConstructiblePoint (x, 0) ->
+  ConstructibleLine (line_through (0, 1) (x, 0)).
+Proof.
+  intros x Hx.
+  rewrite <- fold_line_O1. apply CL_fold. apply CF_O1.
+  - exact construct_0_1.
+  - exact Hx.
+Qed.
+
+Lemma perp_at_1_0_to_line_constructible : forall x,
+  ConstructiblePoint (x, 0) ->
+  ConstructibleLine (perp_through (1, 0) (line_through (0, 1) (x, 0))).
+Proof.
+  intros x Hx.
+  rewrite <- fold_line_O4. apply CL_fold. apply CF_O4.
+  - exact construct_point_1_0.
+  - apply line_0_1_to_x_0_constructible. exact Hx.
+Qed.
+
+Lemma perp_through_1_0_line_form : forall x,
+  x <> 0 ->
+  perp_through (1, 0) (line_through (0, 1) (x, 0)) = {| A := x; B := -1; C := -x |}.
+Proof.
+  intros x Hxnz.
+  rewrite line_through_0_1_x_0 by assumption.
+  unfold perp_through. simpl.
+  destruct (Req_EM_T 1 0) as [H|_]; [lra|].
+  f_equal; ring.
+Qed.
+
+Lemma intersection_two_lines_formula : forall x,
+  x <> 0 ->
+  line_intersection (line_through (0, 1) (x, 0)) (perp_through (1, 0) (line_through (0, 1) (x, 0)))
+  = (x * (1 + x) / (1 + x * x), x * (x - 1) / (1 + x * x)).
+Proof.
+  intros x Hxnz.
+  rewrite perp_through_1_0_line_form by assumption.
+  rewrite line_through_0_1_x_0 by assumption.
+  unfold line_intersection. simpl.
+  assert (Hdenom: 1 * (-1) - x * x <> 0).
+  { assert (H: 1 + x * x > 0) by (apply Rplus_lt_le_0_compat; [lra | apply Rle_0_sqr]).
+    lra. }
+  destruct (Req_EM_T (1 * -1 - x * x) 0) as [H|_]; [contradiction|].
+  assert (Hdenompos: 1 + x * x > 0) by (apply Rplus_lt_le_0_compat; [lra | apply Rle_0_sqr]).
+  f_equal.
+  - unfold Rdiv. field. lra.
+  - unfold Rdiv. field. lra.
+Qed.
+
+(** For the sqrt construction, we need a correct O5 implementation.
+    O5: Given point p, line l, point q, find fold through q that reflects p onto l.
+    The fold is the perpendicular bisector of p and p', where p' is on l
+    at distance dist(q,p) from q. *)
+
+Definition O5_image_y (px py qx qy lx : R) : R :=
+  let d := sqrt ((px - qx)^2 + (py - qy)^2) in
+  let dx := lx - qx in
+  qy + sqrt (d^2 - dx^2).
+
+Definition fold_O5_correct (p : Point) (l_vertical_x : R) (q : Point) : Line :=
+  let qx := fst q in
+  let qy := snd q in
+  let px := fst p in
+  let py := snd p in
+  let d := sqrt ((px - qx)^2 + (py - qy)^2) in
+  let dx := l_vertical_x - qx in
+  let p'y := qy + sqrt (d^2 - dx^2) in
+  let p' := (l_vertical_x, p'y) in
+  perp_bisector p p'.
+
+Lemma sqrt_4_eq : sqrt 4 = 2.
+Proof.
+  replace 4 with (2 * 2) by ring.
+  rewrite sqrt_square; lra.
+Qed.
+
+Lemma sqrt_O5_image_point : forall x,
+  0 < x ->
+  O5_image_y 0 0 (1 + x) 0 2 = 2 * sqrt x.
+Proof.
+  intros x Hpos.
+  unfold O5_image_y.
+  replace ((0 - (1 + x)) ^ 2 + (0 - 0) ^ 2) with ((1 + x) ^ 2) by ring.
+  rewrite sqrt_pow2 by lra.
+  replace (2 - (1 + x)) with (1 - x) by ring.
+  replace ((1 + x) ^ 2 - (1 - x) ^ 2) with (4 * x) by ring.
+  rewrite sqrt_mult by lra.
+  rewrite sqrt_4_eq.
+  ring.
+Qed.
+
+Lemma fold_O5_sqrt_image : forall x,
+  0 < x ->
+  let p'y := 0 + sqrt (sqrt ((0 - (1+x))^2 + (0-0)^2) * (sqrt ((0 - (1+x))^2 + (0-0)^2) * 1) - (2 - (1+x)) * ((2 - (1+x)) * 1)) in
+  p'y = 2 * sqrt x.
+Proof.
+  intros x Hpos p'y.
+  unfold p'y.
+  replace ((0 - (1 + x)) ^ 2 + (0 - 0) ^ 2) with ((1 + x) ^ 2) by ring.
+  rewrite sqrt_pow2 by lra.
+  replace ((1 + x) * ((1 + x) * 1)) with ((1 + x)^2) by ring.
+  replace (2 - (1 + x)) with (1 - x) by ring.
+  replace ((1 - x) * ((1 - x) * 1)) with ((1 - x)^2) by ring.
+  replace ((1 + x) ^ 2 - (1 - x) ^ 2) with (4 * x) by ring.
+  rewrite sqrt_mult by lra.
+  rewrite sqrt_4_eq.
+  lra.
+Qed.
+
+(** The O5 axiom asserts: given point p, line l, and point q,
+    there exists a fold through q that places p onto l.
+    This is a primitive origami operation. The fold is the perpendicular
+    bisector of p and its image on l (found by circle-line intersection).
+    We formalize this as constructibility of the resulting line. *)
+
+(** Main sqrt construction using geometric mean / O5.
+    The O5 axiom asserts: given p, l, q, there exists a fold through q
+    that places p onto l. This is a PRIMITIVE origami operation.
+
+    The fold is perp_bisector(p, p') where p' is on l at distance dist(q,p) from q.
+    The fold doesn't require computing p' explicitly - the paper "finds" it.
+
+    For our sqrt construction:
+    - p = (0,0), l = line x=2, q = (1+x, 0)
+    - The O5 fold reflects (0,0) to (2, 2*sqrt(x))
+    - This gives us (2, 2*sqrt(x)) constructible from the fold
+
+    We formalize this via CF_O5 asserting the fold is constructible,
+    and the reflected point is constructible via CP_map. *)
+
+(** Correct O5 fold line for the sqrt construction. *)
+Definition O5_sqrt_fold_line (x : R) : Line :=
+  perp_bisector (0, 0) (2, 2 * sqrt x).
+
+Lemma O5_sqrt_fold_passes_through_1px : forall x,
+  0 < x ->
+  on_line (1 + x, 0) (O5_sqrt_fold_line x).
+Proof.
+  intros x Hpos.
+  unfold O5_sqrt_fold_line, on_line, perp_bisector. simpl.
+  destruct (Req_EM_T 0 2) as [H|_]; [lra|].
+  assert (Hsqrt_pos: 0 < sqrt x) by (apply sqrt_lt_R0; lra).
+  destruct (Req_EM_T 0 (2 * sqrt x)) as [H|_]; [lra|].
+  simpl.
+  replace (2 * (2 - 0)) with 4 by ring.
+  replace (2 * (2 * sqrt x - 0)) with (4 * sqrt x) by ring.
+  replace (0 * 0 + 0 * 0 - 2 * 2 - 2 * sqrt x * (2 * sqrt x)) with (- 4 - 4 * (sqrt x * sqrt x)) by ring.
+  rewrite sqrt_sqrt by lra.
+  ring.
+Qed.
+
+Lemma O5_sqrt_fold_reflects_origin : forall x,
+  0 < x ->
+  reflect_point (0, 0) (O5_sqrt_fold_line x) = (2, 2 * sqrt x).
+Proof.
+  intros x Hpos.
+  unfold O5_sqrt_fold_line.
+  apply perp_bisector_reflection.
+  assert (Hsqrt_pos: 0 < sqrt x) by (apply sqrt_lt_R0; lra).
+  intro H. injection H as H1 H2. lra.
+Qed.
+
+(** The O5 fold line is constructible via the O5 axiom.
+    We express this using the existing CF_O5 + the fact that
+    fold_O5 and O5_sqrt_fold_line have the same geometric meaning
+    (both are folds through (1+x,0) placing (0,0) onto line x=2). *)
+
+(** O5 axiom: The image (2, 2*sqrt(x)) of (0,0) under the O5 fold through (1+x,0)
+    placing (0,0) onto line x=2 is constructible. This is a primitive origami operation. *)
+
+Lemma O5_sqrt_validity : forall x,
+  0 < x -> O5_vert_valid (0, 0) (1 + x, 0) 2.
+Proof.
+  intros x Hpos.
+  unfold O5_vert_valid. simpl.
+  unfold pow. simpl.
+  assert (H: (2 - (1 + x)) * ((2 - (1 + x)) * 1) <=
+             (0 - (1 + x)) * ((0 - (1 + x)) * 1) + (0 - 0) * ((0 - 0) * 1)).
+  { nra. }
+  exact H.
+Qed.
+
+Lemma O5_vert_image_eq_sqrt : forall x,
+  0 < x ->
+  O5_vert_image (0, 0) (1 + x, 0) 2 = (2, 2 * sqrt x).
+Proof.
+  intros x Hpos.
+  unfold O5_vert_image, O5_vert_image_y. simpl.
+  f_equal.
+  replace ((0 - (1 + x)) * ((0 - (1 + x)) * 1) + (0 - 0) * ((0 - 0) * 1))
+    with ((1 + x)^2) by ring.
+  replace ((2 - (1 + x)) * ((2 - (1 + x)) * 1)) with ((1 - x)^2) by ring.
+  replace ((1 + x) ^ 2 - (1 - x) ^ 2) with (4 * x) by ring.
+  rewrite sqrt_4x_eq by lra.
+  ring.
+Qed.
+
+Lemma fold_O5_vert_eq_sqrt : forall x,
+  0 < x ->
+  fold_line (fold_O5_vert (0, 0) (1 + x, 0) 2) = O5_sqrt_fold_line x.
+Proof.
+  intros x Hpos.
+  unfold fold_O5_vert, O5_sqrt_fold_line, fold_line.
+  f_equal.
+  apply O5_vert_image_eq_sqrt. lra.
+Qed.
+
+Lemma O5_image_constructible : forall x,
+  0 < x ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (2, 2 * sqrt x).
+Proof.
+  intros x Hpos Hx.
+  assert (Hq: ConstructiblePoint (1 + x, 0)).
+  { apply construct_1_plus_x. exact Hx. }
+  assert (Hc: ConstructiblePoint (2, 0)) by exact construct_2_0.
+  assert (Hvalid: O5_vert_valid (0, 0) (1 + x, 0) 2) by (apply O5_sqrt_validity; lra).
+  assert (Hfold: ConstructibleFold (fold_O5_vert (0, 0) (1 + x, 0) 2)).
+  { apply CF_O5_vert; [constructor | exact Hq | exact Hc | exact Hvalid]. }
+  assert (Himg_eq: map_point (fold_O5_vert (0, 0) (1 + x, 0) 2) (0, 0) = (2, 2 * sqrt x)).
+  { unfold map_point. rewrite fold_O5_vert_eq_sqrt by lra.
+    apply O5_sqrt_fold_reflects_origin. lra. }
+  rewrite <- Himg_eq.
+  apply CP_map.
+  - exact Hfold.
+  - constructor.
+Qed.
+
+Lemma sqrt_xaxis_constructible_pos : forall x,
+  0 < x ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (sqrt x, 0).
+Proof.
+  intros x Hpos Hx.
+  assert (H2sqrtx_0: ConstructiblePoint (2 * sqrt x, 0)).
+  { apply swap_coords_constructible.
+    apply project_to_yaxis with (a := 2).
+    apply O5_image_constructible; assumption. }
+  replace (sqrt x) with ((2 * sqrt x) / 2) by (field; lra).
+  apply div_xaxis_constructible; [lra | exact H2sqrtx_0 | exact construct_2_0].
+Qed.
+
+Lemma sqrt_xaxis_constructible : forall x,
+  0 <= x ->
+  ConstructiblePoint (x, 0) ->
+  ConstructiblePoint (sqrt x, 0).
+Proof.
+  intros x Hpos Hx.
+  destruct (Req_dec x 0) as [Hx0 | Hxpos].
+  - subst. replace (sqrt 0) with 0 by (symmetry; apply sqrt_0). constructor.
+  - apply sqrt_xaxis_constructible_pos; [lra | exact Hx].
+Qed.
+
+(** Beloch fold line intersects x-axis at (t, 0) when t ≠ 0 *)
+Lemma beloch_fold_xaxis_intersection : forall t,
+  t <> 0 ->
+  line_intersection (beloch_fold_line t) line_xaxis = (t, 0).
+Proof.
+  intros t Ht.
+  unfold line_intersection, beloch_fold_line, line_xaxis; simpl.
+  assert (Hsimp: t * 1 - -1 * 0 = t) by ring.
+  destruct (Req_EM_T (t * 1 - -1 * 0) 0) as [Heq|_].
+  - rewrite Hsimp in Heq. contradiction.
+  - assert (Hsimp2: t * 1 - 0 * -1 = t) by ring.
+    destruct (Req_dec_T (t * 1 - 0 * -1) 0) as [Heq2|_].
+    + rewrite Hsimp2 in Heq2. contradiction.
+    + apply injective_projections; simpl; unfold Rdiv.
+      * replace (- - (t * t) * 1 - - 0 * -1) with (t * t) by ring.
+        rewrite Hsimp2. field. lra.
+      * replace (t * - 0 - 0 * - - (t * t)) with 0 by ring.
+        ring.
+Qed.
+
+(** Cubic roots are constructible via O6 (Beloch fold) *)
+Lemma cubic_root_xaxis_constructible : forall p q t,
+  t <> 0 ->
+  ConstructiblePoint (p, 0) ->
+  ConstructiblePoint (q, 0) ->
+  t * t * t + p * t + q = 0 ->
+  ConstructiblePoint (t, 0).
+Proof.
+  intros p q t Ht Hp Hq Hcubic.
+  assert (Hfold_line_eq: fold_line (fold_O6_beloch p q t) = beloch_fold_line t).
+  { unfold fold_O6_beloch, fold_line. reflexivity. }
+  assert (Hintersect: line_intersection (fold_line (fold_O6_beloch p q t)) line_xaxis = (t, 0)).
+  { rewrite Hfold_line_eq. apply beloch_fold_xaxis_intersection. exact Ht. }
+  rewrite <- Hintersect.
+  apply CP_inter.
+  - apply CL_fold. apply CF_O6_beloch; assumption.
+  - apply CL_x.
+Qed.
+
+(** EuclidNum implies ConstructibleR. *)
 Theorem EuclidNum_implies_ConstructibleR : forall x,
   EuclidNum x -> ConstructibleR x.
 Proof.
@@ -5108,6 +5796,41 @@ Proof.
   - destruct IHEuclidNum as [y1 H1].
     exists 0. apply sqrt_xaxis_constructible; try assumption.
     apply (project_to_xaxis x y1). exact H1.
+Qed.
+
+(** OrigamiNum implies ConstructibleR - the full converse. *)
+Theorem OrigamiNum_implies_ConstructibleR : forall x,
+  OrigamiNum x -> ConstructibleR x.
+Proof.
+  intros x H. induction H.
+  - exists 0. constructor.
+  - exists 0. constructor.
+  - destruct IHOrigamiNum1 as [y1 H1]. destruct IHOrigamiNum2 as [y2 H2].
+    exists 0. apply add_xaxis_constructible.
+    + apply (project_to_xaxis x y1). exact H1.
+    + apply (project_to_xaxis y y2). exact H2.
+  - destruct IHOrigamiNum1 as [y1 H1]. destruct IHOrigamiNum2 as [y2 H2].
+    exists 0. apply sub_xaxis_constructible.
+    + apply (project_to_xaxis x y1). exact H1.
+    + apply (project_to_xaxis y y2). exact H2.
+  - destruct IHOrigamiNum1 as [y1 H1]. destruct IHOrigamiNum2 as [y2 H2].
+    exists 0. apply mul_xaxis_constructible.
+    + apply (project_to_xaxis x y1). exact H1.
+    + apply (project_to_xaxis y y2). exact H2.
+  - destruct IHOrigamiNum as [y1 H1].
+    exists 0. replace (/ x) with (1 / x) by (field; assumption).
+    apply div_xaxis_constructible; try assumption.
+    + constructor.
+    + apply (project_to_xaxis x y1). exact H1.
+  - destruct IHOrigamiNum as [y1 H1].
+    exists 0. apply sqrt_xaxis_constructible; try assumption.
+    apply (project_to_xaxis x y1). exact H1.
+  - destruct IHOrigamiNum1 as [ya Ha]. destruct IHOrigamiNum2 as [yb Hb].
+    destruct (Req_dec r 0) as [Hr0|Hrn0].
+    + subst r. exists 0. constructor.
+    + exists 0. apply cubic_root_xaxis_constructible with a b; try assumption.
+      * apply (project_to_xaxis a ya). exact Ha.
+      * apply (project_to_xaxis b yb). exact Hb.
 Qed.
 
 End Reverse_Completeness.
@@ -5871,39 +6594,6 @@ Proof.
   - exact (smooth_implies_origami_degree n).
 Qed.
 
-(** OrigamiNum with tracked extension degree. *)
-Inductive OrigamiNum_deg : R -> nat -> Prop :=
-| OND_0 : OrigamiNum_deg 0 1
-| OND_1 : OrigamiNum_deg 1 1
-| OND_add : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
-    OrigamiNum_deg (x + y) (Nat.max n m)
-| OND_sub : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
-    OrigamiNum_deg (x - y) (Nat.max n m)
-| OND_mul : forall x y n m, OrigamiNum_deg x n -> OrigamiNum_deg y m ->
-    OrigamiNum_deg (x * y) (Nat.max n m)
-| OND_inv : forall x n, OrigamiNum_deg x n -> x <> 0 ->
-    OrigamiNum_deg (/ x) n
-| OND_sqrt : forall x n, OrigamiNum_deg x n -> 0 <= x ->
-    OrigamiNum_deg (sqrt x) (2 * n)
-| OND_cbrt : forall a b r n m, OrigamiNum_deg a n -> OrigamiNum_deg b m ->
-    r * r * r + a * r + b = 0 ->
-    OrigamiNum_deg r (3 * Nat.max n m).
-
-(** OrigamiNum_deg implies OrigamiNum. *)
-Lemma OrigamiNum_deg_is_OrigamiNum : forall x n,
-  OrigamiNum_deg x n -> OrigamiNum x.
-Proof.
-  intros x n H. induction H.
-  - constructor.
-  - constructor.
-  - apply ON_add; assumption.
-  - apply ON_sub; assumption.
-  - apply ON_mul; assumption.
-  - apply ON_inv; assumption.
-  - apply ON_sqrt; assumption.
-  - apply (ON_cubic_root a b); assumption.
-Qed.
-
 (** Max of OrigamiDegrees is OrigamiDegree. *)
 Lemma OrigamiDegree_max : forall n m,
   OrigamiDegree n -> OrigamiDegree m -> OrigamiDegree (Nat.max n m).
@@ -6163,4 +6853,271 @@ Proof.
 Qed.
 
 End Main_Results.
-      
+
+Definition O5_general_image (p : Point) (l : Line) (q : Point) : Point :=
+  let px := fst p in let py := snd p in
+  let qx := fst q in let qy := snd q in
+  let a := A l in let b := B l in let c := C l in
+  let r2 := (px - qx)^2 + (py - qy)^2 in
+  let d := (a * qx + b * qy + c) / (a^2 + b^2) in
+  let h2 := r2 - d^2 * (a^2 + b^2) in
+  let t := sqrt h2 / sqrt (a^2 + b^2) in
+  let foot_x := qx - a * d in
+  let foot_y := qy - b * d in
+  (foot_x + b * t, foot_y - a * t).
+
+Definition O5_general_valid (p : Point) (l : Line) (q : Point) : Prop :=
+  let px := fst p in let py := snd p in
+  let qx := fst q in let qy := snd q in
+  let a := A l in let b := B l in let c := C l in
+  let r2 := (px - qx)^2 + (py - qy)^2 in
+  let dist_to_line := Rabs (a * qx + b * qy + c) / sqrt (a^2 + b^2) in
+  dist_to_line^2 <= r2.
+
+Definition fold_O5_general (p : Point) (l : Line) (q : Point) : Fold :=
+  let p' := O5_general_image p l q in
+  fold_line_ctor (perp_bisector p p').
+
+Lemma O5_general_image_on_line : forall p l q,
+  line_wf l -> on_line (O5_general_image p l q) l.
+Proof.
+  intros p l q Hwf.
+  unfold O5_general_image, on_line. simpl.
+  assert (Hnorm_pos : A l * A l + B l * B l > 0) by (apply line_norm_pos; exact Hwf).
+  assert (Hnorm_nz : A l * A l + B l * B l <> 0) by lra.
+  assert (Hsqrt_nz : sqrt (A l * (A l * 1) + B l * (B l * 1)) <> 0).
+  { replace (A l * (A l * 1) + B l * (B l * 1)) with (A l * A l + B l * B l) by ring.
+    apply Rgt_not_eq. apply sqrt_lt_R0. exact Hnorm_pos. }
+  field. split; assumption.
+Qed.
+
+Lemma Rabs_sqr_eq : forall x, Rabs x * Rabs x = x * x.
+Proof. intro x. rewrite <- Rabs_mult. rewrite Rabs_pos_eq; [ring | apply Rle_0_sqr]. Qed.
+
+Lemma O5_general_valid_h2_nonneg : forall p l q,
+  line_wf l -> O5_general_valid p l q ->
+  let a := A l in let b := B l in let c := C l in
+  let qx := fst q in let qy := snd q in
+  let px := fst p in let py := snd p in
+  let norm2 := a * a + b * b in
+  let d := (a * qx + b * qy + c) / norm2 in
+  let r2 := (px - qx)^2 + (py - qy)^2 in
+  0 <= r2 - d^2 * norm2.
+Proof.
+  intros p l q Hwf Hvalid.
+  simpl.
+  unfold O5_general_valid in Hvalid. simpl in Hvalid.
+  assert (Hnorm_pos : A l * A l + B l * B l > 0) by (apply line_norm_pos; exact Hwf).
+  assert (Hsqrt_sq : sqrt (A l * A l + B l * B l) * sqrt (A l * A l + B l * B l) = A l * A l + B l * B l).
+  { apply sqrt_sqrt. lra. }
+  replace (A l * (A l * 1) + B l * (B l * 1)) with (A l * A l + B l * B l) in Hvalid by ring.
+  replace ((fst p - fst q) * ((fst p - fst q) * 1) + (snd p - snd q) * ((snd p - snd q) * 1))
+    with ((fst p - fst q)^2 + (snd p - snd q)^2) in Hvalid by ring.
+  set (dist_line := Rabs (A l * fst q + B l * snd q + C l) / sqrt (A l * A l + B l * B l)) in Hvalid.
+  assert (Hdist_sq : dist_line * dist_line = (A l * fst q + B l * snd q + C l)^2 / (A l * A l + B l * B l)).
+  { unfold dist_line, Rdiv.
+    replace (Rabs (A l * fst q + B l * snd q + C l) * / sqrt (A l * A l + B l * B l) *
+             (Rabs (A l * fst q + B l * snd q + C l) * / sqrt (A l * A l + B l * B l)))
+      with ((Rabs (A l * fst q + B l * snd q + C l) * Rabs (A l * fst q + B l * snd q + C l)) *
+            (/ sqrt (A l * A l + B l * B l) * / sqrt (A l * A l + B l * B l))) by ring.
+    rewrite Rabs_sqr_eq.
+    rewrite <- Rinv_mult.
+    rewrite Hsqrt_sq. ring. }
+  replace (dist_line * (dist_line * 1)) with (dist_line * dist_line) in Hvalid by ring.
+  rewrite Hdist_sq in Hvalid.
+  assert (Hineq: (A l * fst q + B l * snd q + C l) ^ 2 <=
+                 ((fst p - fst q) ^ 2 + (snd p - snd q) ^ 2) * (A l * A l + B l * B l)).
+  { apply Rmult_le_reg_r with (/ (A l * A l + B l * B l)).
+    - apply Rinv_0_lt_compat. lra.
+    - rewrite Rmult_assoc. rewrite Rinv_r by lra. rewrite Rmult_1_r.
+      unfold Rdiv in Hvalid. exact Hvalid. }
+  replace (((A l * fst q + B l * snd q + C l) / (A l * A l + B l * B l)) ^ 2 *
+           (A l * A l + B l * B l))
+    with ((A l * fst q + B l * snd q + C l) ^ 2 / (A l * A l + B l * B l)) by (field; lra).
+  assert (H1: (A l * fst q + B l * snd q + C l) ^ 2 / (A l * A l + B l * B l) <=
+              (fst p - fst q) ^ 2 + (snd p - snd q) ^ 2).
+  { apply Rmult_le_reg_r with (A l * A l + B l * B l).
+    - lra.
+    - unfold Rdiv. rewrite Rmult_assoc. rewrite Rinv_l by lra. rewrite Rmult_1_r.
+      replace ((fst p - fst q) ^ 2 + (snd p - snd q) ^ 2) with
+              (((fst p - fst q) ^ 2 + (snd p - snd q) ^ 2)) by ring.
+      replace ((A l * fst q + B l * snd q + C l) ^ 2) with
+              ((fst q * A l + B l * snd q + C l) ^ 2) by ring.
+      rewrite Rmult_comm. exact Hineq. }
+  replace ((fst p - fst q) * ((fst p - fst q) * 1) + (snd p - snd q) * ((snd p - snd q) * 1))
+    with ((fst p - fst q) ^ 2 + (snd p - snd q) ^ 2) by ring.
+  set (expr := (A l * fst q + B l * snd q + C l) / (A l * A l + B l * B l)).
+  replace (expr * (expr * 1)) with (expr ^ 2) by ring.
+  unfold expr.
+  replace (((A l * fst q + B l * snd q + C l) / (A l * A l + B l * B l)) ^ 2)
+    with ((A l * fst q + B l * snd q + C l) ^ 2 / (A l * A l + B l * B l) ^ 2).
+  2: { unfold Rdiv. rewrite Rpow_mult_distr. rewrite Rinv_pow by lra. reflexivity. }
+  replace ((A l * A l + B l * B l) ^ 2) with ((A l * A l + B l * B l) * (A l * A l + B l * B l)) by ring.
+  unfold Rdiv.
+  rewrite Rinv_mult.
+  replace ((A l * fst q + B l * snd q + C l) ^ 2 * (/ (A l * A l + B l * B l) * / (A l * A l + B l * B l)) *
+           (A l * A l + B l * B l))
+    with ((A l * fst q + B l * snd q + C l) ^ 2 * / (A l * A l + B l * B l)).
+  2: { field. lra. }
+  lra.
+Qed.
+
+Lemma sqrt_div_sq : forall x y,
+  0 <= x -> 0 < y ->
+  (sqrt x / sqrt y) * (sqrt x / sqrt y) = x / y.
+Proof.
+  intros x y Hx Hy.
+  assert (Hsqrt_x : sqrt x * sqrt x = x) by (apply sqrt_sqrt; lra).
+  assert (Hsqrt_y : sqrt y * sqrt y = y) by (apply sqrt_sqrt; lra).
+  assert (Hsqrt_y_nz : sqrt y <> 0) by (apply Rgt_not_eq; apply sqrt_lt_R0; lra).
+  unfold Rdiv.
+  replace (sqrt x * / sqrt y * (sqrt x * / sqrt y))
+    with ((sqrt x * sqrt x) * (/ sqrt y * / sqrt y)) by ring.
+  rewrite Hsqrt_x, <- Rinv_mult, Hsqrt_y.
+  reflexivity.
+Qed.
+
+Lemma O5_algebraic_identity : forall a b d t norm2 h2,
+  norm2 = a * a + b * b ->
+  norm2 > 0 ->
+  t * t = h2 / norm2 ->
+  (- a * d + b * t) * (- a * d + b * t) + (- b * d - a * t) * (- b * d - a * t) =
+  norm2 * (d * d) + h2.
+Proof.
+  intros a b d t norm2 h2 Hnorm2 Hpos Ht2.
+  replace ((- a * d + b * t) * (- a * d + b * t) + (- b * d - a * t) * (- b * d - a * t))
+    with (norm2 * (d * d) + norm2 * (t * t)) by (rewrite Hnorm2; ring).
+  rewrite Ht2.
+  field. lra.
+Qed.
+
+Lemma O5_h2_from_valid : forall px py qx qy l,
+  line_wf l ->
+  O5_general_valid (px, py) l (qx, qy) ->
+  0 <= (px - qx) * (px - qx) + (py - qy) * (py - qy) -
+       ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l)) *
+       ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l)) *
+       (A l * A l + B l * B l).
+Proof.
+  intros px py qx qy l Hwf Hvalid.
+  pose proof (O5_general_valid_h2_nonneg (px, py) l (qx, qy) Hwf Hvalid) as H.
+  simpl in H.
+  replace (A l ^ 2 + B l ^ 2) with (A l * A l + B l * B l) in H by ring.
+  replace ((px - qx) ^ 2 + (py - qy) ^ 2)
+    with ((px - qx) * (px - qx) + (py - qy) * (py - qy)) in H by ring.
+  replace (((A l * qx + B l * qy + C l) / (A l * A l + B l * B l)) ^ 2)
+    with (((A l * qx + B l * qy + C l) / (A l * A l + B l * B l)) *
+          ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l))) in H by ring.
+  replace ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l) *
+           ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l) * 1))
+    with (((A l * qx + B l * qy + C l) / (A l * A l + B l * B l)) *
+          ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l))) in H by ring.
+  replace ((px - qx) * ((px - qx) * 1) + (py - qy) * ((py - qy) * 1))
+    with ((px - qx) * (px - qx) + (py - qy) * (py - qy)) in H by ring.
+  exact H.
+Qed.
+
+Lemma O5_dist2_eq : forall px py qx qy l,
+  line_wf l -> O5_general_valid (px, py) l (qx, qy) ->
+  let a := A l in let b := B l in let cc := C l in
+  let norm2 := a * a + b * b in
+  let d := (a * qx + b * qy + cc) / norm2 in
+  let r2 := (px - qx) * (px - qx) + (py - qy) * (py - qy) in
+  let h2 := r2 - d * d * norm2 in
+  let t := sqrt h2 / sqrt norm2 in
+  (- a * d + b * t) * (- a * d + b * t) + (- b * d - a * t) * (- b * d - a * t) = r2.
+Proof.
+  intros px py qx qy l Hwf Hvalid. simpl.
+  set (a := A l). set (b := B l). set (cc := C l).
+  set (norm2 := a * a + b * b).
+  assert (Hnorm_pos : norm2 > 0) by (unfold norm2, a, b; apply line_norm_pos; exact Hwf).
+  set (d := (a * qx + b * qy + cc) / norm2).
+  set (r2 := (px - qx) * (px - qx) + (py - qy) * (py - qy)).
+  set (h2 := r2 - d * d * norm2).
+  assert (Hh2_pos : 0 <= h2).
+  { unfold h2, r2, d, norm2, a, b, cc.
+    apply (O5_h2_from_valid px py qx qy l Hwf Hvalid). }
+  set (t := sqrt h2 / sqrt norm2).
+  assert (Ht2 : t * t = h2 / norm2) by (unfold t; apply sqrt_div_sq; lra).
+  rewrite (O5_algebraic_identity a b d t norm2 h2 eq_refl Hnorm_pos Ht2).
+  unfold h2, r2. ring.
+Qed.
+
+Lemma O5_general_image_equidistant : forall p l q,
+  line_wf l -> O5_general_valid p l q ->
+  dist q (O5_general_image p l q) = dist q p.
+Proof.
+  intros [px py] l [qx qy] Hwf Hvalid.
+  unfold dist, O5_general_image, dist2, sqr. simpl.
+  f_equal.
+  pose proof (O5_dist2_eq px py qx qy l Hwf Hvalid) as H. simpl in H.
+  replace (A l * (A l * 1) + B l * (B l * 1)) with (A l * A l + B l * B l) by ring.
+  replace ((px - qx) * ((px - qx) * 1) + (py - qy) * ((py - qy) * 1))
+    with ((px - qx) * (px - qx) + (py - qy) * (py - qy)) by ring.
+  replace ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l) *
+           ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l) * 1))
+    with ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l) *
+          ((A l * qx + B l * qy + C l) / (A l * A l + B l * B l))) by ring.
+  set (a := A l). set (b := B l). set (cc := C l).
+  set (norm2 := a * a + b * b).
+  set (d := (a * qx + b * qy + cc) / norm2).
+  set (r2 := (px - qx) * (px - qx) + (py - qy) * (py - qy)).
+  set (h2 := r2 - d * d * norm2).
+  set (t := sqrt h2 / sqrt norm2).
+  replace ((qx - (qx - a * d + b * t)) * (qx - (qx - a * d + b * t)) +
+           (qy - (qy - b * d - a * t)) * (qy - (qy - b * d - a * t)))
+    with ((- a * d + b * t) * (- a * d + b * t) + (- b * d - a * t) * (- b * d - a * t)) by ring.
+  replace ((qx - px) * (qx - px) + (qy - py) * (qy - py))
+    with ((px - qx) * (px - qx) + (py - qy) * (py - qy)) by ring.
+  unfold a, b, cc, norm2, d, r2, h2, t.
+  exact H.
+Qed.
+
+Lemma equidistant_on_perp_bisector : forall p1 p2 q,
+  p1 <> p2 ->
+  dist q p1 = dist q p2 ->
+  on_line q (perp_bisector p1 p2).
+Proof.
+  intros [x1 y1] [x2 y2] [qx qy] Hneq Hdist.
+  unfold on_line, perp_bisector, dist, dist2, sqr in *. simpl in *.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx].
+  - subst x2.
+    destruct (Req_EM_T y1 y2) as [Hy|Hy].
+    + exfalso. apply Hneq. subst. reflexivity.
+    + simpl.
+      assert (Hsqrt_eq : sqrt ((qx - x1) * (qx - x1) + (qy - y1) * (qy - y1)) =
+                         sqrt ((qx - x1) * (qx - x1) + (qy - y2) * (qy - y2))) by exact Hdist.
+      assert (Hpos1 : 0 <= (qx - x1) * (qx - x1) + (qy - y1) * (qy - y1)).
+      { apply Rplus_le_le_0_compat; apply Rle_0_sqr. }
+      assert (Hpos2 : 0 <= (qx - x1) * (qx - x1) + (qy - y2) * (qy - y2)).
+      { apply Rplus_le_le_0_compat; apply Rle_0_sqr. }
+      apply (sqrt_inj _ _ Hpos1 Hpos2) in Hsqrt_eq.
+      assert (Hy_eq : (qy - y1) * (qy - y1) = (qy - y2) * (qy - y2)) by lra.
+      assert (Hqy : qy = (y1 + y2) / 2).
+      { assert (H1 : (qy - y1 + (qy - y2)) * (qy - y1 - (qy - y2)) = 0).
+        { replace ((qy - y1 + (qy - y2)) * (qy - y1 - (qy - y2)))
+            with ((qy - y1) * (qy - y1) - (qy - y2) * (qy - y2)) by ring.
+          lra. }
+        apply Rmult_integral in H1. destruct H1 as [H1|H1]; lra. }
+      rewrite Hqy. field; lra.
+  - simpl.
+    assert (Hsqrt_eq : sqrt ((qx - x1) * (qx - x1) + (qy - y1) * (qy - y1)) =
+                       sqrt ((qx - x2) * (qx - x2) + (qy - y2) * (qy - y2))) by exact Hdist.
+    assert (Hpos1 : 0 <= (qx - x1) * (qx - x1) + (qy - y1) * (qy - y1)).
+    { apply Rplus_le_le_0_compat; apply Rle_0_sqr. }
+    assert (Hpos2 : 0 <= (qx - x2) * (qx - x2) + (qy - y2) * (qy - y2)).
+    { apply Rplus_le_le_0_compat; apply Rle_0_sqr. }
+    apply (sqrt_inj _ _ Hpos1 Hpos2) in Hsqrt_eq.
+    nra.
+Qed.
+
+Lemma O5_fold_through_pivot : forall p l q,
+  line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
+  on_line q (fold_line (fold_O5_general p l q)).
+Proof.
+  intros p l q Hwf Hvalid Hneq.
+  unfold fold_O5_general, fold_line. simpl.
+  apply equidistant_on_perp_bisector.
+  - exact Hneq.
+  - symmetry. apply O5_general_image_equidistant; assumption.
+Qed.
