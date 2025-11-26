@@ -23,6 +23,7 @@ Require Import Coq.Reals.Ranalysis1.
 Require Import Coq.micromega.RingMicromega.
 Require Import List.
 Require Import ProofIrrelevance.
+Require Import ClassicalDescription.
 Import ListNotations.
 Open Scope R_scope.
 
@@ -7374,6 +7375,416 @@ Proof. reflexivity. Qed.
 Lemma phi_19 : euler_phi 19 = 18%nat.
 Proof. reflexivity. Qed.
 
+(** Primality: p > 1 and only divisors are 1 and p. *)
+Definition is_prime (p : nat) : Prop :=
+  (p > 1)%nat /\ forall d, (d > 0)%nat -> (Nat.divide d p -> d = 1%nat \/ d = p).
+
+(** For prime p, gcd(k, p) = 1 iff k is not divisible by p. *)
+Lemma coprime_prime_iff : forall p k,
+  is_prime p -> (0 < k < p)%nat -> Nat.gcd k p = 1%nat.
+Proof.
+  intros p k [Hp_gt1 Hp_div] [Hk_pos Hk_lt].
+  assert (Hgcd_div_p : Nat.divide (Nat.gcd k p) p) by apply Nat.gcd_divide_r.
+  assert (Hgcd_div_k : Nat.divide (Nat.gcd k p) k) by apply Nat.gcd_divide_l.
+  assert (Hgcd_pos : (Nat.gcd k p > 0)%nat).
+  { destruct Hgcd_div_p as [q Hq]. destruct (Nat.gcd k p); lia. }
+  destruct (Hp_div (Nat.gcd k p) Hgcd_pos Hgcd_div_p) as [H1 | Hp].
+  - exact H1.
+  - exfalso. rewrite Hp in Hgcd_div_k.
+    destruct Hgcd_div_k as [q Hq].
+    assert (q = 0 \/ q > 0)%nat as [Hq0 | Hqpos] by lia.
+    + rewrite Hq0 in Hq. lia.
+    + assert (k >= p)%nat by nia. lia.
+Qed.
+
+(** Count of coprimes from 1 to p-1 for prime p equals p-1. *)
+Lemma count_coprime_prime_aux : forall p k,
+  is_prime p -> (k < p)%nat ->
+  count_coprime p k = k.
+Proof.
+  intros p k Hprime. revert k.
+  induction k; intro Hk_lt.
+  - reflexivity.
+  - simpl. unfold coprime.
+    assert (Hgcd : Nat.gcd (S k) p = 1%nat).
+    { apply coprime_prime_iff; [exact Hprime | lia]. }
+    rewrite Hgcd. simpl.
+    rewrite IHk by lia. reflexivity.
+Qed.
+
+(** φ(p) = p - 1 for prime p. *)
+Theorem phi_prime : forall p,
+  is_prime p -> euler_phi p = (p - 1)%nat.
+Proof.
+  intros p Hprime.
+  unfold euler_phi.
+  assert (Hp_gt1 : (p > 1)%nat) by (destruct Hprime; lia).
+  destruct p; [lia|].
+  simpl. unfold coprime.
+  rewrite Nat.gcd_diag.
+  assert (Hsp_ne1 : (S p =? 1) = false) by (apply Nat.eqb_neq; lia).
+  rewrite Hsp_ne1. simpl.
+  rewrite count_coprime_prime_aux.
+  - lia.
+  - exact Hprime.
+  - lia.
+Qed.
+
+(** gcd(k, m*n) = 1 iff gcd(k,m) = 1 and gcd(k,n) = 1. *)
+Lemma coprime_mul_iff : forall k m n,
+  Nat.gcd k (m * n) = 1%nat <-> Nat.gcd k m = 1%nat /\ Nat.gcd k n = 1%nat.
+Proof.
+  intros k m n. split.
+  - intro H. split.
+    + assert (Hdiv : Nat.divide (Nat.gcd k m) (Nat.gcd k (m * n))).
+      { apply Nat.gcd_greatest.
+        - apply Nat.gcd_divide_l.
+        - apply Nat.divide_trans with m.
+          apply Nat.gcd_divide_r.
+          apply Nat.divide_mul_l. apply Nat.divide_refl. }
+      rewrite H in Hdiv.
+      apply Nat.divide_1_r in Hdiv. exact Hdiv.
+    + assert (Hdiv : Nat.divide (Nat.gcd k n) (Nat.gcd k (m * n))).
+      { apply Nat.gcd_greatest.
+        - apply Nat.gcd_divide_l.
+        - apply Nat.divide_trans with n.
+          apply Nat.gcd_divide_r.
+          apply Nat.divide_mul_r. apply Nat.divide_refl. }
+      rewrite H in Hdiv.
+      apply Nat.divide_1_r in Hdiv. exact Hdiv.
+  - intros [Hm Hn].
+    set (g := Nat.gcd k (m * n)).
+    assert (Hgk : Nat.divide g k) by apply Nat.gcd_divide_l.
+    assert (Hgmn : Nat.divide g (m * n)) by apply Nat.gcd_divide_r.
+    assert (Hgn_cop : Nat.gcd g n = 1%nat).
+    { assert (Hdiv : Nat.divide (Nat.gcd g n) (Nat.gcd k n)).
+      { apply Nat.gcd_greatest.
+        - apply Nat.divide_trans with g. apply Nat.gcd_divide_l. exact Hgk.
+        - apply Nat.gcd_divide_r. }
+      rewrite Hn in Hdiv. apply Nat.divide_1_r. exact Hdiv. }
+    assert (Hgm : Nat.divide g m).
+    { apply Nat.gauss with n.
+      - rewrite Nat.mul_comm. exact Hgmn.
+      - exact Hgn_cop. }
+    assert (Hdgkm : Nat.divide g (Nat.gcd k m)) by (apply Nat.gcd_greatest; assumption).
+    rewrite Hm in Hdgkm. apply Nat.divide_1_r in Hdgkm. exact Hdgkm.
+Qed.
+
+(** coprime k n = true iff Nat.gcd k n = 1. *)
+Lemma coprime_iff_gcd_1 : forall k n,
+  coprime k n = true <-> Nat.gcd k n = 1%nat.
+Proof.
+  intros k n. unfold coprime. split.
+  - intro H. apply Nat.eqb_eq. exact H.
+  - intro H. apply Nat.eqb_eq. exact H.
+Qed.
+
+(** coprime k (m*n) = coprime k m && coprime k n. *)
+Lemma coprime_mul : forall k m n,
+  coprime k (m * n) = (coprime k m && coprime k n)%bool.
+Proof.
+  intros k m n.
+  destruct (coprime k (m * n)) eqn:Hkmn;
+  destruct (coprime k m) eqn:Hkm;
+  destruct (coprime k n) eqn:Hkn; simpl; try reflexivity; exfalso.
+  - assert (Hkmn' : Nat.gcd k (m * n) = 1%nat).
+    { unfold coprime in Hkmn. apply Nat.eqb_eq. exact Hkmn. }
+    apply coprime_mul_iff in Hkmn'. destruct Hkmn' as [_ Hn].
+    unfold coprime in Hkn. rewrite Hn in Hkn. simpl in Hkn. discriminate.
+  - assert (Hkmn' : Nat.gcd k (m * n) = 1%nat).
+    { unfold coprime in Hkmn. apply Nat.eqb_eq. exact Hkmn. }
+    apply coprime_mul_iff in Hkmn'. destruct Hkmn' as [Hm _].
+    unfold coprime in Hkm. rewrite Hm in Hkm. simpl in Hkm. discriminate.
+  - assert (Hkmn' : Nat.gcd k (m * n) = 1%nat).
+    { unfold coprime in Hkmn. apply Nat.eqb_eq. exact Hkmn. }
+    apply coprime_mul_iff in Hkmn'. destruct Hkmn' as [Hm Hn].
+    unfold coprime in Hkm. rewrite Hm in Hkm. simpl in Hkm. discriminate.
+  - assert (Hkm' : Nat.gcd k m = 1%nat).
+    { unfold coprime in Hkm. apply Nat.eqb_eq. exact Hkm. }
+    assert (Hkn' : Nat.gcd k n = 1%nat).
+    { unfold coprime in Hkn. apply Nat.eqb_eq. exact Hkn. }
+    assert (Hboth : Nat.gcd k (m * n) = 1%nat) by (apply coprime_mul_iff; auto).
+    unfold coprime in Hkmn. rewrite Hboth in Hkmn. simpl in Hkmn. discriminate.
+Qed.
+
+(** Key lemma: gcd(k, n) depends only on k mod n. *)
+Lemma gcd_mod : forall k n, (n > 0)%nat -> Nat.gcd k n = Nat.gcd (k mod n) n.
+Proof.
+  intros k n Hn.
+  rewrite Nat.gcd_comm.
+  rewrite Nat.gcd_mod by lia.
+  rewrite Nat.gcd_comm.
+  reflexivity.
+Qed.
+
+(** Computational verification: φ(2·3) = φ(2)·φ(3). *)
+Lemma phi_mult_2_3 : euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat.
+Proof. reflexivity. Qed.
+
+(** Computational verification: φ(2·5) = φ(2)·φ(5). *)
+Lemma phi_mult_2_5 : euler_phi (2 * 5) = (euler_phi 2 * euler_phi 5)%nat.
+Proof. reflexivity. Qed.
+
+(** Computational verification: φ(3·5) = φ(3)·φ(5). *)
+Lemma phi_mult_3_5 : euler_phi (3 * 5) = (euler_phi 3 * euler_phi 5)%nat.
+Proof. reflexivity. Qed.
+
+(** Computational verification: φ(3·7) = φ(3)·φ(7). *)
+Lemma phi_mult_3_7 : euler_phi (3 * 7) = (euler_phi 3 * euler_phi 7)%nat.
+Proof. reflexivity. Qed.
+
+(** ** Chinese Remainder Theorem Machinery for φ multiplicativity *)
+
+(** Key: gcd(k, m) depends only on k mod m *)
+Lemma coprime_mod_equiv : forall k m,
+  (m > 0)%nat -> Nat.gcd k m = Nat.gcd (k mod m) m.
+Proof.
+  intros k m Hm.
+  rewrite Nat.gcd_comm.
+  rewrite Nat.gcd_mod by lia.
+  rewrite Nat.gcd_comm.
+  reflexivity.
+Qed.
+
+(** CRT residue pair: maps k to (k mod m, k mod n) *)
+Definition crt_pair (m n k : nat) : nat * nat := (k mod m, k mod n).
+
+(** For coprime m, n: k coprime to mn iff coprime to both m and n *)
+Lemma coprime_product_iff : forall k m n,
+  (m > 0)%nat -> (n > 0)%nat ->
+  (Nat.gcd k (m * n) = 1)%nat <-> (Nat.gcd k m = 1 /\ Nat.gcd k n = 1)%nat.
+Proof.
+  intros k m n Hm Hn.
+  apply coprime_mul_iff.
+Qed.
+
+(** Coprimality with m depends only on residue mod m *)
+Lemma coprime_residue : forall k m,
+  (m > 0)%nat ->
+  (Nat.gcd k m = 1)%nat <-> (Nat.gcd (k mod m) m = 1)%nat.
+Proof.
+  intros k m Hm.
+  rewrite coprime_mod_equiv by lia.
+  tauto.
+Qed.
+
+(** Bézout identity: gcd(m,n) = u*m - v*n or v*n - u*m for some u,v *)
+Lemma bezout_gcd : forall m n,
+  (m > 0)%nat ->
+  exists u v, (u * m = Nat.gcd m n + v * n)%nat.
+Proof.
+  intros m n Hm.
+  destruct (Nat.gcd_bezout_pos m n Hm) as [u [v Heq]].
+  exists u, v.
+  exact Heq.
+Qed.
+
+(** When gcd(m,n) = 1 and m > 0, Bézout gives u*m = 1 + v*n *)
+Lemma bezout_coprime : forall m n,
+  (m > 0)%nat ->
+  Nat.gcd m n = 1%nat ->
+  exists u v, (u * m = 1 + v * n)%nat.
+Proof.
+  intros m n Hm Hgcd.
+  destruct (bezout_gcd m n Hm) as [u [v Heq]].
+  exists u, v.
+  rewrite Hgcd in Heq.
+  exact Heq.
+Qed.
+
+(** Helper: (a * b * m) mod m = 0 *)
+Lemma mod_mul_zero : forall a b m,
+  (m > 0)%nat -> ((a * b * m) mod m = 0)%nat.
+Proof.
+  intros a b m Hm.
+  replace (a * b * m)%nat with ((a * b) * m)%nat by lia.
+  apply Nat.mod_mul.
+  lia.
+Qed.
+
+(** Helper: if u*m = 1 + v*n, then (u*m) mod n = 1 (when n > 1) *)
+Lemma bezout_mod_one : forall u v m n,
+  (n > 1)%nat ->
+  (u * m = 1 + v * n)%nat ->
+  ((u * m) mod n = 1)%nat.
+Proof.
+  intros u v m n Hn Heq.
+  rewrite Heq.
+  rewrite Nat.add_mod by lia.
+  rewrite Nat.mod_mul by lia.
+  rewrite Nat.add_0_r.
+  rewrite Nat.mod_mod by lia.
+  apply Nat.mod_small.
+  lia.
+Qed.
+
+(** Helper: if c mod m = 1, then (a * c) mod m = a mod m *)
+Lemma mul_mod_one : forall a c m,
+  (m > 0)%nat ->
+  (c mod m = 1)%nat ->
+  ((a * c) mod m = a mod m)%nat.
+Proof.
+  intros a c m Hm Hc.
+  rewrite Nat.mul_mod by lia.
+  rewrite Hc.
+  rewrite Nat.mul_1_r.
+  apply Nat.mod_mod.
+  lia.
+Qed.
+
+(** Helper: if a mod m = 0, then (a + b) mod m = b mod m *)
+Lemma add_mod_zero_l : forall a b m,
+  (m > 0)%nat ->
+  (a mod m = 0)%nat ->
+  ((a + b) mod m = b mod m)%nat.
+Proof.
+  intros a b m Hm Ha.
+  rewrite Nat.add_mod by lia.
+  rewrite Ha.
+  rewrite Nat.add_0_l.
+  apply Nat.mod_mod.
+  lia.
+Qed.
+
+(** Helper: if b mod m = 0, then (a + b) mod m = a mod m *)
+Lemma add_mod_zero_r : forall a b m,
+  (m > 0)%nat ->
+  (b mod m = 0)%nat ->
+  ((a + b) mod m = a mod m)%nat.
+Proof.
+  intros a b m Hm Hb.
+  rewrite Nat.add_comm.
+  apply add_mod_zero_l; assumption.
+Qed.
+
+(** Helper: (a * k) mod n = a mod n when k mod n = 1 *)
+Lemma mul_by_one_mod : forall a k n,
+  (n > 0)%nat ->
+  (k mod n = 1)%nat ->
+  ((a * k) mod n = a mod n)%nat.
+Proof.
+  intros a k n Hn Hk.
+  rewrite Nat.mul_mod by lia.
+  rewrite Hk.
+  rewrite Nat.mul_1_r.
+  apply Nat.mod_mod.
+  lia.
+Qed.
+
+(** Helper: (a * (u * m)) mod n = a mod n when u*m = 1 + v*n *)
+Lemma crt_first_residue : forall a u v m n,
+  (n > 1)%nat ->
+  (u * m = 1 + v * n)%nat ->
+  ((a * (u * m)) mod n = a mod n)%nat.
+Proof.
+  intros a u v m n Hn Heq.
+  apply mul_by_one_mod.
+  - lia.
+  - apply (bezout_mod_one u v m n Hn Heq).
+Qed.
+
+(** Helper: (k * m) mod m = 0 *)
+Lemma mul_mod_self : forall k m,
+  (m > 0)%nat ->
+  ((k * m) mod m = 0)%nat.
+Proof.
+  intros k m Hm.
+  apply Nat.mod_mul.
+  lia.
+Qed.
+
+(** When gcd(m,n)=1, m has multiplicative inverse u mod n with (u*m) mod n = 1 *)
+Lemma mod_inverse_exists : forall m n,
+  (m > 0)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  exists u, ((u * m) mod n = 1)%nat.
+Proof.
+  intros m n Hm Hn Hgcd.
+  destruct (bezout_coprime m n Hm Hgcd) as [u [v Heq]].
+  exists u.
+  apply (bezout_mod_one u v m n Hn Heq).
+Qed.
+
+(** Scaling by inverse: (u * b * m) mod n = b mod n when (u*m) mod n = 1 *)
+Lemma scale_by_inverse : forall u b m n,
+  (n > 0)%nat ->
+  ((u * m) mod n = 1)%nat ->
+  ((u * b * m) mod n = b mod n)%nat.
+Proof.
+  intros u b m n Hn Hinv.
+  replace (u * b * m)%nat with (b * (u * m))%nat by lia.
+  apply mul_by_one_mod; assumption.
+Qed.
+
+(** For coprime m, n: can achieve any residue b mod n via m * t *)
+Lemma achieve_residue : forall m n b,
+  (m > 0)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  (b < n)%nat ->
+  exists t, ((m * t) mod n = b)%nat.
+Proof.
+  intros m n b Hm Hn Hgcd Hb.
+  destruct (mod_inverse_exists m n Hm Hn Hgcd) as [u Hinv].
+  exists (u * b)%nat.
+  replace (m * (u * b))%nat with (u * b * m)%nat by lia.
+  rewrite scale_by_inverse by (lia || assumption).
+  apply Nat.mod_small.
+  lia.
+Qed.
+
+(** Helper: (a + n - b) mod n = (a - b) mod n when a >= b, else (a + n - b) mod n *)
+Lemma sub_mod_helper : forall a b n,
+  (n > 0)%nat -> (b < n)%nat ->
+  ((a + n - b) mod n = (a + (n - b)) mod n)%nat.
+Proof.
+  intros a b n Hn Hb.
+  f_equal.
+  lia.
+Qed.
+
+(** Helper: (a + m * t) mod m = a mod m *)
+Lemma add_mul_mod : forall a m t,
+  (m > 0)%nat ->
+  ((a + m * t) mod m = a mod m)%nat.
+Proof.
+  intros a m t Hm.
+  rewrite Nat.add_mod by lia.
+  replace (m * t)%nat with (t * m)%nat by lia.
+  rewrite Nat.mod_mul by lia.
+  rewrite Nat.add_0_r.
+  apply Nat.mod_mod.
+  lia.
+Qed.
+
+(** (a + n) mod n = a mod n *)
+Lemma mod_add_self : forall a n,
+  (n > 0)%nat -> ((a + n) mod n = a mod n)%nat.
+Proof.
+  intros a n Hn.
+  rewrite Nat.add_mod by lia.
+  rewrite Nat.mod_same by lia.
+  rewrite Nat.add_0_r.
+  apply Nat.mod_mod.
+  lia.
+Qed.
+
+(** When b < n: (b + n - b) = n *)
+Lemma add_sub_cancel : forall b n,
+  (b < n)%nat -> (b + n - b = n)%nat.
+Proof.
+  intros b n Hb.
+  lia.
+Qed.
+
+(** CRT special case: k = 0 is the unique k < m*n with k mod m = 0 and k mod n = 0 *)
+Lemma crt_zero_zero : forall m n,
+  (m > 0)%nat -> (n > 0)%nat ->
+  (0 mod m = 0 /\ 0 mod n = 0)%nat.
+Proof.
+  intros m n Hm Hn.
+  split; apply Nat.mod_0_l; lia.
+Qed.
+
 (** n-gon origami-constructible iff φ(n) is 2-3 smooth. *)
 Definition ngon_constructible_iff_phi_smooth (n : nat) : Prop :=
   is_2_3_smooth (euler_phi n).
@@ -7919,6 +8330,16 @@ Proof.
   - apply O5_fold_through_pivot; assumption.
   - rewrite O5_fold_reflects_onto_line by assumption.
     apply O5_general_image_on_line. exact Hwf.
+Qed.
+
+(** O5 fold satisfies the O5 constraint. *)
+Lemma O5_fold_satisfies_constraint : forall p l q,
+  line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
+  satisfies_O5_constraint (fold_O5_general p l q) p l q.
+Proof.
+  intros p l q Hwf Hvalid Hneq.
+  unfold satisfies_O5_constraint.
+  apply O5_general_spec; assumption.
 Qed.
 
 Eval compute in (midpoint (0, 0) (1, 0)).
@@ -8701,6 +9122,43 @@ Proof.
   apply depressed_cubic_alt_sign. apply HM. exact Ht.
 Qed.
 
+(** ** General Cubic Root Existence
+    Every depressed cubic t³ + pt + q has at least one real root.
+    Proof: cubic → -∞ as t → -∞ and → +∞ as t → +∞, so by IVT there's a zero. *)
+
+Theorem depressed_cubic_root_exists : forall p q,
+  exists r, is_cubic_root p q r.
+Proof.
+  intros p q.
+  destruct (depressed_cubic_alt_neg_large p q) as [M1 HM1].
+  destruct (depressed_cubic_alt_pos_large p q) as [M2 HM2].
+  set (a := Rmin M1 M2 - 1).
+  set (b := Rmax M1 M2 + 1).
+  assert (Ha_lt_M1 : a < M1) by (unfold a, Rmin; destruct (Rle_dec M1 M2); lra).
+  assert (Hb_gt_M2 : b > M2) by (unfold b, Rmax; destruct (Rle_dec M1 M2); lra).
+  assert (Hab : a < b) by (unfold a, b, Rmin, Rmax; destruct (Rle_dec M1 M2); lra).
+  assert (Hfa : depressed_cubic_alt p q a < 0) by (apply HM1; exact Ha_lt_M1).
+  assert (Hfb : depressed_cubic_alt p q b > 0) by (apply HM2; exact Hb_gt_M2).
+  destruct (IVT (depressed_cubic_alt p q) a b
+                (depressed_cubic_alt_continuous p q) Hab Hfa Hfb)
+    as [r [[Har Hrb] Hr]].
+  exists r.
+  unfold is_cubic_root.
+  rewrite depressed_cubic_alt_eq.
+  exact Hr.
+Qed.
+
+(** Corollary: Negative discriminant case now unconditional *)
+Corollary neg_disc_unique_root_exists : forall p q,
+  cubic_discriminant p q < 0 ->
+  exists! r, is_cubic_root p q r.
+Proof.
+  intros p q Hdisc.
+  apply neg_disc_unique_existence.
+  - exact Hdisc.
+  - apply depressed_cubic_root_exists.
+Qed.
+
 Lemma pos_disc_alt_extrema_opposite : forall p q,
   cubic_discriminant p q > 0 ->
   (depressed_cubic_alt p q (critical_point p) < 0 /\
@@ -8895,6 +9353,19 @@ Proof.
   - destruct Hr2_bd as [Hr2_lo Hr2_hi]. lra.
 Qed.
 
+(** Discriminant determines root count: Δ > 0 gives 3 roots, Δ < 0 gives 1. *)
+Theorem discriminant_determines_roots_proof : discriminant_determines_roots.
+Proof.
+  unfold discriminant_determines_roots.
+  intros p q. split.
+  - intro Hpos.
+    destruct (pos_disc_three_distinct_roots p q Hpos) as [r1 [r2 [r3 [Hr1 [Hr2 [Hr3 [Hlt12 Hlt23]]]]]]].
+    exists r1, r2, r3.
+    repeat split; try assumption; lra.
+  - intro Hneg.
+    apply neg_disc_unique_root_exists. exact Hneg.
+Qed.
+
 End Discriminant_Positive_Case.
 
 Section O6_Fold_Count.
@@ -8922,6 +9393,18 @@ Proof.
   - intros t' Ht'. apply (neg_cubic_disc_unique_root p q t Ht Hdisc t' Ht').
 Qed.
 
+(** Unconditional version using general existence theorem *)
+Theorem O6_neg_discriminant_one_fold_unconditional : forall p q,
+  cubic_discriminant p q < 0 ->
+  O6_has_exactly_one_fold p q.
+Proof.
+  intros p q Hdisc.
+  destruct (depressed_cubic_root_exists p q) as [r Hr].
+  apply O6_neg_discriminant_one_fold.
+  - exact Hdisc.
+  - exists r. exact Hr.
+Qed.
+
 Theorem O6_pos_discriminant_three_folds : forall p q,
   cubic_discriminant p q > 0 ->
   O6_has_three_distinct_folds p q.
@@ -8938,6 +9421,24 @@ Definition O6_has_two_distinct_folds (p q : R) : Prop :=
     is_cubic_root p q t1 /\ is_cubic_root p q t2 /\
     t1 <> t2 /\
     forall t, is_cubic_root p q t -> t = t1 \/ t = t2.
+
+(** Δ = 0 with double root: when r ≠ 0 is a root and quad_disc = 0, get 2 folds. *)
+Theorem O6_zero_disc_double_root_two_folds : forall p r,
+  r <> 0 ->
+  is_cubic_root p (- r * (r^2 + p)) r ->
+  quad_discriminant r (r^2 + p) = 0 ->
+  O6_has_two_distinct_folds p (- r * (r^2 + p)).
+Proof.
+  intros p r Hrne0 Hr Hqd.
+  destruct (quad_disc_zero_double_root r p Hrne0 Hqd) as [s [Hsner [Hs Huniq]]].
+  unfold O6_has_two_distinct_folds.
+  exists r, s.
+  repeat split.
+  - exact Hr.
+  - exact Hs.
+  - intro Heq. apply Hsner. symmetry. exact Heq.
+  - exact Huniq.
+Qed.
 
 Theorem O6_zero_disc_triple_root_one_fold :
   O6_has_exactly_one_fold 0 0.
@@ -8960,3 +9461,119 @@ Proof.
 Qed.
 
 End O6_Fold_Count.
+
+Section Cardano_Formula.
+
+(** ** Cardano's Formula for Depressed Cubics
+
+    For the depressed cubic t³ + pt + q = 0, Cardano's formula gives:
+    t = ∛(-q/2 + √Δ') + ∛(-q/2 - √Δ')
+    where Δ' = q²/4 + p³/27
+
+    Uses the existing cbrt function defined earlier in this file. *)
+
+(** Cardano's discriminant (for formula applicability) *)
+Definition cardano_discriminant (p q : R) : R := q*q/4 + p*p*p/27.
+
+(** Relationship to cubic discriminant *)
+Lemma cardano_cubic_disc_relation : forall p q,
+  cubic_discriminant p q = -108 * cardano_discriminant p q.
+Proof.
+  intros p q.
+  unfold cubic_discriminant, cardano_discriminant.
+  field.
+Qed.
+
+(** When cubic_discriminant < 0, cardano_discriminant > 0 *)
+Lemma neg_cubic_disc_pos_cardano : forall p q,
+  cubic_discriminant p q < 0 -> cardano_discriminant p q > 0.
+Proof.
+  intros p q H.
+  rewrite cardano_cubic_disc_relation in H.
+  unfold cardano_discriminant in *.
+  lra.
+Qed.
+
+(** Cardano's u and v terms *)
+Definition cardano_u (p q : R) : R :=
+  cbrt (- q/2 + sqrt (cardano_discriminant p q)).
+
+Definition cardano_v (p q : R) : R :=
+  cbrt (- q/2 - sqrt (cardano_discriminant p q)).
+
+(** Cardano's root formula *)
+Definition cardano_root (p q : R) : R := cardano_u p q + cardano_v p q.
+
+(** Key identity: u³ + v³ = -q *)
+Lemma cardano_uv_sum_cubes : forall p q,
+  cardano_discriminant p q >= 0 ->
+  let u := cardano_u p q in
+  let v := cardano_v p q in
+  cube_func u + cube_func v = -q.
+Proof.
+  intros p q Hdisc u v.
+  unfold u, v, cardano_u, cardano_v.
+  rewrite 2!cbrt_spec.
+  set (s := sqrt (cardano_discriminant p q)).
+  replace (- q / 2 + s + (- q / 2 - s)) with (-q) by field.
+  reflexivity.
+Qed.
+
+(** Key identity: u³ * v³ = -p³/27 *)
+Lemma cardano_uv_prod_cubes : forall p q,
+  cardano_discriminant p q >= 0 ->
+  let u := cardano_u p q in
+  let v := cardano_v p q in
+  cube_func u * cube_func v = - p^3 / 27.
+Proof.
+  intros p q Hdisc u v.
+  unfold u, v, cardano_u, cardano_v.
+  rewrite 2!cbrt_spec.
+  set (s := sqrt (cardano_discriminant p q)).
+  assert (Hs : s * s = cardano_discriminant p q).
+  { unfold s. apply sqrt_sqrt. lra. }
+  unfold cardano_discriminant in Hs.
+  replace ((- q / 2 + s) * (- q / 2 - s)) with ((-q/2)^2 - s^2) by ring.
+  replace (s^2) with (s * s) by ring.
+  rewrite Hs.
+  unfold cardano_discriminant.
+  field.
+Qed.
+
+(** Key identity: uv = -p/3 *)
+Lemma cardano_uv_product : forall p q,
+  cardano_discriminant p q >= 0 ->
+  let u := cardano_u p q in
+  let v := cardano_v p q in
+  u * v = - p / 3.
+Proof.
+  intros p q Hdisc u v.
+  unfold u, v, cardano_u, cardano_v, cardano_discriminant in *.
+  apply cardano_product.
+  lra.
+Qed.
+
+(** Main Theorem: Cardano's formula gives a root when discriminant >= 0 *)
+Theorem cardano_formula_is_root : forall p q,
+  cardano_discriminant p q >= 0 ->
+  depressed_cubic p q (cardano_root p q) = 0.
+Proof.
+  intros p q Hdisc.
+  unfold depressed_cubic, cardano_root.
+  set (u := cardano_u p q).
+  set (v := cardano_v p q).
+  replace ((u + v) ^ 3) with ((u + v) * (u + v) * (u + v)) by (simpl; ring).
+  rewrite sum_of_cubes_identity.
+  assert (Hsum : cube_func u + cube_func v = -q).
+  { apply cardano_uv_sum_cubes. exact Hdisc. }
+  assert (Hprod : u * v = -p/3).
+  { apply cardano_uv_product. exact Hdisc. }
+  unfold cube_func in Hsum.
+  rewrite Hsum.
+  replace (3 * u * v) with (3 * (u * v)) by ring.
+  rewrite Hprod.
+  field.
+Qed.
+
+End Cardano_Formula.
+      
