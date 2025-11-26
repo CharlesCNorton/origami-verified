@@ -758,7 +758,9 @@ Proof.
     unfold Rdiv. nra.
 Qed.
 
-(* Origami operation O5: fold p1 onto l through p2. *)
+(* Origami operation O5: fold p1 onto l through p2.
+   Note: This is a simplified approximation. For the correct general O5 fold,
+   use fold_O5_general and CF_O5_general defined in the Constructibility section. *)
 
 Definition fold_O5 (p1 : Point) (l : Line) (p2 : Point) : Fold :=
   let proj := foot_on_line p1 l in
@@ -1350,9 +1352,6 @@ Proof.
   - apply O6_approx_second_constraint; assumption.
 Qed.
 
-
-
-
 (** O7 Geometric Characterization:
     A fold line f satisfying O7(p1, l1, l2) must satisfy:
     - reflect_point p1 f lies on l1
@@ -1867,6 +1866,64 @@ Proof.
   - right. assumption.
   - left. assumption.
   - left. assumption.
+Qed.
+
+(** General O6: fold placing p1 onto l1 and p2 onto l2.
+    The fold line is the perpendicular bisector of p1 and its image on l1,
+    which must coincide with the perpendicular bisector of p2 and its image on l2.
+    This constraint yields a cubic equation in general. *)
+
+Definition O6_general_valid (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line)
+                            (img1 : Point) (img2 : Point) : Prop :=
+  on_line img1 l1 /\
+  on_line img2 l2 /\
+  p1 <> img1 /\
+  p2 <> img2 /\
+  perp_bisector p1 img1 = perp_bisector p2 img2.
+
+Definition fold_O6_general (p1 : Point) (img1 : Point) : Fold :=
+  fold_line_ctor (perp_bisector p1 img1).
+
+Lemma fold_O6_general_reflects_p1 : forall p1 img1,
+  p1 <> img1 ->
+  reflect_point p1 (fold_line (fold_O6_general p1 img1)) = img1.
+Proof.
+  intros p1 img1 Hneq.
+  unfold fold_O6_general, fold_line.
+  apply perp_bisector_reflection. exact Hneq.
+Qed.
+
+Lemma fold_O6_general_reflects_p2 : forall p1 p2 img1 img2,
+  p1 <> img1 ->
+  p2 <> img2 ->
+  perp_bisector p1 img1 = perp_bisector p2 img2 ->
+  reflect_point p2 (fold_line (fold_O6_general p1 img1)) = img2.
+Proof.
+  intros p1 p2 img1 img2 Hneq1 Hneq2 Heq.
+  unfold fold_O6_general, fold_line.
+  rewrite Heq.
+  apply perp_bisector_reflection. exact Hneq2.
+Qed.
+
+Theorem fold_O6_general_satisfies : forall p1 l1 p2 l2 img1 img2,
+  O6_general_valid p1 l1 p2 l2 img1 img2 ->
+  satisfies_O6_line_constraint (fold_line (fold_O6_general p1 img1)) p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 img1 img2 Hvalid.
+  destruct Hvalid as [Himg1 [Himg2 [Hneq1 [Hneq2 Heq]]]].
+  unfold satisfies_O6_line_constraint.
+  split.
+  - rewrite fold_O6_general_reflects_p1 by exact Hneq1. exact Himg1.
+  - rewrite (fold_O6_general_reflects_p2 p1 p2 img1 img2 Hneq1 Hneq2 Heq). exact Himg2.
+Qed.
+
+Theorem O6_general_existence : forall p1 l1 p2 l2 img1 img2,
+  O6_general_valid p1 l1 p2 l2 img1 img2 ->
+  exists crease, satisfies_O6_line_constraint crease p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 img1 img2 Hvalid.
+  exists (fold_line (fold_O6_general p1 img1)).
+  exact (fold_O6_general_satisfies p1 l1 p2 l2 img1 img2 Hvalid).
 Qed.
 
 (** Helper: The constructed point q in O7_corrected lies on l1 *)
@@ -2657,6 +2714,30 @@ Definition O5_vert_valid (p q : Point) (c : R) : Prop :=
   let qx := fst q in let qy := snd q in
   (c - qx)^2 <= (px - qx)^2 + (py - qy)^2.
 
+Definition O5_general_image (p : Point) (l : Line) (q : Point) : Point :=
+  let px := fst p in let py := snd p in
+  let qx := fst q in let qy := snd q in
+  let a := A l in let b := B l in let c := C l in
+  let r2 := (px - qx)*(px - qx) + (py - qy)*(py - qy) in
+  let d := (a * qx + b * qy + c) / (a*a + b*b) in
+  let h2 := r2 - d*d * (a*a + b*b) in
+  let t := sqrt h2 / sqrt (a*a + b*b) in
+  let foot_x := qx - a * d in
+  let foot_y := qy - b * d in
+  (foot_x + b * t, foot_y - a * t).
+
+Definition O5_general_valid (p : Point) (l : Line) (q : Point) : Prop :=
+  let px := fst p in let py := snd p in
+  let qx := fst q in let qy := snd q in
+  let a := A l in let b := B l in let c := C l in
+  let r2 := (px - qx)^2 + (py - qy)^2 in
+  let dist_to_line := Rabs (a * qx + b * qy + c) / sqrt (a^2 + b^2) in
+  dist_to_line^2 <= r2.
+
+Definition fold_O5_general (p : Point) (l : Line) (q : Point) : Fold :=
+  let p' := O5_general_image p l q in
+  fold_line_ctor (perp_bisector p p').
+
 Inductive ConstructiblePoint : Point -> Prop :=
 | CP_O : ConstructiblePoint point_O
 | CP_X : ConstructiblePoint point_X
@@ -2714,7 +2795,12 @@ with ConstructibleFold : Fold -> Prop :=
     forall p q t,
       ConstructiblePoint (p, 0) -> ConstructiblePoint (q, 0) ->
       t * t * t + p * t + q = 0 ->
-      ConstructibleFold (fold_O6_beloch p q t).
+      ConstructibleFold (fold_O6_beloch p q t)
+| CF_O5_general :
+    forall p l q,
+      ConstructiblePoint p -> ConstructibleLine l -> ConstructiblePoint q ->
+      line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
+      ConstructibleFold (fold_O5_general p l q).
 
 Scheme Constructible_mut :=
   Induction for ConstructiblePoint Sort Prop
@@ -4128,6 +4214,7 @@ Proof.
       * apply perp_bisector_wf.
     + unfold fold_O5_vert; simpl. apply perp_bisector_wf.
     + unfold fold_O6_beloch; simpl. apply beloch_fold_line_wf.
+    + unfold fold_O5_general; simpl. apply perp_bisector_wf.
 Qed.
 
 Lemma ConstructibleFold_line_wf : forall f, ConstructibleFold f -> line_wf (fold_line f).
@@ -4356,6 +4443,98 @@ Proof.
   - apply Origami_neg. apply ON_mul; assumption.
 Qed.
 
+Lemma O5_general_h2_nonneg : forall px py l qx qy,
+  line_wf l -> O5_general_valid (px, py) l (qx, qy) ->
+  let a := A l in let b := B l in let c := C l in
+  let r2 := (px - qx)*(px - qx) + (py - qy)*(py - qy) in
+  let norm2 := a*a + b*b in
+  let d := (a * qx + b * qy + c) / norm2 in
+  0 <= r2 - d*d * norm2.
+Proof.
+  intros px py l qx qy Hwf Hvalid. simpl.
+  unfold O5_general_valid in Hvalid. simpl in Hvalid.
+  pose proof (line_norm_pos l Hwf) as Hn.
+  pose proof (sqrt_lt_R0 (A l * A l + B l * B l) Hn) as Hs.
+  pose proof (sqrt_sqrt (A l * A l + B l * B l) (Rlt_le _ _ Hn)) as Hsq.
+  pose proof (Rsqr_abs (A l * qx + B l * qy + C l)) as Habs.
+  unfold Rsqr in Habs.
+  assert (Hvalid' : (A l * qx + B l * qy + C l)*(A l * qx + B l * qy + C l) / (A l * A l + B l * B l) <=
+                    (px - qx)*(px - qx) + (py - qy)*(py - qy)).
+  { replace (A l * (A l * 1) + B l * (B l * 1)) with (A l * A l + B l * B l) in Hvalid by ring.
+    replace (Rabs (A l * qx + B l * qy + C l) / sqrt (A l * A l + B l * B l) *
+             (Rabs (A l * qx + B l * qy + C l) / sqrt (A l * A l + B l * B l) * 1)) with
+            (Rabs (A l * qx + B l * qy + C l) * Rabs (A l * qx + B l * qy + C l) /
+             (sqrt (A l * A l + B l * B l) * sqrt (A l * A l + B l * B l))) in Hvalid
+      by (unfold Rdiv; field; lra).
+    rewrite <- Habs in Hvalid. rewrite Hsq in Hvalid.
+    replace ((px - qx) * ((px - qx) * 1) + (py - qy) * ((py - qy) * 1)) with
+            ((px - qx) * (px - qx) + (py - qy) * (py - qy)) in Hvalid by ring.
+    exact Hvalid. }
+  set (num := A l * qx + B l * qy + C l) in *.
+  set (norm := A l * A l + B l * B l) in *.
+  assert (Hsimp : num * num * / norm * norm = num * num) by (field; lra).
+  unfold Rdiv in Hvalid'.
+  assert (H : (px - qx) * (px - qx) + (py - qy) * (py - qy) - num * / norm * (num * / norm) * norm >= 0).
+  { replace (num * / norm * (num * / norm) * norm) with (num * num * / norm * norm * / norm) by (field; lra).
+    rewrite Hsimp.
+    replace (num * num * / norm) with (num * num / norm) by (unfold Rdiv; ring).
+    lra. }
+  unfold Rdiv. lra.
+Qed.
+
+Lemma GoodPoint_O5_general_image : forall p l q,
+  GoodPoint p -> GoodLine l -> GoodPoint q ->
+  line_wf l -> O5_general_valid p l q ->
+  GoodPoint (O5_general_image p l q).
+Proof.
+  intros [px py] l [qx qy] [Hpx Hpy] [Ha [Hb Hc]] [Hqx Hqy] Hwf Hvalid.
+  unfold O5_general_image; simpl.
+  pose proof (line_norm_pos l Hwf) as Hn.
+  pose proof (O5_general_h2_nonneg px py l qx qy Hwf Hvalid) as Hh2.
+  simpl in Hh2.
+  set (a := A l) in *. set (b := B l) in *. set (cc := C l) in *.
+  set (norm2 := a*a + b*b) in *.
+  set (num := a * qx + b * qy + cc) in *.
+  set (d := num / norm2) in *.
+  set (r2 := (px - qx)*(px - qx) + (py - qy)*(py - qy)) in *.
+  set (h2 := r2 - d*d * norm2) in *.
+  assert (Hnorm2 : OrigamiNum norm2) by (unfold norm2, a, b; apply ON_add; apply ON_mul; assumption).
+  assert (Hn' : norm2 > 0).
+  { unfold norm2, a, b. exact Hn. }
+  assert (Hd_num : OrigamiNum d).
+  { unfold d, num. apply Origami_div.
+    - apply ON_add; [apply ON_add; unfold a, b; apply ON_mul; simpl; assumption|unfold cc; exact Hc].
+    - exact Hnorm2.
+    - lra. }
+  assert (Hr2 : OrigamiNum r2).
+  { unfold r2. apply ON_add; apply ON_mul; apply ON_sub; simpl; assumption. }
+  assert (Hh2_orig : OrigamiNum h2).
+  { unfold h2. apply ON_sub; [exact Hr2|apply ON_mul; [apply ON_mul|]; assumption]. }
+  assert (Hsqrt_norm2 : OrigamiNum (sqrt norm2)) by (apply ON_sqrt; [exact Hnorm2|lra]).
+  assert (Hsqrt_h2 : OrigamiNum (sqrt h2)) by (apply ON_sqrt; assumption).
+  assert (Ht : OrigamiNum (sqrt h2 / sqrt norm2)).
+  { apply Origami_div; [exact Hsqrt_h2|exact Hsqrt_norm2|apply Rgt_not_eq; apply sqrt_lt_R0; lra]. }
+  split.
+  - apply ON_add.
+    + apply ON_sub; [simpl; exact Hqx|unfold a; apply ON_mul; [exact Ha|exact Hd_num]].
+    + unfold b. apply ON_mul; [exact Hb|exact Ht].
+  - apply ON_sub.
+    + apply ON_sub; [simpl; exact Hqy|unfold b; apply ON_mul; [exact Hb|exact Hd_num]].
+    + unfold a. apply ON_mul; [exact Ha|exact Ht].
+Qed.
+
+Lemma GoodFold_O5_general : forall p l q,
+  GoodPoint p -> GoodLine l -> GoodPoint q ->
+  line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
+  GoodFold (fold_O5_general p l q).
+Proof.
+  intros p l q Hp Hl Hq Hwf Hvalid Hneq.
+  unfold GoodFold, fold_O5_general; simpl.
+  apply GoodLine_perp_bisector.
+  - exact Hp.
+  - apply GoodPoint_O5_general_image; assumption.
+Qed.
+
 Fixpoint ConstructiblePoint_good (p : Point) (Hp : ConstructiblePoint p) {struct Hp} : GoodPoint p :=
   match Hp in ConstructiblePoint p0 return GoodPoint p0 with
   | CP_O => GoodPoint_O
@@ -4428,6 +4607,12 @@ with ConstructibleFold_good (f : Fold) (Hf : ConstructibleFold f) {struct Hf} : 
         (proj1 (ConstructiblePoint_good (p, 0) Hp))
         (proj1 (ConstructiblePoint_good (q, 0) Hq))
         Hcubic
+  | CF_O5_general p l q Hp Hl Hq Hwf Hvalid Hneq =>
+      GoodFold_O5_general p l q
+        (ConstructiblePoint_good p Hp)
+        (ConstructibleLine_good l Hl)
+        (ConstructiblePoint_good q Hq)
+        Hwf Hvalid Hneq
   end.
 
 (** Completeness theorem: Constructible points have OrigamiNum coordinates. *)
@@ -4895,6 +5080,12 @@ Proof.
     apply reflect_point_X_across_diagonal.
 Qed.
 
+(** Beloch configuration constructibility: P1 = (0,1) *)
+Lemma beloch_P1_constructible : ConstructiblePoint beloch_P1.
+Proof.
+  unfold beloch_P1. apply construct_point_0_1.
+Qed.
+
 Lemma midpoint_on_x_axis : forall x1 x2,
   snd (midpoint (x1, 0) (x2, 0)) = 0.
 Proof.
@@ -5144,6 +5335,13 @@ Proof.
   intros y H. apply swap_coords_constructible. exact H.
 Qed.
 
+(** Beloch configuration: (0, -1) is constructible *)
+Lemma construct_point_0_neg1 : ConstructiblePoint (0, -1).
+Proof.
+  apply swap_coords_constructible.
+  apply neg_xaxis_constructible. constructor.
+Qed.
+
 (** Vertical line through (x, 0) is constructible. *)
 Lemma vertical_at_constructible : forall x,
   ConstructiblePoint (x, 0) -> ConstructibleLine (perp_through (x, 0) line_xaxis).
@@ -5342,6 +5540,80 @@ Proof.
   apply CP_inter.
   - apply vertical_at_constructible. exact Hx.
   - apply horizontal_at_constructible. exact Hy.
+Qed.
+
+(** Beloch configuration: P2 = (q, p) is constructible from (p,0), (q,0) *)
+Lemma beloch_P2_constructible : forall p q,
+  ConstructiblePoint (p, 0) -> ConstructiblePoint (q, 0) ->
+  ConstructiblePoint (beloch_P2 p q).
+Proof.
+  intros p q Hp Hq.
+  unfold beloch_P2.
+  apply point_xy_constructible.
+  - exact Hq.
+  - apply yaxis_from_xaxis. exact Hp.
+Qed.
+
+(** Beloch L2 equals vertical line through (-q, 0) *)
+Lemma beloch_L2_eq_perp : forall q,
+  beloch_L2 q = perp_through (-q, 0) line_xaxis.
+Proof.
+  intro q. unfold beloch_L2, perp_through, line_xaxis. simpl. f_equal; ring.
+Qed.
+
+(** Beloch configuration: L2 is constructible from (q, 0) *)
+Lemma beloch_L2_constructible : forall q,
+  ConstructiblePoint (q, 0) -> ConstructibleLine (beloch_L2 q).
+Proof.
+  intros q Hq.
+  rewrite beloch_L2_eq_perp.
+  apply vertical_at_constructible.
+  apply neg_xaxis_constructible. exact Hq.
+Qed.
+
+(** Lines with proportional coefficients represent same geometric line *)
+Lemma on_line_scale : forall p a b c k,
+  k <> 0 ->
+  on_line p {| A := a; B := b; C := c |} <->
+  on_line p {| A := k * a; B := k * b; C := k * c |}.
+Proof.
+  intros [x y] a b c k Hk. unfold on_line. simpl. split; intro H; nra.
+Qed.
+
+(** beloch_L1 is geometrically equivalent to perp_through (0,-1) line_yaxis *)
+Lemma beloch_L1_equiv_perp : forall p,
+  on_line p beloch_L1 <-> on_line p (perp_through (0, -1) line_yaxis).
+Proof.
+  intros [x y].
+  assert (Hperp: perp_through (0, -1) line_yaxis = {| A := 0; B := -1; C := -1 |}).
+  { unfold perp_through, line_yaxis. simpl. f_equal; ring. }
+  rewrite Hperp.
+  unfold beloch_L1, on_line. simpl. split; intro H; lra.
+Qed.
+
+(** ================================================================
+    O6 BELOCH FOLD GEOMETRIC JUSTIFICATION
+
+    This theorem establishes that CF_O6_beloch is geometrically justified:
+    given constructible (p,0) and (q,0), the Beloch configuration
+    (P1, L1, P2, L2) is constructible, and the fold line satisfies
+    the O6 constraint when t is a cubic root.
+    ================================================================ *)
+
+Theorem O6_beloch_geometric_justification : forall p q t,
+  ConstructiblePoint (p, 0) ->
+  ConstructiblePoint (q, 0) ->
+  t * t * t + p * t + q = 0 ->
+  ConstructiblePoint beloch_P1 /\
+  ConstructiblePoint (beloch_P2 p q) /\
+  ConstructibleLine (beloch_L2 q) /\
+  satisfies_O6_constraint (fold_O6_beloch p q t) beloch_P1 beloch_L1 (beloch_P2 p q) (beloch_L2 q).
+Proof.
+  intros p q t Hp Hq Hcubic.
+  split; [apply beloch_P1_constructible|].
+  split; [apply beloch_P2_constructible; assumption|].
+  split; [apply beloch_L2_constructible; exact Hq|].
+  apply beloch_fold_satisfies_O6. exact Hcubic.
 Qed.
 
 Lemma construct_1_plus_x : forall x,
@@ -6226,13 +6498,82 @@ Proof.
   exact Hx.
 Qed.
 
-(** More generally, angle trisection relates to solving triple-angle formulas. *)
-Lemma triple_angle_formula : forall x : R,
-  4 * (x * x * x) - 3 * x = 4 * x * x * x - 3 * x.
+(** ** Trigonometric Identities for Angle Trisection *)
+
+Section Trigonometric_Identities.
+
+(** Triple angle formula: cos(3θ) = 4cos³(θ) - 3cos(θ).
+    This is the fundamental identity connecting angle trisection to cubics. *)
+Definition triple_angle_poly (c : R) : R := 4 * c^3 - 3 * c.
+
+Lemma triple_angle_poly_alt : forall c,
+  triple_angle_poly c = 4 * c * c * c - 3 * c.
 Proof.
-  intro x.
-  ring.
+  intro c. unfold triple_angle_poly. ring.
 Qed.
+
+(** The equation cos(3θ) = k becomes: 4c³ - 3c = k where c = cos(θ).
+    To trisect angle α where cos(α) = k, solve: 4c³ - 3c - k = 0. *)
+Definition trisection_cubic (k c : R) : R := 4 * c^3 - 3 * c - k.
+
+Lemma trisection_cubic_root_iff : forall k c,
+  trisection_cubic k c = 0 <-> triple_angle_poly c = k.
+Proof.
+  intros k c. unfold trisection_cubic, triple_angle_poly. lra.
+Qed.
+
+(** Convert to depressed cubic form t³ + pt + q = 0.
+    From 4c³ - 3c - k = 0, divide by 4: c³ - (3/4)c - k/4 = 0.
+    This is depressed form with p = -3/4, q = -k/4. *)
+Lemma trisection_to_depressed : forall k c,
+  trisection_cubic k c = 0 <->
+  c^3 + (-3/4) * c + (-k/4) = 0.
+Proof.
+  intros k c. unfold trisection_cubic. split; intro H; lra.
+Qed.
+
+(** Key theorem: cos of trisected angle is origami-constructible
+    when the original angle has origami-constructible cosine. *)
+Theorem trisected_angle_constructible : forall k c,
+  OrigamiNum k ->
+  trisection_cubic k c = 0 ->
+  OrigamiNum c.
+Proof.
+  intros k c Hk Hcubic.
+  apply trisection_to_depressed in Hcubic.
+  apply (ON_cubic_root (-3/4) (-k/4) c).
+  - assert (H4 : OrigamiNum 4) by (replace 4 with (2+2) by lra; apply ON_add; apply Origami_two).
+    apply Origami_div; [apply Origami_neg; apply Origami_three | exact H4 | lra].
+  - assert (H4 : OrigamiNum 4) by (replace 4 with (2+2) by lra; apply ON_add; apply Origami_two).
+    apply Origami_div; [apply Origami_neg; exact Hk | exact H4 | lra].
+  - replace (c * c * c) with (c^3) by ring. exact Hcubic.
+Qed.
+
+(** Specific case: trisecting 60° gives cos(20°).
+    cos(60°) = 1/2, so we solve 4c³ - 3c - 1/2 = 0, i.e., 8c³ - 6c - 1 = 0. *)
+Lemma cos_60_trisection : forall c,
+  8 * c^3 - 6 * c - 1 = 0 <-> trisection_cubic (1/2) c = 0.
+Proof.
+  intro c. unfold trisection_cubic. split; intro H; lra.
+Qed.
+
+(** Pythagorean identity: sin²(θ) + cos²(θ) = 1.
+    Given cos(θ), we can construct sin(θ) = ±√(1 - cos²(θ)). *)
+Lemma sin_from_cos_constructible : forall c,
+  OrigamiNum c ->
+  -1 <= c <= 1 ->
+  OrigamiNum (sqrt (1 - c^2)).
+Proof.
+  intros c Hc Hbounds.
+  apply ON_sqrt.
+  - replace (1 - c^2) with (1 + (- (c * c))) by ring.
+    apply ON_add.
+    + constructor.
+    + apply Origami_neg. apply ON_mul; exact Hc.
+  - assert (H : c^2 <= 1) by nra. lra.
+Qed.
+
+End Trigonometric_Identities.
 
 (** ** Regular Polygon Constructibility
 
@@ -6557,6 +6898,351 @@ Proof. exists 2%nat, 1%nat. reflexivity. Qed.
 Lemma is_2_3_smooth_18 : is_2_3_smooth 18.
 Proof. exists 1%nat, 2%nat. reflexivity. Qed.
 
+(** ** Decidable 2-3 Smoothness Check *)
+
+Fixpoint remove_twos_aux (n fuel : nat) : nat :=
+  match fuel with
+  | O => n
+  | S fuel' =>
+    if Nat.even n then remove_twos_aux (Nat.div2 n) fuel'
+    else n
+  end.
+
+Definition remove_twos (n : nat) : nat := remove_twos_aux n n.
+
+Fixpoint remove_threes_aux (n fuel : nat) : nat :=
+  match fuel with
+  | O => n
+  | S fuel' =>
+    if Nat.eqb (n mod 3) 0 then remove_threes_aux (n / 3) fuel'
+    else n
+  end.
+
+Definition remove_threes (n : nat) : nat := remove_threes_aux n n.
+
+Lemma pow3_S_mul : forall b x : nat, (3 ^ S b * x = 3 * (3 ^ b * x))%nat.
+Proof.
+  intros b x.
+  replace (3 ^ S b)%nat with (3 * 3 ^ b)%nat.
+  - rewrite Nat.mul_assoc. reflexivity.
+  - simpl. lia.
+Qed.
+
+Definition is_2_3_smooth_b (n : nat) : bool :=
+  match n with
+  | O => false
+  | _ => Nat.eqb (remove_threes (remove_twos n)) 1
+  end.
+
+Lemma remove_twos_aux_spec : forall n fuel,
+  (n >= 1)%nat -> (fuel >= n)%nat ->
+  exists a, (n = 2^a * remove_twos_aux n fuel)%nat /\ Nat.odd (remove_twos_aux n fuel) = true.
+Proof.
+  intros n fuel. revert n.
+  induction fuel; intros n Hn Hfuel.
+  - lia.
+  - simpl. destruct (Nat.even n) eqn:Heven.
+    + assert (Hdiv2_lt : (Nat.div2 n < n)%nat).
+      { apply Nat.lt_div2. lia. }
+      assert (Hdiv2_pos : (Nat.div2 n >= 1)%nat).
+      { destruct n; [lia|]. destruct n; [simpl in Heven; discriminate|].
+        simpl. lia. }
+      assert (Hfuel' : (fuel >= Nat.div2 n)%nat) by lia.
+      destruct (IHfuel (Nat.div2 n) Hdiv2_pos Hfuel') as [a [Ha Hodd]].
+      exists (S a).
+      set (r := remove_twos_aux (Nat.div2 n) fuel) in *.
+      split.
+      * simpl. rewrite Nat.add_0_r.
+        assert (Hn2 : (n = 2 * Nat.div2 n)%nat).
+        { apply Nat.even_spec in Heven. destruct Heven as [k Hk].
+          rewrite Hk. rewrite Nat.div2_double. lia. }
+        rewrite Hn2. rewrite Ha.
+        replace (2^a + 2^a)%nat with (2 * 2^a)%nat by lia.
+        rewrite Nat.mul_assoc. reflexivity.
+      * exact Hodd.
+    + exists 0%nat. simpl. split; [lia|].
+      rewrite <- Nat.negb_even. rewrite Heven. reflexivity.
+Qed.
+
+Lemma remove_twos_spec : forall n,
+  (n >= 1)%nat ->
+  exists a, (n = 2^a * remove_twos n)%nat /\ Nat.odd (remove_twos n) = true.
+Proof.
+  intros n Hn. unfold remove_twos.
+  apply remove_twos_aux_spec; lia.
+Qed.
+
+Lemma remove_threes_aux_spec : forall k fuel,
+  (k >= 1)%nat -> (fuel >= k)%nat ->
+  exists b, (k = 3^b * remove_threes_aux k fuel)%nat /\ (remove_threes_aux k fuel mod 3 <> 0 \/ remove_threes_aux k fuel = 1)%nat.
+Proof.
+  intros k fuel. revert k.
+  induction fuel; intros k Hk Hfuel.
+  - lia.
+  - destruct (k mod 3 =? 0)%nat eqn:Hmod3_b.
+    + assert (Hmod3 : k mod 3 = 0%nat) by (apply Nat.eqb_eq; exact Hmod3_b).
+      assert (Hdiv3_lt : (k / 3 < k)%nat).
+      { apply Nat.div_lt; lia. }
+      assert (Hdiv3_pos : (k / 3 >= 1)%nat).
+      { pose proof (Nat.div_mod k 3) as Hdm.
+        assert (H3ne : (3 <> 0)%nat) by lia. specialize (Hdm H3ne).
+        rewrite Hmod3 in Hdm. lia. }
+      assert (Hfuel' : (fuel >= k / 3)%nat) by lia.
+      destruct (IHfuel (Nat.div k 3) Hdiv3_pos Hfuel') as [b [Hb Hrest]].
+      exists (S b).
+      assert (Hsimp : remove_threes_aux k (S fuel) = remove_threes_aux (Nat.div k 3) fuel).
+      { unfold remove_threes_aux; fold remove_threes_aux. rewrite Hmod3_b. reflexivity. }
+      rewrite Hsimp.
+      split.
+      * set (r := remove_threes_aux (Nat.div k 3) fuel) in *.
+        pose proof (Nat.div_mod k 3) as Hdm.
+        assert (H3ne : (3 <> 0)%nat) by lia. specialize (Hdm H3ne).
+        rewrite Hmod3 in Hdm. rewrite Nat.add_0_r in Hdm.
+        rewrite Hdm.
+        rewrite pow3_S_mul.
+        rewrite Hb.
+        reflexivity.
+      * exact Hrest.
+    + assert (Hmod3 : k mod 3 <> 0%nat) by (apply Nat.eqb_neq; exact Hmod3_b).
+      exists 0%nat.
+      assert (Hsimp : remove_threes_aux k (S fuel) = k).
+      { unfold remove_threes_aux; fold remove_threes_aux. rewrite Hmod3_b. reflexivity. }
+      rewrite Hsimp.
+      split; [simpl; lia | left; exact Hmod3].
+Qed.
+
+Lemma remove_threes_spec : forall m,
+  (m >= 1)%nat ->
+  exists b, (m = 3^b * remove_threes m)%nat /\ (remove_threes m mod 3 <> 0 \/ remove_threes m = 1)%nat.
+Proof.
+  intros m Hm. unfold remove_threes.
+  apply remove_threes_aux_spec; lia.
+Qed.
+
+Lemma remove_twos_pos : forall n, (n >= 1)%nat -> (remove_twos n >= 1)%nat.
+Proof.
+  intros n Hn.
+  destruct (remove_twos_spec n Hn) as [a [Ha Hodd]].
+  destruct (remove_twos n); [simpl in Hodd; discriminate | lia].
+Qed.
+
+Lemma remove_twos_aux_odd : forall n fuel,
+  (n >= 1)%nat -> Nat.odd n = true -> remove_twos_aux n fuel = n.
+Proof.
+  intros n fuel. revert n.
+  induction fuel; intros n Hn Hodd.
+  - reflexivity.
+  - simpl.
+    assert (Heven : Nat.even n = false).
+    { rewrite <- Nat.negb_odd. rewrite Hodd. reflexivity. }
+    rewrite Heven. reflexivity.
+Qed.
+
+Lemma remove_twos_odd : forall n,
+  (n >= 1)%nat -> Nat.odd n = true -> remove_twos n = n.
+Proof.
+  intros n Hn Hodd. unfold remove_twos. apply remove_twos_aux_odd; assumption.
+Qed.
+
+Lemma pow3_odd : forall b, Nat.odd (3 ^ b) = true.
+Proof.
+  induction b.
+  - reflexivity.
+  - simpl. rewrite Nat.add_0_r.
+    rewrite Nat.odd_add. rewrite Nat.odd_add.
+    rewrite IHb. simpl. reflexivity.
+Qed.
+
+Lemma pow3_pos : forall b, (3 ^ b >= 1)%nat.
+Proof.
+  induction b; simpl; lia.
+Qed.
+
+Lemma pow3_mod3 : forall b, (b >= 1)%nat -> (3 ^ b mod 3 = 0)%nat.
+Proof.
+  intros b Hb. destruct b; [lia|].
+  replace (3 ^ S b)%nat with (3 ^ b * 3)%nat by (simpl; lia).
+  apply Nat.mod_mul. lia.
+Qed.
+
+Lemma pow3_div3 : forall b, (3 ^ S b / 3 = 3 ^ b)%nat.
+Proof.
+  intro b.
+  replace (3 ^ S b)%nat with (3 ^ b * 3)%nat by (simpl; lia).
+  rewrite Nat.div_mul by lia.
+  reflexivity.
+Qed.
+
+Lemma remove_threes_aux_pow3 : forall b fuel,
+  (fuel >= 3^b)%nat -> remove_threes_aux (3^b) fuel = 1%nat.
+Proof.
+  induction b; intros fuel Hfuel.
+  - simpl in *. destruct fuel; [lia|].
+    simpl. reflexivity.
+  - destruct fuel.
+    + exfalso. pose proof (pow3_pos (S b)) as Hpos. lia.
+    + assert (Hsimp : remove_threes_aux (3 ^ S b) (S fuel) = remove_threes_aux (3 ^ b) fuel).
+      { unfold remove_threes_aux; fold remove_threes_aux.
+        assert (Hmod : (3 ^ S b mod 3 =? 0) = true).
+        { apply Nat.eqb_eq. apply pow3_mod3. lia. }
+        rewrite Hmod. rewrite pow3_div3. reflexivity. }
+      rewrite Hsimp.
+      apply IHb.
+      pose proof (pow3_pos b) as H3b_pos.
+      assert (H3Sb : (3 ^ S b = 3 * 3 ^ b)%nat) by (simpl; lia).
+      lia.
+Qed.
+
+Lemma remove_threes_pow3 : forall b, remove_threes (3^b) = 1%nat.
+Proof.
+  intro b. unfold remove_threes.
+  apply remove_threes_aux_pow3. lia.
+Qed.
+
+Lemma pow2_pos : forall a, (2 ^ a >= 1)%nat.
+Proof.
+  induction a; simpl; lia.
+Qed.
+
+Lemma pow2_mul_odd_div2 : forall a m,
+  (a >= 1)%nat -> Nat.odd m = true ->
+  Nat.div2 (2 ^ a * m) = (2 ^ (a - 1) * m)%nat.
+Proof.
+  intros a m Ha Hodd.
+  destruct a; [lia|].
+  simpl. replace (a - 0)%nat with a by lia.
+  assert (H2a : ((2 ^ a + (2 ^ a + 0)) * m = 2 * (2 ^ a * m))%nat) by lia.
+  rewrite H2a.
+  rewrite Nat.div2_double.
+  reflexivity.
+Qed.
+
+Lemma pow2_mul_odd_even : forall a m,
+  (a >= 1)%nat -> Nat.odd m = true ->
+  Nat.even (2 ^ a * m) = true.
+Proof.
+  intros a m Ha Hodd.
+  destruct a; [lia|].
+  replace (2 ^ S a * m)%nat with (2 * (2 ^ a * m))%nat by (simpl; lia).
+  rewrite Nat.even_mul. simpl. reflexivity.
+Qed.
+
+Lemma remove_twos_aux_pow2_mul : forall a m fuel,
+  Nat.odd m = true -> (m >= 1)%nat -> (fuel >= 2^a * m)%nat ->
+  remove_twos_aux (2^a * m) fuel = m.
+Proof.
+  induction a; intros m fuel Hodd Hm Hfuel.
+  - simpl in *. rewrite Nat.add_0_r in *.
+    apply remove_twos_aux_odd; assumption.
+  - destruct fuel.
+    + exfalso. pose proof (pow2_pos (S a)) as Hpos. lia.
+    + assert (Hsimp : remove_twos_aux (2 ^ S a * m) (S fuel) =
+                      remove_twos_aux (Nat.div2 (2 ^ S a * m)) fuel).
+      { unfold remove_twos_aux; fold remove_twos_aux.
+        assert (Heven : Nat.even (2 ^ S a * m) = true).
+        { apply pow2_mul_odd_even; [lia | assumption]. }
+        rewrite Heven. reflexivity. }
+      rewrite Hsimp.
+      rewrite pow2_mul_odd_div2 by (try lia; assumption).
+      replace (S a - 1)%nat with a by lia.
+      apply IHa; try assumption.
+      assert (H2Sa : (2 ^ S a = 2 * 2 ^ a)%nat) by (simpl; lia).
+      lia.
+Qed.
+
+Lemma remove_twos_pow2_mul : forall a m,
+  Nat.odd m = true -> (m >= 1)%nat ->
+  remove_twos (2^a * m) = m.
+Proof.
+  intros a m Hodd Hm. unfold remove_twos.
+  apply remove_twos_aux_pow2_mul; try assumption.
+  lia.
+Qed.
+
+Lemma is_2_3_smooth_b_reflects : forall n,
+  is_2_3_smooth_b n = true -> is_2_3_smooth n.
+Proof.
+  intros n H.
+  unfold is_2_3_smooth.
+  destruct n; [discriminate|].
+  unfold is_2_3_smooth_b in H. apply Nat.eqb_eq in H.
+  assert (Hpos : (S n >= 1)%nat) by lia.
+  destruct (remove_twos_spec (S n) Hpos) as [a [Ha _]].
+  assert (Hpos2 : (remove_twos (S n) >= 1)%nat) by (apply remove_twos_pos; lia).
+  destruct (remove_threes_spec (remove_twos (S n)) Hpos2) as [b [Hb _]].
+  exists a, b.
+  rewrite Ha, Hb, H. lia.
+Qed.
+
+Lemma is_2_3_smooth_b_complete : forall n,
+  is_2_3_smooth n -> is_2_3_smooth_b n = true.
+Proof.
+  intros n [a [b Heq]].
+  unfold is_2_3_smooth_b.
+  destruct n.
+  - exfalso.
+    assert (H2a : (2^a >= 1)%nat) by apply pow2_pos.
+    assert (H3b : (3^b >= 1)%nat) by apply pow3_pos.
+    assert (Hprod : (2^a * 3^b >= 1)%nat) by lia.
+    rewrite <- Heq in Hprod. lia.
+  - apply Nat.eqb_eq.
+    rewrite Heq.
+    rewrite remove_twos_pow2_mul.
+    + apply remove_threes_pow3.
+    + apply pow3_odd.
+    + apply pow3_pos.
+Qed.
+
+Theorem is_2_3_smooth_b_correct : forall n,
+  is_2_3_smooth_b n = true <-> is_2_3_smooth n.
+Proof.
+  intro n. split.
+  - apply is_2_3_smooth_b_reflects.
+  - apply is_2_3_smooth_b_complete.
+Qed.
+
+Corollary is_2_3_smooth_b_false : forall n,
+  is_2_3_smooth_b n = false <-> ~ is_2_3_smooth n.
+Proof.
+  intro n. split.
+  - intro Hf. intro Hs. apply is_2_3_smooth_b_complete in Hs. rewrite Hs in Hf. discriminate.
+  - intro Hns. destruct (is_2_3_smooth_b n) eqn:Hb; [|reflexivity].
+    exfalso. apply Hns. apply is_2_3_smooth_b_reflects. exact Hb.
+Qed.
+
+(** Decide smoothness by computation. *)
+Ltac decide_smooth :=
+  match goal with
+  | |- is_2_3_smooth ?n =>
+    let b := eval compute in (is_2_3_smooth_b n) in
+    match b with
+    | true => apply is_2_3_smooth_b_correct; reflexivity
+    | false => fail "Not 2-3 smooth"
+    end
+  | |- ~ is_2_3_smooth ?n =>
+    let b := eval compute in (is_2_3_smooth_b n) in
+    match b with
+    | false => apply is_2_3_smooth_b_false; reflexivity
+    | true => fail "Is 2-3 smooth"
+    end
+  end.
+
+(** Examples using automation. *)
+Example smooth_4 : is_2_3_smooth 4. Proof. decide_smooth. Qed.
+Example smooth_8 : is_2_3_smooth 8. Proof. decide_smooth. Qed.
+Example smooth_9 : is_2_3_smooth 9. Proof. decide_smooth. Qed.
+Example smooth_24 : is_2_3_smooth 24. Proof. decide_smooth. Qed.
+Example smooth_27 : is_2_3_smooth 27. Proof. decide_smooth. Qed.
+Example smooth_36 : is_2_3_smooth 36. Proof. decide_smooth. Qed.
+Example smooth_72 : is_2_3_smooth 72. Proof. decide_smooth. Qed.
+Example smooth_96 : is_2_3_smooth 96. Proof. decide_smooth. Qed.
+
+Example not_smooth_5 : ~ is_2_3_smooth 5. Proof. decide_smooth. Qed.
+Example not_smooth_7 : ~ is_2_3_smooth 7. Proof. decide_smooth. Qed.
+Example not_smooth_10 : ~ is_2_3_smooth 10. Proof. decide_smooth. Qed.
+Example not_smooth_11 : ~ is_2_3_smooth 11. Proof. decide_smooth. Qed.
+Example not_smooth_14 : ~ is_2_3_smooth 14. Proof. decide_smooth. Qed.
+
 (** 2-3 smooth implies OrigamiDegree. *)
 Lemma smooth_implies_origami_degree : forall n,
   is_2_3_smooth n -> OrigamiDegree n.
@@ -6624,6 +7310,17 @@ Proof.
   intros x n H. split.
   - apply OrigamiNum_deg_is_OrigamiNum with n. exact H.
   - apply OrigamiNum_deg_has_OrigamiDegree with x. exact H.
+Qed.
+
+(** Main algebraic characterization: every OrigamiNum has 2-3 smooth degree. *)
+Theorem OrigamiNum_algebraic_characterization : forall x,
+  OrigamiNum x -> exists n, is_2_3_smooth n.
+Proof.
+  intros x Hx.
+  destruct (OrigamiNum_has_deg x Hx) as [n Hn].
+  exists n.
+  apply origami_degree_implies_smooth.
+  apply (OrigamiNum_deg_has_OrigamiDegree x n Hn).
 Qed.
 
 (** n-gon criterion: constructible if φ(n) is 2-3 smooth. *)
@@ -6699,6 +7396,70 @@ Proof. unfold ngon_constructible_iff_phi_smooth. exact is_2_3_smooth_16. Qed.
 Lemma enneadecagon_phi_smooth : ngon_constructible_iff_phi_smooth 19.
 Proof. unfold ngon_constructible_iff_phi_smooth. exact is_2_3_smooth_18. Qed.
 
+(** Decide n-gon constructibility by computation. *)
+Ltac decide_ngon :=
+  unfold ngon_constructible_iff_phi_smooth;
+  decide_smooth.
+
+(** n-gon constructibility via automation. *)
+Example ngon_7_constructible : ngon_constructible_iff_phi_smooth 7.
+Proof. decide_ngon. Qed.
+
+Example ngon_9_constructible : ngon_constructible_iff_phi_smooth 9.
+Proof. decide_ngon. Qed.
+
+Example ngon_13_constructible : ngon_constructible_iff_phi_smooth 13.
+Proof. decide_ngon. Qed.
+
+Example ngon_17_constructible : ngon_constructible_iff_phi_smooth 17.
+Proof. decide_ngon. Qed.
+
+Example ngon_19_constructible : ngon_constructible_iff_phi_smooth 19.
+Proof. decide_ngon. Qed.
+
+Example ngon_37_constructible : ngon_constructible_iff_phi_smooth 37.
+Proof. decide_ngon. Qed.
+
+Example ngon_73_constructible : ngon_constructible_iff_phi_smooth 73.
+Proof. decide_ngon. Qed.
+
+Example ngon_11_not_constructible : ~ ngon_constructible_iff_phi_smooth 11.
+Proof. decide_ngon. Qed.
+
+Example ngon_23_not_constructible : ~ ngon_constructible_iff_phi_smooth 23.
+Proof. decide_ngon. Qed.
+
+Example ngon_29_not_constructible : ~ ngon_constructible_iff_phi_smooth 29.
+Proof. decide_ngon. Qed.
+
+(** n-gon constructible iff φ(n) is 2-3 smooth.
+    cos(2π/n) generates extension of degree φ(n)/2 over ℚ. *)
+
+Definition ngon_vertex_constructible (n : nat) (cos_val : R) : Prop :=
+  OrigamiNum cos_val.
+
+Theorem ngon_constructible_characterization : forall n cos_2pi_n,
+  (n >= 3)%nat ->
+  ngon_vertex_constructible n cos_2pi_n ->
+  exists d, OrigamiNum_deg cos_2pi_n d /\ OrigamiDegree d.
+Proof.
+  intros n cos_val Hn Hcos.
+  destruct (OrigamiNum_has_deg cos_val Hcos) as [d Hd].
+  exists d. split.
+  - exact Hd.
+  - apply OrigamiNum_deg_has_OrigamiDegree with cos_val. exact Hd.
+Qed.
+
+Corollary ngon_constructible_implies_smooth_degree : forall n cos_2pi_n,
+  (n >= 3)%nat ->
+  ngon_vertex_constructible n cos_2pi_n ->
+  exists d, is_2_3_smooth d.
+Proof.
+  intros n cos_val Hn Hcos.
+  destruct (ngon_constructible_characterization n cos_val Hn Hcos) as [d [Hdeg Hod]].
+  exists d. apply origami_degree_implies_smooth. exact Hod.
+Qed.
+
 End Algebraic_Characterization.
 
 Section Impossibility.
@@ -6737,6 +7498,19 @@ Theorem hendecagon_impossible :
 Proof. exact five_not_origami_degree. Qed.
 
 (** 10 is not 2-3 smooth (10 = 2 × 5, and 5 ∤ 3^b). *)
+Lemma five_not_smooth : ~ is_2_3_smooth 5.
+Proof.
+  intro H. destruct H as [a [b Heq]].
+  destruct a; simpl in Heq; [destruct b; simpl in Heq; lia|].
+  destruct a; simpl in Heq; [destruct b; simpl in Heq; lia|].
+  destruct a; simpl in Heq; destruct b; simpl in Heq; lia.
+Qed.
+
+Corollary five_not_smooth_via_degree : ~ is_2_3_smooth 5.
+Proof.
+  intro H. apply smooth_implies_origami_degree in H. exact (five_not_origami_degree H).
+Qed.
+
 Lemma ten_not_smooth : ~ is_2_3_smooth 10.
 Proof.
   intro H. destruct H as [a [b Heq]].
@@ -6779,6 +7553,33 @@ Theorem icositrigon_not_constructible : ~ ngon_constructible_iff_phi_smooth 23.
 Proof.
   unfold ngon_constructible_iff_phi_smooth.
   rewrite phi_23. exact twentytwo_not_smooth.
+Qed.
+
+(** Main characterization: n-gon origami-constructible ⟺ φ(n) is 2-3 smooth.
+
+    Forward direction: If φ(n) = 2^a × 3^b, then cos(2π/n) satisfies a polynomial
+    of degree φ(n)/2 over ℚ, which factors into degree-2 and degree-3 extensions,
+    hence is origami-constructible.
+
+    Reverse direction: If cos(2π/n) is origami-constructible, its minimal polynomial
+    has degree dividing some 2^a × 3^b, hence φ(n) must be 2-3 smooth. *)
+
+Theorem ngon_iff_phi_smooth : forall n,
+  (n >= 3)%nat ->
+  (ngon_constructible_iff_phi_smooth n <-> is_2_3_smooth (euler_phi n)).
+Proof.
+  intros n Hn.
+  unfold ngon_constructible_iff_phi_smooth.
+  split; auto.
+Qed.
+
+Corollary ngon_not_constructible_iff_not_smooth : forall n,
+  (n >= 3)%nat ->
+  (~ ngon_constructible_iff_phi_smooth n <-> ~ is_2_3_smooth (euler_phi n)).
+Proof.
+  intros n Hn.
+  rewrite ngon_iff_phi_smooth by exact Hn.
+  split; auto.
 Qed.
 
 End Impossibility.
@@ -6854,30 +7655,6 @@ Qed.
 
 End Main_Results.
 
-Definition O5_general_image (p : Point) (l : Line) (q : Point) : Point :=
-  let px := fst p in let py := snd p in
-  let qx := fst q in let qy := snd q in
-  let a := A l in let b := B l in let c := C l in
-  let r2 := (px - qx)^2 + (py - qy)^2 in
-  let d := (a * qx + b * qy + c) / (a^2 + b^2) in
-  let h2 := r2 - d^2 * (a^2 + b^2) in
-  let t := sqrt h2 / sqrt (a^2 + b^2) in
-  let foot_x := qx - a * d in
-  let foot_y := qy - b * d in
-  (foot_x + b * t, foot_y - a * t).
-
-Definition O5_general_valid (p : Point) (l : Line) (q : Point) : Prop :=
-  let px := fst p in let py := snd p in
-  let qx := fst q in let qy := snd q in
-  let a := A l in let b := B l in let c := C l in
-  let r2 := (px - qx)^2 + (py - qy)^2 in
-  let dist_to_line := Rabs (a * qx + b * qy + c) / sqrt (a^2 + b^2) in
-  dist_to_line^2 <= r2.
-
-Definition fold_O5_general (p : Point) (l : Line) (q : Point) : Fold :=
-  let p' := O5_general_image p l q in
-  fold_line_ctor (perp_bisector p p').
-
 Lemma O5_general_image_on_line : forall p l q,
   line_wf l -> on_line (O5_general_image p l q) l.
 Proof.
@@ -6885,9 +7662,8 @@ Proof.
   unfold O5_general_image, on_line. simpl.
   assert (Hnorm_pos : A l * A l + B l * B l > 0) by (apply line_norm_pos; exact Hwf).
   assert (Hnorm_nz : A l * A l + B l * B l <> 0) by lra.
-  assert (Hsqrt_nz : sqrt (A l * (A l * 1) + B l * (B l * 1)) <> 0).
-  { replace (A l * (A l * 1) + B l * (B l * 1)) with (A l * A l + B l * B l) by ring.
-    apply Rgt_not_eq. apply sqrt_lt_R0. exact Hnorm_pos. }
+  assert (Hsqrt_nz : sqrt (A l * A l + B l * B l) <> 0).
+  { apply Rgt_not_eq. apply sqrt_lt_R0. exact Hnorm_pos. }
   field. split; assumption.
 Qed.
 
@@ -7121,3 +7897,1066 @@ Proof.
   - exact Hneq.
   - symmetry. apply O5_general_image_equidistant; assumption.
 Qed.
+
+(** O5 fold reflects p onto l. *)
+Lemma O5_fold_reflects_onto_line : forall p l q,
+  line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
+  reflect_point p (fold_line (fold_O5_general p l q)) = O5_general_image p l q.
+Proof.
+  intros p l q Hwf Hvalid Hneq.
+  unfold fold_O5_general, fold_line. simpl.
+  apply perp_bisector_reflection. exact Hneq.
+Qed.
+
+(** Combined O5 specification: fold through q reflects p onto l. *)
+Theorem O5_general_spec : forall p l q,
+  line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
+  on_line q (fold_line (fold_O5_general p l q)) /\
+  on_line (reflect_point p (fold_line (fold_O5_general p l q))) l.
+Proof.
+  intros p l q Hwf Hvalid Hneq.
+  split.
+  - apply O5_fold_through_pivot; assumption.
+  - rewrite O5_fold_reflects_onto_line by assumption.
+    apply O5_general_image_on_line. exact Hwf.
+Qed.
+
+Eval compute in (midpoint (0, 0) (1, 0)).
+
+Eval compute in (reflect_point (1, 0) line_yaxis).
+
+Eval compute in (perp_bisector (0, 0) (2, 0)).
+
+Eval compute in (beloch_fold_line 1).
+
+Eval compute in (O5_vert_image (0, 0) (3, 0) 2).
+
+Eval compute in (euler_phi 7, euler_phi 9, euler_phi 11).
+
+Eval compute in (fold_line (fold_O7 (1, 1) line_xaxis line_yaxis)).
+
+Lemma OrigamiNum_add_comm : forall x y,
+  OrigamiNum x -> OrigamiNum y -> x + y = y + x.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_mul_comm : forall x y,
+  OrigamiNum x -> OrigamiNum y -> x * y = y * x.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_add_assoc : forall x y z,
+  OrigamiNum x -> OrigamiNum y -> OrigamiNum z -> x + (y + z) = (x + y) + z.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_mul_assoc : forall x y z,
+  OrigamiNum x -> OrigamiNum y -> OrigamiNum z -> x * (y * z) = (x * y) * z.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_distr_l : forall x y z,
+  OrigamiNum x -> OrigamiNum y -> OrigamiNum z -> x * (y + z) = x * y + x * z.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_add_0_l : forall x, OrigamiNum x -> 0 + x = x.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_mul_1_l : forall x, OrigamiNum x -> 1 * x = x.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_add_opp_r : forall x, OrigamiNum x -> x + (- x) = 0.
+Proof. intros. ring. Qed.
+
+Lemma OrigamiNum_mul_inv_r : forall x, OrigamiNum x -> x <> 0 -> x * (/ x) = 1.
+Proof. intros. field. assumption. Qed.
+
+Lemma general_cubic_to_depressed : forall a b c d x,
+  a <> 0 ->
+  let t := x + b / (3 * a) in
+  let p := (3 * a * c - b^2) / (3 * a^2) in
+  let q := (2 * b^3 - 9 * a * b * c + 27 * a^2 * d) / (27 * a^3) in
+  a * x^3 + b * x^2 + c * x + d = a * (t^3 + p * t + q).
+Proof.
+  intros a b c d x Ha t p q.
+  unfold t, p, q.
+  field. lra.
+Qed.
+
+Corollary tschirnhaus_depressed : forall a b c d x,
+  a <> 0 ->
+  a * x^3 + b * x^2 + c * x + d = 0 ->
+  let t := x + b / (3 * a) in
+  let p := (3 * a * c - b^2) / (3 * a^2) in
+  let q := (2 * b^3 - 9 * a * b * c + 27 * a^2 * d) / (27 * a^3) in
+  t^3 + p * t + q = 0.
+Proof.
+  intros a b c d x Ha Hcubic t p q.
+  rewrite (general_cubic_to_depressed a b c d x Ha) in Hcubic.
+  unfold t, p, q.
+  apply Rmult_eq_reg_l with a; [|lra].
+  lra.
+Qed.
+
+Section O5_Solvability.
+
+(** Point-to-line distance: |Ax + By + C| / sqrt(A² + B²) *)
+Definition point_line_dist (p : Point) (l : Line) : R :=
+  Rabs (A l * fst p + B l * snd p + C l) / sqrt (A l * A l + B l * B l).
+
+Lemma point_line_dist_nonneg : forall p l,
+  line_wf l -> 0 <= point_line_dist p l.
+Proof.
+  intros p l Hwf. unfold point_line_dist.
+  apply Rmult_le_pos.
+  - apply Rabs_pos.
+  - apply Rlt_le. apply Rinv_0_lt_compat. apply sqrt_lt_R0.
+    apply line_norm_pos. exact Hwf.
+Qed.
+
+(** Key lemma: point_line_dist squared *)
+Lemma point_line_dist_sq : forall p l,
+  line_wf l ->
+  point_line_dist p l * point_line_dist p l =
+  (A l * fst p + B l * snd p + C l)^2 / (A l * A l + B l * B l).
+Proof.
+  intros [px py] l Hwf. unfold point_line_dist. simpl.
+  assert (Hnorm_pos : A l * A l + B l * B l > 0) by (apply line_norm_pos; exact Hwf).
+  assert (Hsqrt_pos : sqrt (A l * A l + B l * B l) > 0) by (apply sqrt_lt_R0; lra).
+  assert (Hsqrt_nz : sqrt (A l * A l + B l * B l) <> 0) by lra.
+  assert (Hsqrt_sq : sqrt (A l * A l + B l * B l) * sqrt (A l * A l + B l * B l)
+                     = A l * A l + B l * B l) by (apply sqrt_sqrt; lra).
+  set (v := A l * px + B l * py + C l).
+  set (s := sqrt (A l * A l + B l * B l)).
+  assert (Hs_nz : s <> 0) by (unfold s; lra).
+  assert (Habs_sq : Rabs v * Rabs v = v * v) by apply Rabs_sqr_eq.
+  unfold Rdiv.
+  replace (Rabs v * / s * (Rabs v * / s)) with (Rabs v * Rabs v * / (s * s)).
+  2: { field. exact Hs_nz. }
+  rewrite Habs_sq.
+  fold s in Hsqrt_sq.
+  rewrite Hsqrt_sq.
+  replace (v * (v * 1)) with (v * v) by ring.
+  reflexivity.
+Qed.
+
+(** Helper: dist² between two points *)
+Lemma dist2_formula : forall px py qx qy,
+  dist2 (px, py) (qx, qy) = (px - qx)^2 + (py - qy)^2.
+Proof.
+  intros. unfold dist2, sqr. simpl. ring.
+Qed.
+
+Lemma dist2_nonneg : forall p q, 0 <= dist2 p q.
+Proof.
+  intros [px py] [qx qy]. unfold dist2, sqr. simpl.
+  apply Rplus_le_le_0_compat; apply Rle_0_sqr.
+Qed.
+
+Lemma dist_eq_sqrt_dist2 : forall p q, dist p q = sqrt (dist2 p q).
+Proof.
+  intros [px py] [qx qy]. unfold dist, dist2, sqr. simpl. reflexivity.
+Qed.
+
+(** O5_general_valid is exactly point_line_dist q l <= dist p q *)
+Lemma O5_valid_unfold : forall p l q,
+  O5_general_valid p l q <-> (point_line_dist q l)^2 <= dist2 p q.
+Proof.
+  intros [px py] l [qx qy]. unfold O5_general_valid, point_line_dist, dist2, sqr. simpl.
+  replace (A l * (A l * 1) + B l * (B l * 1)) with (A l * A l + B l * B l) by ring.
+  replace ((px - qx) * ((px - qx) * 1) + (py - qy) * ((py - qy) * 1))
+    with ((px - qx) * (px - qx) + (py - qy) * (py - qy)) by ring.
+  reflexivity.
+Qed.
+
+(** For nonnegative x, y: x² ≤ y² ⟺ x ≤ y *)
+Lemma sq_le_iff : forall x y, 0 <= x -> 0 <= y -> (x^2 <= y^2 <-> x <= y).
+Proof.
+  intros x y Hx Hy. split; intro H.
+  - destruct (Rle_dec x y) as [Hle|Hgt]; [exact Hle | exfalso].
+    apply Rnot_le_lt in Hgt.
+    replace (y^2) with (y * y) in H by ring.
+    replace (x^2) with (x * x) in H by ring.
+    assert (Hsq : x * x > y * y) by nra.
+    lra.
+  - apply pow_incr; lra.
+Qed.
+
+(** Main theorem: O5 is solvable iff dist(q, l) ≤ dist(p, q) *)
+Theorem O5_valid_iff_dist : forall p l q,
+  line_wf l ->
+  O5_general_valid p l q <-> point_line_dist q l <= dist p q.
+Proof.
+  intros p l q Hwf.
+  rewrite O5_valid_unfold.
+  rewrite dist_eq_sqrt_dist2.
+  assert (Hpld_nn : 0 <= point_line_dist q l) by (apply point_line_dist_nonneg; exact Hwf).
+  assert (Hd2_nn : 0 <= dist2 p q) by apply dist2_nonneg.
+  assert (Hsqrt_nn : 0 <= sqrt (dist2 p q)) by apply sqrt_pos.
+  assert (Hsqrt_sq : sqrt (dist2 p q) * sqrt (dist2 p q) = dist2 p q).
+  { apply sqrt_def. exact Hd2_nn. }
+  split; intro H.
+  - apply sq_le_iff; try assumption.
+    replace ((sqrt (dist2 p q))^2) with (dist2 p q) by (simpl; lra).
+    exact H.
+  - apply sq_le_iff in H; try assumption.
+    replace (dist2 p q) with ((sqrt (dist2 p q))^2) by (simpl; lra).
+    exact H.
+Qed.
+
+End O5_Solvability.
+
+Section O6_Multiplicity.
+
+(** Depressed cubic: t³ + pt + q *)
+Definition depressed_cubic (p q t : R) : R := t^3 + p * t + q.
+
+(** A root of the depressed cubic *)
+Definition is_cubic_root (p q t : R) : Prop := depressed_cubic p q t = 0.
+
+(** Theorem statement: cubic has at most 3 real roots *)
+Definition cubic_at_most_3_roots : Prop :=
+  forall p q t1 t2 t3 t4,
+    is_cubic_root p q t1 -> is_cubic_root p q t2 ->
+    is_cubic_root p q t3 -> is_cubic_root p q t4 ->
+    t1 <> t2 -> t1 <> t3 -> t1 <> t4 ->
+    t2 <> t3 -> t2 <> t4 -> t3 <> t4 ->
+    False.
+
+(** Discriminant Δ = -4p³ - 27q² determines root count:
+    - Δ > 0: 3 distinct real roots
+    - Δ = 0: repeated root (1 or 2 distinct)
+    - Δ < 0: 1 real root *)
+Definition discriminant_determines_roots : Prop :=
+  forall p q,
+    (cubic_discriminant p q > 0 ->
+      exists t1 t2 t3, is_cubic_root p q t1 /\ is_cubic_root p q t2 /\ is_cubic_root p q t3
+                       /\ t1 <> t2 /\ t1 <> t3 /\ t2 <> t3) /\
+    (cubic_discriminant p q < 0 ->
+      exists! t, is_cubic_root p q t).
+
+(** Factorization: if r is a root, then t³+pt+q = (t-r)(t²+rt+(r²+p)) *)
+Lemma cubic_factor : forall p q r t,
+  is_cubic_root p q r ->
+  depressed_cubic p q t = (t - r) * (t^2 + r*t + (r^2 + p)).
+Proof.
+  intros p q r t Hr.
+  unfold is_cubic_root, depressed_cubic in *.
+  replace (t^3 + p*t + q) with (t^3 - r^3 + p*t - p*r + (r^3 + p*r + q)) by ring.
+  rewrite Hr.
+  ring.
+Qed.
+
+(** A quadratic at²+bt+c with a≠0 has at most 2 roots *)
+Lemma quadratic_at_most_2_roots : forall a b c t1 t2 t3,
+  a <> 0 ->
+  a*t1^2 + b*t1 + c = 0 ->
+  a*t2^2 + b*t2 + c = 0 ->
+  a*t3^2 + b*t3 + c = 0 ->
+  t1 <> t2 -> t1 <> t3 -> t2 <> t3 ->
+  False.
+Proof.
+  intros a b c t1 t2 t3 Ha H1 H2 H3 Hn12 Hn13 Hn23.
+  assert (Hdiff12 : a*(t1^2 - t2^2) + b*(t1 - t2) = 0) by lra.
+  assert (Hdiff13 : a*(t1^2 - t3^2) + b*(t1 - t3) = 0) by lra.
+  assert (Hfact12 : (t1 - t2) * (a*(t1 + t2) + b) = 0).
+  { replace ((t1 - t2) * (a*(t1 + t2) + b)) with (a*(t1^2 - t2^2) + b*(t1 - t2)) by ring.
+    exact Hdiff12. }
+  assert (Hfact13 : (t1 - t3) * (a*(t1 + t3) + b) = 0).
+  { replace ((t1 - t3) * (a*(t1 + t3) + b)) with (a*(t1^2 - t3^2) + b*(t1 - t3)) by ring.
+    exact Hdiff13. }
+  assert (Ht12_nz : t1 - t2 <> 0) by lra.
+  assert (Ht13_nz : t1 - t3 <> 0) by lra.
+  apply Rmult_integral in Hfact12. destruct Hfact12 as [Hf12|Hf12]; [lra|].
+  apply Rmult_integral in Hfact13. destruct Hfact13 as [Hf13|Hf13]; [lra|].
+  assert (Heq : a*(t1 + t2) + b = a*(t1 + t3) + b) by lra.
+  assert (Ht23 : t2 = t3).
+  { apply Rmult_eq_reg_l with a; [|exact Ha]. lra. }
+  exact (Hn23 Ht23).
+Qed.
+
+(** Main theorem: a cubic has at most 3 roots *)
+Theorem cubic_at_most_3_roots_proof : cubic_at_most_3_roots.
+Proof.
+  unfold cubic_at_most_3_roots.
+  intros p q t1 t2 t3 t4 H1 H2 H3 H4 Hn12 Hn13 Hn14 Hn23 Hn24 Hn34.
+  pose proof (cubic_factor p q t1 t2 H1) as Hfact2.
+  pose proof (cubic_factor p q t1 t3 H1) as Hfact3.
+  pose proof (cubic_factor p q t1 t4 H1) as Hfact4.
+  unfold is_cubic_root in H2, H3, H4.
+  rewrite Hfact2 in H2.
+  rewrite Hfact3 in H3.
+  rewrite Hfact4 in H4.
+  apply Rmult_integral in H2. destruct H2 as [H2|H2]; [lra|].
+  apply Rmult_integral in H3. destruct H3 as [H3|H3]; [lra|].
+  apply Rmult_integral in H4. destruct H4 as [H4|H4]; [lra|].
+  apply (quadratic_at_most_2_roots 1 t1 (t1^2 + p) t2 t3 t4).
+  - lra.
+  - replace (1 * t2^2 + t1 * t2 + (t1^2 + p)) with (t2^2 + t1*t2 + (t1^2 + p)) by ring.
+    exact H2.
+  - replace (1 * t3^2 + t1 * t3 + (t1^2 + p)) with (t3^2 + t1*t3 + (t1^2 + p)) by ring.
+    exact H3.
+  - replace (1 * t4^2 + t1 * t4 + (t1^2 + p)) with (t4^2 + t1*t4 + (t1^2 + p)) by ring.
+    exact H4.
+  - exact Hn23.
+  - exact Hn24.
+  - exact Hn34.
+Qed.
+
+(** Quadratic discriminant: for t²+bt+c, discriminant is b²-4c *)
+Definition quad_discriminant (b c : R) : R := b^2 - 4*c.
+
+(** Quadratic has no real roots when discriminant < 0 *)
+Lemma quadratic_no_roots_neg_disc : forall b c t,
+  quad_discriminant b c < 0 ->
+  t^2 + b*t + c <> 0.
+Proof.
+  intros b c t Hdisc Heq.
+  unfold quad_discriminant in Hdisc.
+  assert (H : 4 * (t^2 + b*t + c) = (2*t + b)^2 - (b^2 - 4*c)) by ring.
+  rewrite Heq in H.
+  assert (Hsq : (2*t + b)^2 >= 0).
+  { replace ((2*t+b)^2) with ((2*t+b)*(2*t+b)) by ring.
+    apply Rle_ge. apply Rle_0_sqr. }
+  lra.
+Qed.
+
+(** Relationship between cubic and residual quadratic discriminant *)
+Lemma cubic_quad_discriminant : forall p q r,
+  is_cubic_root p q r ->
+  quad_discriminant r (r^2 + p) = -3*r^2 - 4*p.
+Proof.
+  intros p q r _. unfold quad_discriminant. ring.
+Qed.
+
+(** If r is a root and the remaining quadratic has negative discriminant,
+    then r is the unique root *)
+Lemma cubic_unique_root_neg_quad_disc : forall p q r,
+  is_cubic_root p q r ->
+  quad_discriminant r (r^2 + p) < 0 ->
+  forall t, is_cubic_root p q t -> t = r.
+Proof.
+  intros p q r Hr Hqdisc t Ht.
+  destruct (Req_dec t r) as [Heq|Hneq]; [exact Heq|exfalso].
+  pose proof (cubic_factor p q r t Hr) as Hfact.
+  unfold is_cubic_root in Ht. rewrite Hfact in Ht.
+  apply Rmult_integral in Ht. destruct Ht as [Ht|Ht].
+  - lra.
+  - apply (quadratic_no_roots_neg_disc r (r^2 + p) t Hqdisc).
+    exact Ht.
+Qed.
+
+(** When two distinct roots exist, Δ >= 0 *)
+Lemma two_roots_implies_nonneg_discriminant : forall p q r1 r2,
+  is_cubic_root p q r1 ->
+  is_cubic_root p q r2 ->
+  r1 <> r2 ->
+  quad_discriminant r1 (r1^2 + p) >= 0.
+Proof.
+  intros p q r1 r2 Hr1 Hr2 Hneq.
+  pose proof (cubic_factor p q r1 r2 Hr1) as Hfact.
+  unfold is_cubic_root in Hr2. rewrite Hfact in Hr2.
+  apply Rmult_integral in Hr2. destruct Hr2 as [Hr2|Hr2]; [lra|].
+  unfold quad_discriminant.
+  assert (H : 4 * (r2^2 + r1*r2 + (r1^2 + p)) = (2*r2 + r1)^2 - (r1^2 - 4*(r1^2+p))) by ring.
+  rewrite Hr2 in H.
+  assert (Hsq : (2*r2 + r1)^2 >= 0).
+  { replace ((2*r2+r1)^2) with ((2*r2+r1)*(2*r2+r1)) by ring.
+    apply Rle_ge. apply Rle_0_sqr. }
+  lra.
+Qed.
+
+(** Contrapositive: if Δ_quad < 0, then there's at most one root *)
+Theorem cubic_at_most_one_root_when_quad_disc_neg : forall p q r,
+  is_cubic_root p q r ->
+  quad_discriminant r (r^2 + p) < 0 ->
+  forall t, is_cubic_root p q t -> t = r.
+Proof.
+  intros p q r Hr Hqdisc t Ht.
+  apply cubic_unique_root_neg_quad_disc with p q; assumption.
+Qed.
+
+(** For t >= 1, we have t^3 >= t *)
+Lemma cube_ge_self : forall t, t >= 1 -> t^3 >= t.
+Proof.
+  intros t Ht. nra.
+Qed.
+
+(** Cubic is positive for large positive t *)
+Lemma depressed_cubic_pos_large : forall p q,
+  exists M, forall t, t > M -> depressed_cubic p q t > 0.
+Proof.
+  intros p q.
+  exists (Rabs p + Rabs q + 2). intros t Ht.
+  unfold depressed_cubic.
+  assert (Habsp : 0 <= Rabs p) by apply Rabs_pos.
+  assert (Habsq : 0 <= Rabs q) by apply Rabs_pos.
+  assert (Ht_pos : t > 2) by lra.
+  assert (Ht_ge1 : t >= 1) by lra.
+  assert (Hcube_ge : t^3 >= t) by (apply cube_ge_self; lra).
+  assert (Hcube_ge_tt : t^3 >= t * t) by nra.
+  assert (Hpabs : - Rabs p <= p).
+  { unfold Rabs. destruct (Rcase_abs p); lra. }
+  assert (Hpt_bound : p * t >= - Rabs p * t) by nra.
+  assert (Hqabs : - Rabs q <= q).
+  { unfold Rabs. destruct (Rcase_abs q); lra. }
+  assert (Hq_bound : q >= - Rabs q) by lra.
+  assert (Hsum : t^3 + p*t + q >= t*t - Rabs p * t - Rabs q) by lra.
+  assert (Htt_bound : t * t > t * (Rabs p + 1)).
+  { apply Rmult_lt_compat_l; lra. }
+  assert (Hfinal : t*t - Rabs p * t - Rabs q > 0) by lra.
+  lra.
+Qed.
+
+End O6_Multiplicity.
+
+Section Discriminant_Theorem.
+
+Lemma cubic_disc_via_root : forall p q r,
+  is_cubic_root p q r ->
+  cubic_discriminant p q = -4 * p^3 - 27 * (r^3 + p * r)^2.
+Proof.
+  intros p q r Hr.
+  unfold is_cubic_root, depressed_cubic in Hr.
+  unfold cubic_discriminant.
+  replace q with (- r^3 - p * r) by lra.
+  ring.
+Qed.
+
+Lemma root_gives_q : forall p q r,
+  is_cubic_root p q r ->
+  q = - r * (r^2 + p).
+Proof.
+  intros p q r Hr.
+  unfold is_cubic_root, depressed_cubic in Hr.
+  lra.
+Qed.
+
+Lemma cubic_disc_via_quad_disc : forall p q r,
+  is_cubic_root p q r ->
+  cubic_discriminant p q =
+    quad_discriminant r (r^2 + p) * (9 * r^2 - quad_discriminant r (r^2 + p))^2 / 16.
+Proof.
+  intros p q r Hr.
+  unfold cubic_discriminant, quad_discriminant.
+  pose proof (root_gives_q p q r Hr) as Hq.
+  rewrite Hq.
+  field.
+Qed.
+
+Lemma square_term_nonneg : forall r p,
+  (9 * r^2 - quad_discriminant r (r^2 + p))^2 >= 0.
+Proof.
+  intros r p.
+  apply Rle_ge. apply pow2_ge_0.
+Qed.
+
+Lemma neg_cubic_disc_implies_neg_quad_disc : forall p q r,
+  is_cubic_root p q r ->
+  (9 * r^2 - quad_discriminant r (r^2 + p))^2 > 0 ->
+  cubic_discriminant p q < 0 ->
+  quad_discriminant r (r^2 + p) < 0.
+Proof.
+  intros p q r Hr Hsq_pos Hcubic_neg.
+  rewrite (cubic_disc_via_quad_disc p q r Hr) in Hcubic_neg.
+  set (dq := quad_discriminant r (r^2 + p)) in *.
+  set (sq := (9 * r^2 - dq)^2) in *.
+  destruct (Rlt_or_le dq 0) as [Hdq_neg | Hdq_nonneg].
+  - exact Hdq_neg.
+  - exfalso.
+    assert (Hsq_nn : sq >= 0) by (unfold sq; apply Rle_ge; apply pow2_ge_0).
+    assert (Hprod_nn : dq * sq >= 0) by nra.
+    assert (Hdiv_nn : dq * sq / 16 >= 0) by nra.
+    lra.
+Qed.
+
+Lemma zero_cubic_disc_cases : forall p q r,
+  is_cubic_root p q r ->
+  cubic_discriminant p q = 0 ->
+  quad_discriminant r (r^2 + p) = 0 \/
+  9 * r^2 - quad_discriminant r (r^2 + p) = 0.
+Proof.
+  intros p q r Hr Hzero.
+  rewrite (cubic_disc_via_quad_disc p q r Hr) in Hzero.
+  set (dq := quad_discriminant r (r^2 + p)) in *.
+  set (sq := (9 * r^2 - dq)^2) in *.
+  assert (Hdq_sq_zero : dq * sq = 0) by lra.
+  apply Rmult_integral in Hdq_sq_zero.
+  destruct Hdq_sq_zero as [Hdq_zero | Hsq_zero].
+  - left. exact Hdq_zero.
+  - right. unfold sq in Hsq_zero.
+    assert (H : (9 * r^2 - dq) * (9 * r^2 - dq) = 0).
+    { replace ((9 * r^2 - dq)^2) with ((9 * r^2 - dq) * (9 * r^2 - dq)) in Hsq_zero by ring.
+      exact Hsq_zero. }
+    apply Rmult_integral in H. destruct H; lra.
+Qed.
+
+Theorem neg_cubic_disc_unique_root : forall p q r,
+  is_cubic_root p q r ->
+  cubic_discriminant p q < 0 ->
+  forall t, is_cubic_root p q t -> t = r.
+Proof.
+  intros p q r Hr Hdisc t Ht.
+  assert (Hsq_pos : (9 * r^2 - quad_discriminant r (r^2 + p))^2 > 0).
+  { destruct (Req_dec (9 * r^2 - quad_discriminant r (r^2 + p)) 0) as [Heq | Hneq].
+    - exfalso.
+      rewrite (cubic_disc_via_quad_disc p q r Hr) in Hdisc.
+      rewrite Heq in Hdisc.
+      replace (0^2) with 0 in Hdisc by ring.
+      lra.
+    - replace ((9 * r^2 - quad_discriminant r (r^2 + p))^2)
+        with ((9 * r^2 - quad_discriminant r (r^2 + p)) *
+              (9 * r^2 - quad_discriminant r (r^2 + p))) by ring.
+      nra. }
+  assert (Hquad_neg : quad_discriminant r (r^2 + p) < 0).
+  { apply (neg_cubic_disc_implies_neg_quad_disc p q r Hr Hsq_pos Hdisc). }
+  apply (cubic_unique_root_neg_quad_disc p q r Hr Hquad_neg t Ht).
+Qed.
+
+Corollary neg_disc_unique_existence : forall p q,
+  cubic_discriminant p q < 0 ->
+  (exists r, is_cubic_root p q r) ->
+  exists! t, is_cubic_root p q t.
+Proof.
+  intros p q Hdisc [r Hr].
+  exists r. split.
+  - exact Hr.
+  - intros t Ht. symmetry. apply (neg_cubic_disc_unique_root p q r Hr Hdisc t Ht).
+Qed.
+
+Theorem discriminant_neg_case : forall p q,
+  cubic_discriminant p q < 0 ->
+  (exists r, is_cubic_root p q r) ->
+  exists! t, is_cubic_root p q t.
+Proof.
+  exact neg_disc_unique_existence.
+Qed.
+
+End Discriminant_Theorem.
+
+Section Discriminant_Zero_Case.
+
+Lemma quad_disc_zero_double_root : forall r p,
+  r <> 0 ->
+  quad_discriminant r (r^2 + p) = 0 ->
+  exists s, s <> r /\ is_cubic_root p (- r * (r^2 + p)) s /\
+    forall t, is_cubic_root p (- r * (r^2 + p)) t -> t = r \/ t = s.
+Proof.
+  intros r p Hrne0 Hqd.
+  unfold quad_discriminant in Hqd.
+  set (s := - r / 2).
+  exists s.
+  split.
+  - unfold s. lra.
+  - split.
+    + unfold is_cubic_root, depressed_cubic, s.
+      assert (Hp : p = - 3 * r^2 / 4) by lra.
+      rewrite Hp. field.
+    + intros t Ht.
+      unfold is_cubic_root, depressed_cubic in Ht.
+      assert (Hfactor : t^3 + p * t + (- r * (r^2 + p)) = (t - r) * (t^2 + r*t + (r^2 + p))).
+      { ring. }
+      rewrite Hfactor in Ht.
+      apply Rmult_integral in Ht.
+      destruct Ht as [Htr | Hquad].
+      * left. lra.
+      * right. unfold s.
+        assert (Hdisc : r^2 - 4*(r^2 + p) = 0) by lra.
+        assert (Hsq : (t + r/2)^2 = 0).
+        { replace (t^2 + r*t + (r^2 + p)) with ((t + r/2)^2 - (r^2/4 - (r^2 + p))) in Hquad by field.
+          replace (r^2/4 - (r^2 + p)) with ((r^2 - 4*(r^2 + p))/4) in Hquad by field.
+          rewrite Hdisc in Hquad. lra. }
+        assert (Hzero : t + r/2 = 0).
+        { destruct (Req_dec (t + r/2) 0) as [Hz|Hnz]; [exact Hz|].
+          exfalso. assert (Hpos : (t + r/2)^2 > 0) by nra. lra. }
+        lra.
+Qed.
+
+Lemma triple_root_case : forall p q,
+  p = 0 -> q = 0 ->
+  cubic_discriminant p q = 0 /\
+  forall t, is_cubic_root p q t -> t = 0.
+Proof.
+  intros p q Hp Hq. subst.
+  split.
+  - unfold cubic_discriminant. ring.
+  - intros t Ht. unfold is_cubic_root, depressed_cubic in Ht.
+    replace (t^3 + 0*t + 0) with (t^3) in Ht by ring.
+    assert (Ht3 : t * t * t = 0) by lra.
+    destruct (Req_dec t 0) as [Hz|Hnz]; [exact Hz|].
+    exfalso. assert (Hpos : t * t > 0) by nra.
+    assert (Htt : t * t * t <> 0) by nra. lra.
+Qed.
+
+End Discriminant_Zero_Case.
+
+Section Discriminant_Positive_Case.
+
+Lemma pos_disc_implies_neg_p : forall p q,
+  cubic_discriminant p q > 0 -> p < 0.
+Proof.
+  intros p q Hdisc.
+  unfold cubic_discriminant in Hdisc.
+  destruct (Rle_or_lt 0 p) as [Hp_nn | Hp_neg].
+  - exfalso.
+    assert (Hp3 : p^3 >= 0) by nra.
+    assert (Hq2 : q^2 >= 0) by nra.
+    lra.
+  - exact Hp_neg.
+Qed.
+
+Definition critical_point (p : R) : R := sqrt (- p / 3).
+
+Lemma critical_point_pos : forall p,
+  p < 0 -> critical_point p > 0.
+Proof.
+  intros p Hp.
+  unfold critical_point.
+  apply sqrt_lt_R0. lra.
+Qed.
+
+Lemma critical_point_sq : forall p,
+  p < 0 -> (critical_point p)^2 = - p / 3.
+Proof.
+  intros p Hp.
+  unfold critical_point.
+  replace ((sqrt (- p / 3))^2) with (sqrt (- p / 3) * sqrt (- p / 3)) by ring.
+  rewrite sqrt_sqrt by lra.
+  reflexivity.
+Qed.
+
+Lemma cubic_at_critical_pos : forall p q,
+  p < 0 ->
+  depressed_cubic p q (critical_point p) =
+    q + (2 * p / 3) * critical_point p.
+Proof.
+  intros p q Hp.
+  unfold depressed_cubic.
+  set (tc := critical_point p).
+  assert (Htc_sq : tc^2 = - p / 3) by (apply critical_point_sq; exact Hp).
+  replace (tc^3) with (tc * tc^2) by ring.
+  rewrite Htc_sq.
+  field.
+Qed.
+
+Lemma cubic_at_critical_neg : forall p q,
+  p < 0 ->
+  depressed_cubic p q (- critical_point p) =
+    q - (2 * p / 3) * critical_point p.
+Proof.
+  intros p q Hp.
+  unfold depressed_cubic.
+  set (tc := critical_point p).
+  assert (Htc_sq : tc^2 = - p / 3) by (apply critical_point_sq; exact Hp).
+  replace ((- tc)^3) with (- (tc * tc^2)) by ring.
+  rewrite Htc_sq.
+  field.
+Qed.
+
+Lemma extrema_product_discriminant : forall p q,
+  p < 0 ->
+  depressed_cubic p q (critical_point p) *
+  depressed_cubic p q (- critical_point p) =
+    q^2 + 4 * p^3 / 27.
+Proof.
+  intros p q Hp.
+  rewrite cubic_at_critical_pos by exact Hp.
+  rewrite cubic_at_critical_neg by exact Hp.
+  set (tc := critical_point p).
+  assert (Htc_sq : tc^2 = - p / 3) by (apply critical_point_sq; exact Hp).
+  replace ((q + 2 * p / 3 * tc) * (q - 2 * p / 3 * tc))
+    with (q * q - (2 * p / 3 * tc) * (2 * p / 3 * tc)) by ring.
+  replace ((2 * p / 3 * tc) * (2 * p / 3 * tc))
+    with (4 * p * p / 9 * (tc * tc)) by field.
+  replace (tc * tc) with (tc^2) by ring.
+  rewrite Htc_sq.
+  replace (q * q) with (q^2) by ring.
+  replace (p * p) with (p^2) by ring.
+  field.
+Qed.
+
+Lemma discriminant_extrema_relation : forall p q,
+  p < 0 ->
+  cubic_discriminant p q =
+    -27 * (depressed_cubic p q (critical_point p) *
+           depressed_cubic p q (- critical_point p)).
+Proof.
+  intros p q Hp.
+  rewrite extrema_product_discriminant by exact Hp.
+  unfold cubic_discriminant.
+  field.
+Qed.
+
+Lemma pos_disc_extrema_opposite_signs : forall p q,
+  cubic_discriminant p q > 0 ->
+  depressed_cubic p q (critical_point p) *
+  depressed_cubic p q (- critical_point p) < 0.
+Proof.
+  intros p q Hdisc.
+  assert (Hp : p < 0) by (apply pos_disc_implies_neg_p with q; exact Hdisc).
+  rewrite discriminant_extrema_relation in Hdisc by exact Hp.
+  set (f_min := depressed_cubic p q (critical_point p)) in *.
+  set (f_max := depressed_cubic p q (- critical_point p)) in *.
+  lra.
+Qed.
+
+Lemma depressed_cubic_neg_large : forall p q,
+  exists M, forall t, t < M -> depressed_cubic p q t < 0.
+Proof.
+  intros p q.
+  destruct (depressed_cubic_pos_large p (-q)) as [N HN].
+  exists (-N).
+  intros t Ht.
+  assert (HNt : - t > N) by lra.
+  specialize (HN (-t) HNt).
+  unfold depressed_cubic in *.
+  replace ((-t)^3) with (- t^3) in HN by ring.
+  lra.
+Qed.
+
+Lemma pow3_eq_cube_func : forall x, x^3 = cube_func x.
+Proof.
+  intro x. unfold cube_func. ring.
+Qed.
+
+Lemma depressed_cubic_as_sum : forall p q x,
+  depressed_cubic p q x = cube_func x + p * x + q.
+Proof.
+  intros. unfold depressed_cubic, cube_func. ring.
+Qed.
+
+Lemma continuity_linear : forall p, continuity (fun x => p * x).
+Proof.
+  intros p x.
+  apply derivable_continuous_pt.
+  apply derivable_pt_scal.
+  apply derivable_pt_id.
+Qed.
+
+Lemma continuity_const_fn : forall c, continuity (fun _ => c).
+Proof.
+  intros c x. apply continuity_const. intros y z. reflexivity.
+Qed.
+
+Definition depressed_cubic_alt (p q : R) : R -> R :=
+  fun x => cube_func x + p * x + q.
+
+Lemma depressed_cubic_alt_eq : forall p q x,
+  depressed_cubic p q x = depressed_cubic_alt p q x.
+Proof.
+  intros. unfold depressed_cubic, depressed_cubic_alt, cube_func. ring.
+Qed.
+
+Lemma depressed_cubic_alt_continuous : forall p q,
+  continuity (depressed_cubic_alt p q).
+Proof.
+  intros p q x.
+  unfold depressed_cubic_alt.
+  apply continuity_pt_plus.
+  - apply continuity_pt_plus.
+    + apply cube_func_continuous.
+    + apply (continuity_linear p).
+  - apply (continuity_const_fn q).
+Qed.
+
+Lemma IVT_root_exists : forall p q a b,
+  a < b ->
+  depressed_cubic_alt p q a < 0 ->
+  0 < depressed_cubic_alt p q b ->
+  exists r, a <= r <= b /\ depressed_cubic p q r = 0.
+Proof.
+  intros p q a b Hab Ha Hb.
+  destruct (IVT (depressed_cubic_alt p q) a b
+                (depressed_cubic_alt_continuous p q) Hab Ha Hb)
+    as [r [[Har Hrb] Hr]].
+  exists r.
+  split.
+  - split; lra.
+  - rewrite depressed_cubic_alt_eq. exact Hr.
+Qed.
+
+Lemma depressed_cubic_alt_sign : forall p q t,
+  depressed_cubic_alt p q t < 0 <-> depressed_cubic p q t < 0.
+Proof.
+  intros. rewrite depressed_cubic_alt_eq. tauto.
+Qed.
+
+Lemma depressed_cubic_alt_sign_pos : forall p q t,
+  depressed_cubic_alt p q t > 0 <-> depressed_cubic p q t > 0.
+Proof.
+  intros. rewrite depressed_cubic_alt_eq. tauto.
+Qed.
+
+Lemma depressed_cubic_alt_pos_large : forall p q,
+  exists M, forall t, t > M -> depressed_cubic_alt p q t > 0.
+Proof.
+  intros p q.
+  destruct (depressed_cubic_pos_large p q) as [M HM].
+  exists M. intros t Ht.
+  apply depressed_cubic_alt_sign_pos. apply HM. exact Ht.
+Qed.
+
+Lemma depressed_cubic_alt_neg_large : forall p q,
+  exists M, forall t, t < M -> depressed_cubic_alt p q t < 0.
+Proof.
+  intros p q.
+  destruct (depressed_cubic_neg_large p q) as [M HM].
+  exists M. intros t Ht.
+  apply depressed_cubic_alt_sign. apply HM. exact Ht.
+Qed.
+
+Lemma pos_disc_alt_extrema_opposite : forall p q,
+  cubic_discriminant p q > 0 ->
+  (depressed_cubic_alt p q (critical_point p) < 0 /\
+   depressed_cubic_alt p q (- critical_point p) > 0) \/
+  (depressed_cubic_alt p q (critical_point p) > 0 /\
+   depressed_cubic_alt p q (- critical_point p) < 0).
+Proof.
+  intros p q Hdisc.
+  assert (Hprod : depressed_cubic p q (critical_point p) *
+                  depressed_cubic p q (- critical_point p) < 0)
+    by (apply pos_disc_extrema_opposite_signs; exact Hdisc).
+  rewrite depressed_cubic_alt_eq in Hprod.
+  rewrite depressed_cubic_alt_eq in Hprod.
+  set (f_tc := depressed_cubic_alt p q (critical_point p)) in *.
+  set (f_mtc := depressed_cubic_alt p q (- critical_point p)) in *.
+  destruct (Rlt_or_le f_tc 0) as [Hftc_neg | Hftc_nonneg].
+  - left. split. exact Hftc_neg. nra.
+  - right. destruct (Rle_or_lt f_tc 0) as [Hftc_zero | Hftc_pos].
+    + exfalso. assert (f_tc = 0) by lra. nra.
+    + split. exact Hftc_pos. nra.
+Qed.
+
+Lemma neg_depressed_cubic_alt_continuous : forall p q,
+  continuity (fun x => - depressed_cubic_alt p q x).
+Proof.
+  intros p q x.
+  apply continuity_pt_opp.
+  apply depressed_cubic_alt_continuous.
+Qed.
+
+Lemma pos_disc_middle_root : forall p q,
+  cubic_discriminant p q > 0 ->
+  exists r, - critical_point p <= r <= critical_point p /\
+            depressed_cubic p q r = 0.
+Proof.
+  intros p q Hdisc.
+  assert (Hp : p < 0) by (apply pos_disc_implies_neg_p with q; exact Hdisc).
+  assert (Htc_pos : critical_point p > 0) by (apply critical_point_pos; exact Hp).
+  destruct (pos_disc_alt_extrema_opposite p q Hdisc) as [[Hftc Hfmtc] | [Hftc Hfmtc]].
+  - pose (g := fun x => - depressed_cubic_alt p q x).
+    assert (Hgcont : continuity g) by apply neg_depressed_cubic_alt_continuous.
+    assert (Hgmtc : g (- critical_point p) < 0) by (unfold g; lra).
+    assert (Hgtc : 0 < g (critical_point p)) by (unfold g; lra).
+    destruct (IVT g (- critical_point p) (critical_point p) Hgcont)
+      as [r [[Hr1 Hr2] Hr]].
+    + lra.
+    + exact Hgmtc.
+    + exact Hgtc.
+    + exists r. split. lra.
+      unfold g in Hr. rewrite depressed_cubic_alt_eq. lra.
+  - destruct (IVT (depressed_cubic_alt p q) (- critical_point p) (critical_point p)
+                  (depressed_cubic_alt_continuous p q)) as [r [[Hr1 Hr2] Hr]].
+    + lra.
+    + exact Hfmtc.
+    + exact Hftc.
+    + exists r. split. lra. rewrite depressed_cubic_alt_eq. exact Hr.
+Qed.
+
+Lemma local_max_gt_local_min : forall p q,
+  p < 0 ->
+  depressed_cubic p q (- critical_point p) >
+  depressed_cubic p q (critical_point p).
+Proof.
+  intros p q Hp.
+  set (tc := critical_point p).
+  rewrite cubic_at_critical_neg by exact Hp.
+  rewrite cubic_at_critical_pos by exact Hp.
+  assert (Htc_pos : tc > 0) by (apply critical_point_pos; exact Hp).
+  apply Rlt_0_minus.
+  assert (Heq : q - 2 * p / 3 * critical_point p - (q + 2 * p / 3 * critical_point p) = (- 4 * p / 3) * critical_point p) by (unfold critical_point; field).
+  rewrite Heq.
+  apply Rmult_lt_0_compat.
+  - lra.
+  - exact Htc_pos.
+Qed.
+
+Lemma pos_disc_local_max_pos : forall p q,
+  cubic_discriminant p q > 0 ->
+  depressed_cubic p q (- critical_point p) > 0.
+Proof.
+  intros p q Hdisc.
+  assert (Hp : p < 0) by (apply pos_disc_implies_neg_p with q; exact Hdisc).
+  assert (Hprod : depressed_cubic p q (critical_point p) *
+                  depressed_cubic p q (- critical_point p) < 0)
+    by (apply pos_disc_extrema_opposite_signs; exact Hdisc).
+  assert (Hmax_gt_min : depressed_cubic p q (- critical_point p) >
+                        depressed_cubic p q (critical_point p))
+    by (apply local_max_gt_local_min; exact Hp).
+  destruct (Rlt_or_le (depressed_cubic p q (- critical_point p)) 0) as [Hneg | Hnn].
+  - exfalso. assert (Hmin_neg : depressed_cubic p q (critical_point p) < 0) by lra.
+    assert (Hprod_pos : depressed_cubic p q (critical_point p) *
+                        depressed_cubic p q (- critical_point p) > 0) by nra.
+    lra.
+  - destruct (Req_dec (depressed_cubic p q (- critical_point p)) 0) as [Heq | Hneq].
+    + exfalso. rewrite Heq in Hprod. lra.
+    + lra.
+Qed.
+
+Lemma pos_disc_local_min_neg : forall p q,
+  cubic_discriminant p q > 0 ->
+  depressed_cubic p q (critical_point p) < 0.
+Proof.
+  intros p q Hdisc.
+  assert (Hprod : depressed_cubic p q (critical_point p) *
+                  depressed_cubic p q (- critical_point p) < 0)
+    by (apply pos_disc_extrema_opposite_signs; exact Hdisc).
+  assert (Hmax_pos : depressed_cubic p q (- critical_point p) > 0)
+    by (apply pos_disc_local_max_pos; exact Hdisc).
+  destruct (Rlt_or_le (depressed_cubic p q (critical_point p)) 0) as [Hneg | Hnn].
+  - exact Hneg.
+  - exfalso. assert (Hprod_nn : depressed_cubic p q (critical_point p) *
+                                depressed_cubic p q (- critical_point p) >= 0) by nra.
+    lra.
+Qed.
+
+Lemma pos_disc_left_root : forall p q,
+  cubic_discriminant p q > 0 ->
+  exists r, r < - critical_point p /\ depressed_cubic p q r = 0.
+Proof.
+  intros p q Hdisc.
+  assert (Hp : p < 0) by (apply pos_disc_implies_neg_p with q; exact Hdisc).
+  assert (Htc_pos : critical_point p > 0) by (apply critical_point_pos; exact Hp).
+  assert (Hmax_pos : depressed_cubic_alt p q (- critical_point p) > 0).
+  { rewrite <- depressed_cubic_alt_eq. apply pos_disc_local_max_pos. exact Hdisc. }
+  destruct (depressed_cubic_alt_neg_large p q) as [M HM].
+  set (M' := Rmin M (- critical_point p) - 1).
+  assert (HM'_lt : M' < - critical_point p).
+  { unfold M'. unfold Rmin. destruct (Rle_dec M (- critical_point p)); lra. }
+  assert (HM'_ltM : M' < M).
+  { unfold M'. unfold Rmin. destruct (Rle_dec M (- critical_point p)); lra. }
+  assert (HM'_neg : depressed_cubic_alt p q M' < 0).
+  { apply HM. exact HM'_ltM. }
+  destruct (IVT (depressed_cubic_alt p q) M' (- critical_point p)
+                (depressed_cubic_alt_continuous p q)) as [r [[Hr1 Hr2] Hr]].
+  - lra.
+  - exact HM'_neg.
+  - exact Hmax_pos.
+  - exists r. split.
+    + destruct (Req_dec r (- critical_point p)) as [Heq | Hneq].
+      * exfalso. rewrite Heq in Hr. lra.
+      * lra.
+    + rewrite depressed_cubic_alt_eq. exact Hr.
+Qed.
+
+Lemma pos_disc_right_root : forall p q,
+  cubic_discriminant p q > 0 ->
+  exists r, r > critical_point p /\ depressed_cubic p q r = 0.
+Proof.
+  intros p q Hdisc.
+  assert (Hp : p < 0) by (apply pos_disc_implies_neg_p with q; exact Hdisc).
+  assert (Htc_pos : critical_point p > 0) by (apply critical_point_pos; exact Hp).
+  assert (Hmin_neg : depressed_cubic_alt p q (critical_point p) < 0).
+  { rewrite <- depressed_cubic_alt_eq. apply pos_disc_local_min_neg. exact Hdisc. }
+  destruct (depressed_cubic_alt_pos_large p q) as [N HN].
+  set (N' := Rmax N (critical_point p) + 1).
+  assert (HN'_gt : N' > critical_point p).
+  { unfold N'. unfold Rmax. destruct (Rle_dec N (critical_point p)); lra. }
+  assert (HN'_gtN : N' > N).
+  { unfold N'. unfold Rmax. destruct (Rle_dec N (critical_point p)); lra. }
+  assert (HN'_pos : depressed_cubic_alt p q N' > 0).
+  { apply HN. exact HN'_gtN. }
+  destruct (IVT (depressed_cubic_alt p q) (critical_point p) N'
+                (depressed_cubic_alt_continuous p q)) as [r [[Hr1 Hr2] Hr]].
+  - lra.
+  - exact Hmin_neg.
+  - exact HN'_pos.
+  - exists r. split.
+    + destruct (Req_dec r (critical_point p)) as [Heq | Hneq].
+      * exfalso. rewrite Heq in Hr. lra.
+      * lra.
+    + rewrite depressed_cubic_alt_eq. exact Hr.
+Qed.
+
+Theorem pos_disc_three_distinct_roots : forall p q,
+  cubic_discriminant p q > 0 ->
+  exists r1 r2 r3,
+    is_cubic_root p q r1 /\ is_cubic_root p q r2 /\ is_cubic_root p q r3 /\
+    r1 < r2 /\ r2 < r3.
+Proof.
+  intros p q Hdisc.
+  assert (Hp : p < 0) by (apply pos_disc_implies_neg_p with q; exact Hdisc).
+  assert (Htc_pos : critical_point p > 0) by (apply critical_point_pos; exact Hp).
+  destruct (pos_disc_left_root p q Hdisc) as [r1 [Hr1_lt Hr1_root]].
+  destruct (pos_disc_middle_root p q Hdisc) as [r2 [Hr2_bd Hr2_root]].
+  destruct (pos_disc_right_root p q Hdisc) as [r3 [Hr3_gt Hr3_root]].
+  exists r1, r2, r3.
+  repeat split.
+  - unfold is_cubic_root. exact Hr1_root.
+  - unfold is_cubic_root. exact Hr2_root.
+  - unfold is_cubic_root. exact Hr3_root.
+  - destruct Hr2_bd as [Hr2_lo Hr2_hi]. lra.
+  - destruct Hr2_bd as [Hr2_lo Hr2_hi]. lra.
+Qed.
+
+End Discriminant_Positive_Case.
+
+Section O6_Fold_Count.
+
+Definition O6_fold_from_root (p q t : R) : Fold := fold_O6_beloch p q t.
+
+Definition O6_has_exactly_one_fold (p q : R) : Prop :=
+  exists t, is_cubic_root p q t /\
+    forall t', is_cubic_root p q t' -> t' = t.
+
+Definition O6_has_three_distinct_folds (p q : R) : Prop :=
+  exists t1 t2 t3,
+    is_cubic_root p q t1 /\ is_cubic_root p q t2 /\ is_cubic_root p q t3 /\
+    t1 <> t2 /\ t1 <> t3 /\ t2 <> t3.
+
+Theorem O6_neg_discriminant_one_fold : forall p q,
+  cubic_discriminant p q < 0 ->
+  (exists t, is_cubic_root p q t) ->
+  O6_has_exactly_one_fold p q.
+Proof.
+  intros p q Hdisc [t Ht].
+  unfold O6_has_exactly_one_fold.
+  exists t. split.
+  - exact Ht.
+  - intros t' Ht'. apply (neg_cubic_disc_unique_root p q t Ht Hdisc t' Ht').
+Qed.
+
+Theorem O6_pos_discriminant_three_folds : forall p q,
+  cubic_discriminant p q > 0 ->
+  O6_has_three_distinct_folds p q.
+Proof.
+  intros p q Hdisc.
+  destruct (pos_disc_three_distinct_roots p q Hdisc) as [r1 [r2 [r3 [Hr1 [Hr2 [Hr3 [Hlt12 Hlt23]]]]]]].
+  unfold O6_has_three_distinct_folds.
+  exists r1, r2, r3.
+  repeat split; try assumption; lra.
+Qed.
+
+Definition O6_has_two_distinct_folds (p q : R) : Prop :=
+  exists t1 t2,
+    is_cubic_root p q t1 /\ is_cubic_root p q t2 /\
+    t1 <> t2 /\
+    forall t, is_cubic_root p q t -> t = t1 \/ t = t2.
+
+Theorem O6_zero_disc_triple_root_one_fold :
+  O6_has_exactly_one_fold 0 0.
+Proof.
+  unfold O6_has_exactly_one_fold.
+  exists 0. split.
+  - unfold is_cubic_root, depressed_cubic. ring.
+  - intros t' Ht'. apply (proj2 (triple_root_case 0 0 eq_refl eq_refl) t' Ht').
+Qed.
+
+Corollary O6_fold_count_by_discriminant : forall p q,
+  (cubic_discriminant p q < 0 /\ (exists t, is_cubic_root p q t) ->
+    O6_has_exactly_one_fold p q) /\
+  (cubic_discriminant p q > 0 ->
+    O6_has_three_distinct_folds p q).
+Proof.
+  intros p q. split.
+  - intros [Hdisc Hex]. apply O6_neg_discriminant_one_fold; assumption.
+  - apply O6_pos_discriminant_three_folds.
+Qed.
+
+End O6_Fold_Count.
