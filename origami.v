@@ -8429,34 +8429,94 @@ Proof.
     destruct (f (S n')) eqn:Hf; destruct (g (S n')) eqn:Hg; simpl; lia.
 Qed.
 
-(** Counting over [1..m*n] with residue-factored predicate equals product *)
-Lemma count_pred_residue_product : forall m n f g,
-  (m > 0)%nat -> (n > 0)%nat -> Nat.gcd m n = 1%nat ->
-  count_pred (fun k => f (k mod m) && g (k mod n)) (m * n) =
-  (count_pred f m * count_pred g n)%nat.
-Proof. Admitted.
+(** Count over [0..n-1] *)
+Fixpoint count_from_0 (f : nat -> bool) (n : nat) : nat :=
+  match n with
+  | 0 => 0
+  | S k => count_from_0 f k + (if f k then 1 else 0)
+  end.
 
-(** Key lemma: counting coprimes to mn equals counting coprime pairs *)
-Lemma count_coprime_product_eq_pairs : forall m n,
-  (m > 1)%nat -> (n > 1)%nat -> Nat.gcd m n = 1%nat ->
-  count_pred (fun k => coprime k (m * n)) (m * n) =
-  count_pairs (fun a => coprime a m) (fun b => coprime b n) m n.
-Proof. Admitted.
+Lemma count_from_0_S : forall f n,
+  count_from_0 f (S n) = (count_from_0 f n + (if f n then 1 else 0))%nat.
+Proof. reflexivity. Qed.
 
-(** Main theorem: φ is multiplicative for coprime arguments *)
-Theorem euler_phi_multiplicative : forall m n,
-  (m > 1)%nat -> (n > 1)%nat ->
-  Nat.gcd m n = 1%nat ->
-  euler_phi (m * n) = (euler_phi m * euler_phi n)%nat.
+(** Sum over middle range [1..n-1] *)
+Fixpoint count_mid (f : nat -> bool) (n : nat) : nat :=
+  match n with
+  | 0 => 0
+  | S k => match k with
+           | 0 => 0
+           | S _ => (if f k then 1 else 0) + count_mid f k
+           end
+  end.
+
+Lemma count_pred_split : forall f n,
+  (n > 0)%nat ->
+  count_pred f n = (count_mid f n + (if f n then 1 else 0))%nat.
 Proof.
-  intros m n Hm Hn Hgcd.
-  unfold euler_phi.
-  rewrite !count_coprime_eq_count_pred.
-  rewrite <- count_pairs_eq_mul.
-  apply count_coprime_product_eq_pairs; assumption.
+  intros f n Hn.
+  induction n as [|n' IHn'].
+  - lia.
+  - destruct n' as [|n''].
+    + simpl. lia.
+    + rewrite count_pred_S.
+      rewrite IHn' by lia.
+      simpl. lia.
 Qed.
 
-End Algebraic_Characterization.
+Lemma count_from_0_split : forall f n,
+  (n > 0)%nat ->
+  count_from_0 f n = (count_mid f n + (if f 0%nat then 1 else 0))%nat.
+Proof.
+  intros f n Hn.
+  induction n as [|n' IHn'].
+  - lia.
+  - destruct n' as [|n''].
+    + simpl. lia.
+    + rewrite count_from_0_S.
+      rewrite IHn' by lia.
+      simpl. lia.
+Qed.
+
+(** count_pred f n = count_from_0 f n when f 0 = f n *)
+Lemma count_pred_eq_from_0 : forall f n,
+  (n > 0)%nat -> f 0%nat = f n ->
+  count_pred f n = count_from_0 f n.
+Proof.
+  intros f n Hn Hf0n.
+  rewrite count_pred_split by exact Hn.
+  rewrite count_from_0_split by exact Hn.
+  rewrite Hf0n. reflexivity.
+Qed.
+
+(** The residue predicate at 0 equals at m*n *)
+Lemma residue_pred_boundary : forall (m n : nat) f g,
+  (m > 0)%nat -> (n > 0)%nat ->
+  (fun k => f (k mod m) && g (k mod n)) 0%nat =
+  (fun k => f (k mod m) && g (k mod n)) (m * n)%nat.
+Proof.
+  intros m n f g Hm Hn.
+  simpl. rewrite Nat.mod_0_l by lia. rewrite Nat.mod_0_l by lia.
+  rewrite Nat.mod_mul by lia. rewrite Nat.mul_comm.
+  rewrite Nat.mod_mul by lia. reflexivity.
+Qed.
+
+(** Count over [0..n-1] × [0..m-1] with factored predicate *)
+Fixpoint count_from_0_pairs (f : nat -> bool) (g : nat -> bool) (m n : nat) : nat :=
+  match n with
+  | 0 => 0
+  | S n' => count_from_0_pairs f g m n' + (if g n' then count_from_0 f m else 0)
+  end.
+
+Lemma count_from_0_pairs_eq : forall f g m n,
+  count_from_0_pairs f g m n = (count_from_0 f m * count_from_0 g n)%nat.
+Proof.
+  intros f g m n.
+  induction n as [|n' IHn'].
+  - simpl. lia.
+  - simpl. rewrite IHn'.
+    destruct (g n'); lia.
+Qed.
 
 Section Impossibility.
 
@@ -10161,4 +10221,6 @@ Proof.
 Qed.
 
 End Cardano_Formula.
+
+End Algebraic_Characterization.
       
