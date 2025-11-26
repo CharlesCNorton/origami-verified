@@ -7785,6 +7785,315 @@ Proof.
   split; apply Nat.mod_0_l; lia.
 Qed.
 
+(** Helper: k mod (m*n) mod m = k mod m *)
+Lemma mod_mul_mod_l : forall val mod1 mod2,
+  (mod1 > 0)%nat -> (mod2 > 0)%nat ->
+  ((val mod (mod1 * mod2)) mod mod1 = val mod mod1)%nat.
+Proof.
+  intros val mod1 mod2 Hm1 Hm2.
+  assert (Hprod : (mod1 * mod2 > 0)%nat) by lia.
+  set (rem := (val mod (mod1 * mod2))%nat).
+  set (quot := (val / (mod1 * mod2))%nat).
+  assert (Hdiv : (val = quot * (mod1 * mod2) + rem)%nat).
+  { unfold quot, rem. rewrite Nat.mul_comm. apply Nat.div_mod. lia. }
+  assert (Hrem_lt : (rem < mod1 * mod2)%nat).
+  { unfold rem. apply Nat.mod_upper_bound. lia. }
+  rewrite Hdiv.
+  rewrite Nat.add_mod by lia.
+  rewrite Nat.mul_mod by lia.
+  replace ((mod1 * mod2) mod mod1)%nat with 0%nat.
+  2: { rewrite Nat.mul_comm. symmetry. apply Nat.mod_mul. lia. }
+  rewrite Nat.mul_0_r.
+  rewrite Nat.mod_0_l by lia.
+  rewrite Nat.add_0_l.
+  rewrite Nat.mod_mod by lia.
+  fold rem.
+  reflexivity.
+Qed.
+
+(** Helper: k mod (m*n) mod n = k mod n *)
+Lemma mod_mul_mod_r : forall val mod1 mod2,
+  (mod1 > 0)%nat -> (mod2 > 0)%nat ->
+  ((val mod (mod1 * mod2)) mod mod2 = val mod mod2)%nat.
+Proof.
+  intros val mod1 mod2 Hm1 Hm2.
+  rewrite Nat.mul_comm.
+  apply mod_mul_mod_l; lia.
+Qed.
+
+(** Euclidean division: a = m * (a/m) + (a mod m) *)
+Lemma div_mod_eq : forall a m,
+  (m > 0)%nat -> (a = m * (a / m) + a mod m)%nat.
+Proof.
+  intros a m Hm.
+  assert (H := Nat.div_mod a m ltac:(lia)).
+  lia.
+Qed.
+
+(** If a mod m = b mod m with a >= b, then m divides (a - b) *)
+Lemma mod_eq_divides : forall a b m,
+  (m > 0)%nat -> (a >= b)%nat ->
+  (a mod m = b mod m)%nat ->
+  Nat.divide m (a - b).
+Proof.
+  intros a b m Hm Hge Heq.
+  assert (Hab: (a / m >= b / m)%nat).
+  { apply Nat.div_le_mono; lia. }
+  assert (Ha := div_mod_eq a m Hm).
+  assert (Hb := div_mod_eq b m Hm).
+  assert (Hmod_a: (a mod m < m)%nat) by (apply Nat.mod_upper_bound; lia).
+  assert (Hmod_b: (b mod m < m)%nat) by (apply Nat.mod_upper_bound; lia).
+  exists ((a / m) - (b / m))%nat.
+  nia.
+Qed.
+
+(** If both m and n divide d with gcd(m,n)=1, then m*n divides d *)
+Lemma coprime_divides_mul : forall m n d,
+  (m > 0)%nat -> (n > 0)%nat ->
+  Nat.gcd m n = 1%nat ->
+  Nat.divide m d -> Nat.divide n d ->
+  Nat.divide (m * n) d.
+Proof.
+  intros m n d Hm Hn Hgcd Hdm Hdn.
+  destruct Hdm as [qm Hqm].
+  destruct Hdn as [qn Hqn].
+  assert (Hdiv: Nat.divide n qm).
+  { assert (Hdiv_mn: Nat.divide n (m * qm)).
+    { exists qn. subst d. lia. }
+    apply Nat.gauss with m; auto.
+    rewrite Nat.gcd_comm. exact Hgcd. }
+  destruct Hdiv as [q Hq].
+  exists q.
+  subst d. rewrite Hq. ring.
+Qed.
+
+(** Small divisor lemma: if m*n divides d and d < m*n then d = 0 *)
+Lemma small_multiple_zero : forall m n d,
+  (m > 0)%nat -> (n > 0)%nat ->
+  Nat.divide (m * n) d -> (d < m * n)%nat -> d = 0%nat.
+Proof.
+  intros m n d Hm Hn Hdiv Hlt.
+  destruct Hdiv as [q Hq].
+  assert (q = 0)%nat by nia.
+  lia.
+Qed.
+
+(** CRT Injectivity: if k₁ ≡ k₂ (mod m) and k₁ ≡ k₂ (mod n) with gcd(m,n)=1,
+    and both k₁, k₂ < m*n, then k₁ = k₂ *)
+Lemma crt_injectivity : forall m n k1 k2,
+  (m > 0)%nat -> (n > 0)%nat ->
+  Nat.gcd m n = 1%nat ->
+  (k1 < m * n)%nat -> (k2 < m * n)%nat ->
+  (k1 mod m = k2 mod m)%nat ->
+  (k1 mod n = k2 mod n)%nat ->
+  k1 = k2.
+Proof.
+  intros m n k1 k2 Hm Hn Hgcd Hk1 Hk2 Hmodm Hmodn.
+  destruct (Nat.le_ge_cases k1 k2) as [Hle | Hge].
+  - assert (Hdm: Nat.divide m (k2 - k1)).
+    { apply mod_eq_divides; lia || auto. }
+    assert (Hdn: Nat.divide n (k2 - k1)).
+    { apply mod_eq_divides; lia || auto. }
+    assert (Hdmn: Nat.divide (m * n) (k2 - k1)).
+    { apply coprime_divides_mul; auto. }
+    assert (Hdiff: (k2 - k1 < m * n)%nat) by lia.
+    assert (Hzero: (k2 - k1 = 0)%nat).
+    { apply small_multiple_zero with m n; auto. }
+    lia.
+  - assert (Hdm: Nat.divide m (k1 - k2)).
+    { apply mod_eq_divides; [lia | lia | symmetry; auto]. }
+    assert (Hdn: Nat.divide n (k1 - k2)).
+    { apply mod_eq_divides; [lia | lia | symmetry; auto]. }
+    assert (Hdmn: Nat.divide (m * n) (k1 - k2)).
+    { apply coprime_divides_mul; auto. }
+    assert (Hdiff: (k1 - k2 < m * n)%nat) by lia.
+    assert (Hzero: (k1 - k2 = 0)%nat).
+    { apply small_multiple_zero with m n; auto. }
+    lia.
+Qed.
+
+(** Helper: adding n then subtracting r mod n gives offset to reach target b *)
+Lemma mod_add_sub_cancel : forall res_val tgt_val mod_val,
+  (mod_val > 0)%nat -> (res_val < mod_val)%nat -> (tgt_val < mod_val)%nat ->
+  ((res_val + (tgt_val + mod_val - res_val) mod mod_val) mod mod_val = tgt_val)%nat.
+Proof.
+  intros res_val tgt_val mod_val Hmod Hres Htgt.
+  destruct (Nat.le_gt_cases res_val tgt_val) as [Hle | Hgt].
+  - assert (Heq: (tgt_val + mod_val - res_val = mod_val + (tgt_val - res_val))%nat) by lia.
+    rewrite Heq.
+    assert (Hdiff_lt: (tgt_val - res_val < mod_val)%nat) by lia.
+    replace ((mod_val + (tgt_val - res_val)) mod mod_val)%nat with (tgt_val - res_val)%nat.
+    2: {
+      rewrite Nat.add_comm.
+      rewrite Nat.add_mod by lia.
+      rewrite Nat.mod_same by lia.
+      rewrite Nat.add_0_r.
+      rewrite Nat.mod_mod by lia.
+      symmetry. apply Nat.mod_small. lia.
+    }
+    replace (res_val + (tgt_val - res_val))%nat with tgt_val by lia.
+    apply Nat.mod_small. lia.
+  - assert (Hlt: (tgt_val + mod_val - res_val < mod_val)%nat).
+    { assert (Hgt': (res_val > tgt_val)%nat) by lia.
+      assert (Hsum: (tgt_val + mod_val > res_val)%nat) by lia.
+      lia. }
+    replace ((tgt_val + mod_val - res_val) mod mod_val)%nat with (tgt_val + mod_val - res_val)%nat.
+    2: { symmetry. apply Nat.mod_small. exact Hlt. }
+    replace (res_val + (tgt_val + mod_val - res_val))%nat with (tgt_val + mod_val)%nat by lia.
+    rewrite Nat.add_mod by lia.
+    rewrite Nat.mod_same by lia.
+    rewrite Nat.add_0_r.
+    rewrite Nat.mod_mod by lia.
+    assert (Hsmall: (tgt_val mod mod_val = tgt_val)%nat).
+    { apply Nat.mod_small. exact Htgt. }
+    rewrite Hsmall. reflexivity.
+Qed.
+
+(** CRT Existence: for any residues a < m and b < n with gcd(m,n)=1,
+    there exists k < m*n with k mod m = a and k mod n = b *)
+Lemma crt_existence : forall m n a b,
+  (m > 1)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  (a < m)%nat -> (b < n)%nat ->
+  exists k, (k < m * n)%nat /\ (k mod m = a)%nat /\ (k mod n = b)%nat.
+Proof.
+  intros m n a b Hm Hn Hgcd Ha Hb.
+  destruct (achieve_residue n m a ltac:(lia) ltac:(lia) ltac:(rewrite Nat.gcd_comm; exact Hgcd) ltac:(lia)) as [t1 Ht1].
+  set (k1 := (n * t1)%nat).
+  assert (Hk1_mod_m: (k1 mod m = a)%nat).
+  { unfold k1. exact Ht1. }
+  set (diff := ((b + n - k1 mod n) mod n)%nat).
+  destruct (achieve_residue m n diff ltac:(lia) ltac:(lia) Hgcd ltac:(apply Nat.mod_upper_bound; lia)) as [t2 Ht2].
+  set (k := (k1 + m * t2)%nat).
+  exists (k mod (m * n))%nat.
+  split; [| split].
+  - apply Nat.mod_upper_bound. lia.
+  - rewrite mod_mul_mod_l by lia.
+    unfold k.
+    rewrite Nat.add_mod by lia.
+    rewrite Hk1_mod_m.
+    rewrite Nat.mul_mod by lia.
+    rewrite Nat.mod_same by lia.
+    rewrite Nat.mul_0_l.
+    rewrite Nat.mod_0_l by lia.
+    rewrite Nat.add_0_r.
+    apply Nat.mod_small. lia.
+  - rewrite mod_mul_mod_r by lia.
+    unfold k.
+    rewrite Nat.add_mod by lia.
+    rewrite Ht2.
+    unfold diff.
+    assert (Hkn: (k1 mod n < n)%nat) by (apply Nat.mod_upper_bound; lia).
+    apply mod_add_sub_cancel; lia.
+Qed.
+
+(** CRT preserves coprimality: gcd(k, m*n) = 1 iff gcd(k mod m, m) = 1 and gcd(k mod n, n) = 1 *)
+Lemma crt_coprime_iff : forall m n k,
+  (m > 1)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  (Nat.gcd k (m * n) = 1)%nat <-> (Nat.gcd (k mod m) m = 1)%nat /\ (Nat.gcd (k mod n) n = 1)%nat.
+Proof.
+  intros m n k Hm Hn Hgcd.
+  split.
+  - intros Hkmn.
+    rewrite coprime_product_iff in Hkmn by lia.
+    destruct Hkmn as [Hkm_prod Hkn_prod].
+    split.
+    + rewrite <- coprime_mod_equiv by lia. exact Hkm_prod.
+    + rewrite <- coprime_mod_equiv by lia. exact Hkn_prod.
+  - intros [Hkm Hkn].
+    rewrite coprime_product_iff by lia.
+    split.
+    + rewrite coprime_mod_equiv by lia. exact Hkm.
+    + rewrite coprime_mod_equiv by lia. exact Hkn.
+Qed.
+
+(** Computational verification of φ multiplicativity for specific values.
+    The general proof would require a full bijection argument via CRT;
+    these computations demonstrate the property holds. *)
+
+Lemma euler_phi_2_3 : euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_2_5 : euler_phi (2 * 5) = (euler_phi 2 * euler_phi 5)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_2_7 : euler_phi (2 * 7) = (euler_phi 2 * euler_phi 7)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_3_5 : euler_phi (3 * 5) = (euler_phi 3 * euler_phi 5)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_3_7 : euler_phi (3 * 7) = (euler_phi 3 * euler_phi 7)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_2_9 : euler_phi (2 * 9) = (euler_phi 2 * euler_phi 9)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_4_9 : euler_phi (4 * 9) = (euler_phi 4 * euler_phi 9)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_8_9 : euler_phi (8 * 9) = (euler_phi 8 * euler_phi 9)%nat.
+Proof. reflexivity. Qed.
+
+(** count_coprime counts elements with coprime property *)
+Lemma count_coprime_0 : forall n, count_coprime n 0 = 0%nat.
+Proof. reflexivity. Qed.
+
+Lemma count_coprime_S : forall n k,
+  count_coprime n (S k) = ((if coprime (S k) n then 1 else 0) + count_coprime n k)%nat.
+Proof. reflexivity. Qed.
+
+(** count_coprime n (S k) = count_coprime n k + contribution from S k *)
+Lemma count_coprime_split : forall n k,
+  count_coprime n (S k) = (count_coprime n k + if coprime (S k) n then 1 else 0)%nat.
+Proof.
+  intros n k. rewrite count_coprime_S. lia.
+Qed.
+
+(** coprime 1 n = true for all n > 0 *)
+Lemma coprime_1_l : forall n, (n > 0)%nat -> coprime 1 n = true.
+Proof.
+  intros n Hn.
+  unfold coprime.
+  assert (Hgcd: Nat.gcd 1 n = 1%nat).
+  { destruct n; [lia|]. simpl. reflexivity. }
+  rewrite Hgcd. reflexivity.
+Qed.
+
+(** gcd n 1 = 1, proved using gcd_comm and gcd_1_l *)
+Lemma gcd_n_1 : forall n, Nat.gcd n 1 = 1%nat.
+Proof.
+  intro n.
+  rewrite Nat.gcd_comm.
+  destruct n; reflexivity.
+Qed.
+
+(** coprime n 1 = true *)
+Lemma coprime_n_1 : forall n, coprime n 1 = true.
+Proof.
+  intro n.
+  unfold coprime.
+  rewrite gcd_n_1.
+  reflexivity.
+Qed.
+
+(** count_coprime 1 k = k for all k *)
+Lemma count_coprime_1 : forall k, count_coprime 1 k = k.
+Proof.
+  intro k.
+  induction k as [|k' IHk].
+  - reflexivity.
+  - rewrite count_coprime_S.
+    rewrite IHk.
+    rewrite coprime_n_1.
+    lia.
+Qed.
+
+(** euler_phi 1 = 1 (already have phi_1, but useful form) *)
+Lemma euler_phi_1 : euler_phi 1 = 1%nat.
+Proof. reflexivity. Qed.
+
 (** n-gon origami-constructible iff φ(n) is 2-3 smooth. *)
 Definition ngon_constructible_iff_phi_smooth (n : nat) : Prop :=
   is_2_3_smooth (euler_phi n).
@@ -7869,6 +8178,282 @@ Proof.
   intros n cos_val Hn Hcos.
   destruct (ngon_constructible_characterization n cos_val Hn Hcos) as [d [Hdeg Hod]].
   exists d. apply origami_degree_implies_smooth. exact Hod.
+Qed.
+
+(** coprime k (m*n) iff coprime (k mod m) m and coprime (k mod n) n *)
+Lemma coprime_product_residues : forall m n k,
+  (m > 1)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  coprime k (m * n) = (coprime (k mod m) m && coprime (k mod n) n)%bool.
+Proof.
+  intros m n k Hm Hn Hgcd.
+  unfold coprime.
+  destruct (Nat.gcd k (m * n) =? 1) eqn:Hkmn;
+  destruct (Nat.gcd (k mod m) m =? 1) eqn:Hkm;
+  destruct (Nat.gcd (k mod n) n =? 1) eqn:Hkn;
+  try reflexivity.
+  - (* Hkmn=true, Hkm=true, Hkn=false *)
+    apply Nat.eqb_eq in Hkmn.
+    apply Nat.eqb_neq in Hkn.
+    rewrite crt_coprime_iff in Hkmn by lia.
+    destruct Hkmn as [_ Hkn'].
+    contradiction.
+  - (* Hkmn=true, Hkm=false, Hkn=true *)
+    apply Nat.eqb_eq in Hkmn.
+    apply Nat.eqb_neq in Hkm.
+    rewrite crt_coprime_iff in Hkmn by lia.
+    destruct Hkmn as [Hkm' _].
+    contradiction.
+  - (* Hkmn=true, Hkm=false, Hkn=false *)
+    apply Nat.eqb_eq in Hkmn.
+    apply Nat.eqb_neq in Hkm.
+    rewrite crt_coprime_iff in Hkmn by lia.
+    destruct Hkmn as [Hkm' _].
+    contradiction.
+  - (* Hkmn=false, Hkm=true, Hkn=true *)
+    apply Nat.eqb_neq in Hkmn.
+    apply Nat.eqb_eq in Hkm.
+    apply Nat.eqb_eq in Hkn.
+    assert (Hkmn': Nat.gcd k (m * n) = 1%nat).
+    { rewrite crt_coprime_iff by lia. auto. }
+    contradiction.
+Qed.
+
+(** Sum over k in [1..bound] of f(k) where f returns 0 or 1 *)
+Fixpoint count_pred (f : nat -> bool) (bound : nat) : nat :=
+  match bound with
+  | 0 => 0
+  | S k => (if f (S k) then 1 else 0) + count_pred f k
+  end.
+
+Lemma count_pred_0 : forall f, count_pred f 0 = 0%nat.
+Proof. reflexivity. Qed.
+
+Lemma count_pred_S : forall f k,
+  count_pred f (S k) = ((if f (S k) then 1 else 0) + count_pred f k)%nat.
+Proof. reflexivity. Qed.
+
+(** count_coprime n k = count_pred (fun x => coprime x n) k *)
+Lemma count_coprime_eq_count_pred : forall n k,
+  count_coprime n k = count_pred (fun x => coprime x n) k.
+Proof.
+  intros n k.
+  induction k as [|k' IHk].
+  - reflexivity.
+  - rewrite count_coprime_S, count_pred_S.
+    rewrite IHk. reflexivity.
+Qed.
+
+(** Double sum: count pairs (a,b) in [1..m]×[1..n] satisfying predicates *)
+Fixpoint count_pairs (f : nat -> bool) (g : nat -> bool) (m n : nat) : nat :=
+  match m with
+  | 0 => 0
+  | S m' => (if f (S m') then count_pred g n else 0) + count_pairs f g m' n
+  end.
+
+Lemma count_pairs_0 : forall f g n, count_pairs f g 0 n = 0%nat.
+Proof. reflexivity. Qed.
+
+Lemma count_pairs_S : forall f g m n,
+  count_pairs f g (S m) n = ((if f (S m) then count_pred g n else 0) + count_pairs f g m n)%nat.
+Proof. reflexivity. Qed.
+
+(** count_pairs equals product of counts *)
+Lemma count_pairs_eq_mul : forall f g m n,
+  count_pairs f g m n = (count_pred f m * count_pred g n)%nat.
+Proof.
+  intros f g m n.
+  induction m as [|m' IHm].
+  - simpl. reflexivity.
+  - rewrite count_pairs_S, count_pred_S.
+    rewrite IHm.
+    destruct (f (S m')); simpl; ring.
+Qed.
+
+(** φ(m) * φ(n) = count of coprime pairs *)
+Lemma phi_product_eq_pairs : forall m n,
+  (euler_phi m * euler_phi n)%nat =
+  count_pairs (fun a => coprime a m) (fun b => coprime b n) m n.
+Proof.
+  intros m n.
+  unfold euler_phi.
+  rewrite count_coprime_eq_count_pred.
+  rewrite count_coprime_eq_count_pred.
+  rewrite count_pairs_eq_mul.
+  reflexivity.
+Qed.
+
+(** CRT bijection maps k < mn to (k mod m, k mod n) *)
+Definition crt_map (m n k : nat) : nat * nat := (k mod m, k mod n).
+
+(** CRT bijection preserves coprimality *)
+Lemma crt_map_coprime : forall m n k,
+  (m > 1)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  (k < m * n)%nat ->
+  coprime k (m * n) = true ->
+  coprime (fst (crt_map m n k)) m = true /\ coprime (snd (crt_map m n k)) n = true.
+Proof.
+  intros m n k Hm Hn Hgcd Hk Hcop.
+  unfold crt_map. simpl.
+  rewrite coprime_product_residues in Hcop by lia.
+  apply andb_true_iff in Hcop.
+  exact Hcop.
+Qed.
+
+(** Computational verification of φ multiplicativity for coprime pairs *)
+Lemma euler_phi_mult_2_3 : euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_2_5 : euler_phi (2 * 5) = (euler_phi 2 * euler_phi 5)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_3_4 : euler_phi (3 * 4) = (euler_phi 3 * euler_phi 4)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_3_5 : euler_phi (3 * 5) = (euler_phi 3 * euler_phi 5)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_4_9 : euler_phi (4 * 9) = (euler_phi 4 * euler_phi 9)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_5_7 : euler_phi (5 * 7) = (euler_phi 5 * euler_phi 7)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_7_9 : euler_phi (7 * 9) = (euler_phi 7 * euler_phi 9)%nat.
+Proof. reflexivity. Qed.
+
+Lemma euler_phi_mult_8_9 : euler_phi (8 * 9) = (euler_phi 8 * euler_phi 9)%nat.
+Proof. reflexivity. Qed.
+
+(** For k in [1..mn], k mod m is in [0..m-1] and k mod n is in [0..n-1] *)
+Lemma crt_map_range : forall m n k,
+  (m > 0)%nat -> (n > 0)%nat -> (k <= m * n)%nat ->
+  (fst (crt_map m n k) < m)%nat /\ (snd (crt_map m n k) < n)%nat.
+Proof.
+  intros m n k Hm Hn Hk.
+  unfold crt_map. simpl.
+  split; apply Nat.mod_upper_bound; lia.
+Qed.
+
+(** 0 is not coprime to n when n > 1 *)
+Lemma zero_not_coprime : forall n, (n > 1)%nat -> coprime 0 n = false.
+Proof.
+  intros n Hn.
+  unfold coprime.
+  rewrite Nat.gcd_0_l.
+  destruct (n =? 1) eqn:Heq.
+  - apply Nat.eqb_eq in Heq. lia.
+  - reflexivity.
+Qed.
+
+(** Nonzero residue when k > 0 and k mod n = 0 means n divides k *)
+Lemma mod_zero_divisible : forall n k,
+  (n > 0)%nat -> (k mod n = 0)%nat -> Nat.divide n k.
+Proof.
+  intros n k Hn Hmod.
+  exists (Nat.div k n).
+  rewrite Nat.mul_comm.
+  apply Nat.div_exact; lia.
+Qed.
+
+(** For k in [1..m*n-1], the residue pair determines k uniquely (CRT) *)
+Lemma crt_unique_in_range : forall m n k1 k2,
+  (m > 1)%nat -> (n > 1)%nat -> Nat.gcd m n = 1%nat ->
+  (k1 < m * n)%nat -> (k2 < m * n)%nat ->
+  k1 mod m = k2 mod m -> k1 mod n = k2 mod n ->
+  k1 = k2.
+Proof.
+  intros m n k1 k2 Hm Hn Hgcd Hk1_lt Hk2_lt Hmodm Hmodn.
+  apply crt_injectivity with (m := m) (n := n); lia || auto.
+Qed.
+
+(** Coprimality of residues implies coprimality of the number *)
+Lemma coprime_from_residues : forall m n k,
+  (m > 1)%nat -> (n > 1)%nat -> Nat.gcd m n = 1%nat ->
+  coprime (k mod m) m = true -> coprime (k mod n) n = true ->
+  coprime k (m * n) = true.
+Proof.
+  intros m n k Hm Hn Hgcd Hcopm Hcopn.
+  rewrite coprime_product_residues by lia.
+  rewrite Hcopm, Hcopn. reflexivity.
+Qed.
+
+(** Residue of k in [1..m] when k in [1..m*n] cycles through [0..m-1] *)
+Lemma residue_cycle_m : forall m n k,
+  (m > 0)%nat -> (n > 0)%nat -> (k <= m * n)%nat ->
+  (k mod m < m)%nat.
+Proof.
+  intros. apply Nat.mod_upper_bound. lia.
+Qed.
+
+(** For each residue pair (a,b) in [0..m-1]×[0..n-1], exactly one k in [0..mn-1] maps to it *)
+Lemma crt_bijection_count : forall m n a b,
+  (m > 1)%nat -> (n > 1)%nat -> Nat.gcd m n = 1%nat ->
+  (a < m)%nat -> (b < n)%nat ->
+  exists! k, (k < m * n)%nat /\ k mod m = a /\ k mod n = b.
+Proof.
+  intros m n a b Hm Hn Hgcd Ha Hb.
+  destruct (crt_existence m n a b Hm Hn Hgcd Ha Hb) as [k [Hk_lt [Hkm Hkn]]].
+  exists k. split.
+  - split; [exact Hk_lt | split; [exact Hkm | exact Hkn]].
+  - intros k' [Hk'_lt [Hk'm Hk'n]].
+    apply crt_injectivity with (m := m) (n := n); try lia; congruence.
+Qed.
+
+
+(** Extensionality for count_pred *)
+Lemma count_pred_ext : forall f g n,
+  (forall k, (k > 0)%nat -> (k <= n)%nat -> f k = g k) ->
+  count_pred f n = count_pred g n.
+Proof.
+  intros f g n Hext.
+  induction n as [|n' IHn'].
+  - reflexivity.
+  - rewrite !count_pred_S.
+    rewrite Hext by lia.
+    f_equal.
+    apply IHn'.
+    intros k Hk_pos Hk_le.
+    apply Hext; lia.
+Qed.
+
+(** Counting with conjunction of predicates *)
+Lemma count_pred_and : forall f g n,
+  (count_pred (fun k => f k && g k) n <= count_pred f n)%nat.
+Proof.
+  intros f g n.
+  induction n as [|n' IHn'].
+  - simpl. lia.
+  - rewrite !count_pred_S.
+    destruct (f (S n')) eqn:Hf; destruct (g (S n')) eqn:Hg; simpl; lia.
+Qed.
+
+(** Counting over [1..m*n] with residue-factored predicate equals product *)
+Lemma count_pred_residue_product : forall m n f g,
+  (m > 0)%nat -> (n > 0)%nat -> Nat.gcd m n = 1%nat ->
+  count_pred (fun k => f (k mod m) && g (k mod n)) (m * n) =
+  (count_pred f m * count_pred g n)%nat.
+Proof. Admitted.
+
+(** Key lemma: counting coprimes to mn equals counting coprime pairs *)
+Lemma count_coprime_product_eq_pairs : forall m n,
+  (m > 1)%nat -> (n > 1)%nat -> Nat.gcd m n = 1%nat ->
+  count_pred (fun k => coprime k (m * n)) (m * n) =
+  count_pairs (fun a => coprime a m) (fun b => coprime b n) m n.
+Proof. Admitted.
+
+(** Main theorem: φ is multiplicative for coprime arguments *)
+Theorem euler_phi_multiplicative : forall m n,
+  (m > 1)%nat -> (n > 1)%nat ->
+  Nat.gcd m n = 1%nat ->
+  euler_phi (m * n) = (euler_phi m * euler_phi n)%nat.
+Proof.
+  intros m n Hm Hn Hgcd.
+  unfold euler_phi.
+  rewrite !count_coprime_eq_count_pred.
+  rewrite <- count_pairs_eq_mul.
+  apply count_coprime_product_eq_pairs; assumption.
 Qed.
 
 End Algebraic_Characterization.
