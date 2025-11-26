@@ -655,6 +655,31 @@ Proof.
   - field. unfold sqr. lra.
 Qed.
 
+(** Reflection negates the signed distance to the reflection line. *)
+Lemma signed_dist_reflect : forall p l,
+  line_wf l -> signed_dist (reflect_point p l) l = - signed_dist p l.
+Proof.
+  intros [x y] l Hwf.
+  unfold signed_dist, reflect_point, line_norm.
+  simpl.
+  set (a := A l); set (b := B l); set (c := C l).
+  set (d := a * a + b * b).
+  set (v := a * x + b * y + c).
+  assert (Hd : d > 0) by (unfold d, a, b; apply line_norm_pos; exact Hwf).
+  assert (Hd_ne : d <> 0) by lra.
+  assert (Hsqrt_ne : sqrt d <> 0) by (apply Rgt_not_eq, sqrt_lt_R0; exact Hd).
+  assert (Hkey : a * (x - 2 * a * (v / d)) + b * (y - 2 * b * (v / d)) + c = - v).
+  { unfold v.
+    assert (Heq : a * (x - 2 * a * ((a * x + b * y + c) / d)) +
+                  b * (y - 2 * b * ((a * x + b * y + c) / d)) + c =
+                  (a * x + b * y + c) * (1 - 2 * (a * a + b * b) / d)).
+    { field. exact Hd_ne. }
+    rewrite Heq. unfold d. field. exact Hd_ne. }
+  replace (sqr a + sqr b) with d by (unfold d, sqr; ring).
+  rewrite Hkey.
+  field. exact Hsqrt_ne.
+Qed.
+
 Definition bisector (l1 l2 : Line) : Line :=
   let n1 := line_norm l1 in
   let n2 := line_norm l2 in
@@ -757,6 +782,208 @@ Proof.
     assert (Heq : (A l1 * x + B l1 * y + C l1) * / line_norm l1 =
                   (A l2 * x + B l2 * y + C l2) * / line_norm l2) by exact Hdist.
     unfold Rdiv. nra.
+Qed.
+
+(** O3 Property: The bisector passes through the intersection of two non-parallel lines.
+    This is geometrically obvious: the angle bisector emanates from the vertex. *)
+Lemma bisector_through_intersection : forall l1 l2,
+  line_wf l1 -> line_wf l2 ->
+  A l1 * B l2 - A l2 * B l1 <> 0 ->
+  on_line (line_intersection l1 l2) (bisector l1 l2).
+Proof.
+  intros l1 l2 Hwf1 Hwf2 Hnonpar.
+  apply equidistant_on_bisector; try assumption.
+  - assert (Hn1_sq : A l1 * A l1 + B l1 * B l1 > 0) by (apply line_norm_pos; exact Hwf1).
+    assert (Hn2_sq : A l2 * A l2 + B l2 * B l2 > 0) by (apply line_norm_pos; exact Hwf2).
+    assert (Hn1 : line_norm l1 > 0) by (unfold line_norm; apply sqrt_lt_R0; exact Hn1_sq).
+    assert (Hn2 : line_norm l2 > 0) by (unfold line_norm; apply sqrt_lt_R0; exact Hn2_sq).
+    destruct (Req_dec (A l1 / line_norm l1 - A l2 / line_norm l2) 0) as [Ha0|Han0].
+    + right. intro Hb0.
+      assert (Ha_prop : A l1 / line_norm l1 = A l2 / line_norm l2) by lra.
+      assert (Hb_prop : B l1 / line_norm l1 = B l2 / line_norm l2) by lra.
+      assert (Hdet : A l1 * B l2 - A l2 * B l1 = 0).
+      { assert (Ha1 : A l1 = (A l2 / line_norm l2) * line_norm l1).
+        { rewrite <- Ha_prop. field. lra. }
+        assert (Hb1 : B l1 = (B l2 / line_norm l2) * line_norm l1).
+        { rewrite <- Hb_prop. field. lra. }
+        rewrite Ha1, Hb1. field. lra. }
+      contradiction.
+    + left. exact Han0.
+  - unfold signed_dist.
+    assert (Hn1 : line_norm l1 <> 0) by (apply line_norm_nonzero; exact Hwf1).
+    assert (Hn2 : line_norm l2 <> 0) by (apply line_norm_nonzero; exact Hwf2).
+    unfold line_intersection.
+    destruct (Req_EM_T (A l1 * B l2 - A l2 * B l1) 0) as [Heq|Hneq]; [contradiction|].
+    simpl. field. repeat split; assumption.
+Qed.
+
+(** O3 Property: Absolute distances from a point on the bisector to both lines are equal.
+    This is the unsigned version of bisector_equidistant. *)
+Lemma bisector_abs_equidistant : forall p l1 l2,
+  line_wf l1 -> line_wf l2 ->
+  A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
+  B l1 / line_norm l1 - B l2 / line_norm l2 <> 0 ->
+  on_line p (bisector l1 l2) ->
+  Rabs (signed_dist p l1) = Rabs (signed_dist p l2).
+Proof.
+  intros p l1 l2 Hwf1 Hwf2 Hnondeg Hon.
+  rewrite (bisector_equidistant p l1 l2 Hwf1 Hwf2 Hnondeg Hon).
+  reflexivity.
+Qed.
+
+(** O3 produces a well-formed fold line. *)
+Lemma fold_O3_wf : forall l1 l2,
+  line_wf l1 -> line_wf (fold_line (fold_O3 l1 l2)).
+Proof.
+  intros l1 l2 Hwf1.
+  rewrite fold_line_O3.
+  apply bisector_wf. exact Hwf1.
+Qed.
+
+(** O3 Symmetry: bisector l1 l2 and bisector l2 l1 represent the same geometric line.
+    Swapping arguments negates the coefficients but preserves the point set. *)
+Lemma bisector_symmetric : forall p l1 l2,
+  line_wf l1 -> line_wf l2 ->
+  A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
+  B l1 / line_norm l1 - B l2 / line_norm l2 <> 0 ->
+  on_line p (bisector l1 l2) <-> on_line p (bisector l2 l1).
+Proof.
+  intros [x y] l1 l2 Hwf1 Hwf2 Hnondeg.
+  unfold bisector.
+  assert (Hn1 : line_norm l1 <> 0) by (apply line_norm_nonzero; exact Hwf1).
+  assert (Hn2 : line_norm l2 <> 0) by (apply line_norm_nonzero; exact Hwf2).
+  destruct (Req_EM_T (A l1 / line_norm l1 - A l2 / line_norm l2) 0) as [Ha12|Ha12].
+  - destruct (Req_EM_T (B l1 / line_norm l1 - B l2 / line_norm l2) 0) as [Hb12|Hb12].
+    + destruct Hnondeg; contradiction.
+    + destruct (Req_EM_T (A l2 / line_norm l2 - A l1 / line_norm l1) 0) as [Ha21|Ha21].
+      * destruct (Req_EM_T (B l2 / line_norm l2 - B l1 / line_norm l1) 0) as [Hb21|Hb21].
+        { exfalso. lra. }
+        { unfold on_line. simpl. split; intro H; lra. }
+      * exfalso. lra.
+  - destruct (Req_EM_T (A l2 / line_norm l2 - A l1 / line_norm l1) 0) as [Ha21|Ha21].
+    + exfalso. lra.
+    + unfold on_line. simpl. split; intro H; lra.
+Qed.
+
+(** O3 Parallel Case: When lines have parallel direction vectors (normalized A,B equal),
+    the bisector degenerates to a perpendicular through their "intersection". *)
+Lemma bisector_parallel_case : forall l1 l2,
+  line_wf l1 ->
+  A l1 / line_norm l1 - A l2 / line_norm l2 = 0 ->
+  B l1 / line_norm l1 - B l2 / line_norm l2 = 0 ->
+  bisector l1 l2 = perp_through (line_intersection l1 l2) l1.
+Proof.
+  intros l1 l2 Hwf1 Ha0 Hb0.
+  unfold bisector.
+  destruct (Req_EM_T (A l1 / line_norm l1 - A l2 / line_norm l2) 0) as [Ha|Ha].
+  - destruct (Req_EM_T (B l1 / line_norm l1 - B l2 / line_norm l2) 0) as [Hb|Hb].
+    + reflexivity.
+    + contradiction.
+  - contradiction.
+Qed.
+
+(** Second angle bisector: The other bisector perpendicular to the first.
+    Computed by adding (not subtracting) normalized line equations. *)
+Definition bisector2 (l1 l2 : Line) : Line :=
+  let n1 := line_norm l1 in
+  let n2 := line_norm l2 in
+  let a := A l1 / n1 + A l2 / n2 in
+  let b := B l1 / n1 + B l2 / n2 in
+  let c := C l1 / n1 + C l2 / n2 in
+  {| A := a; B := b; C := c |}.
+
+(** The two bisectors are perpendicular to each other.
+    The dot product of their normal vectors is zero. *)
+Lemma bisector_bisector2_perp : forall l1 l2,
+  line_wf l1 -> line_wf l2 ->
+  A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
+  B l1 / line_norm l1 - B l2 / line_norm l2 <> 0 ->
+  line_perp (bisector l1 l2) (bisector2 l1 l2).
+Proof.
+  intros l1 l2 Hwf1 Hwf2 Hnondeg.
+  unfold bisector, bisector2, line_perp.
+  assert (Hn1 : line_norm l1 <> 0) by (apply line_norm_nonzero; exact Hwf1).
+  assert (Hn2 : line_norm l2 <> 0) by (apply line_norm_nonzero; exact Hwf2).
+  assert (Hn1_pos : A l1 * A l1 + B l1 * B l1 > 0) by (apply line_norm_pos; exact Hwf1).
+  assert (Hn2_pos : A l2 * A l2 + B l2 * B l2 > 0) by (apply line_norm_pos; exact Hwf2).
+  assert (Hsq1 : line_norm l1 * line_norm l1 = A l1 * A l1 + B l1 * B l1).
+  { unfold line_norm. apply sqrt_sqrt. lra. }
+  assert (Hsq2 : line_norm l2 * line_norm l2 = A l2 * A l2 + B l2 * B l2).
+  { unfold line_norm. apply sqrt_sqrt. lra. }
+  destruct (Req_EM_T (A l1 / line_norm l1 - A l2 / line_norm l2) 0) as [Ha0|Ha0].
+  - destruct (Req_EM_T (B l1 / line_norm l1 - B l2 / line_norm l2) 0) as [Hb0|Hb0].
+    + destruct Hnondeg; contradiction.
+    + simpl.
+      assert (H1 : A l1 * A l1 + B l1 * B l1 = line_norm l1 * line_norm l1) by lra.
+      assert (H2 : A l2 * A l2 + B l2 * B l2 = line_norm l2 * line_norm l2) by lra.
+      assert (Hdot : (A l1 / line_norm l1 - A l2 / line_norm l2) *
+                     (A l1 / line_norm l1 + A l2 / line_norm l2) +
+                     (B l1 / line_norm l1 - B l2 / line_norm l2) *
+                     (B l1 / line_norm l1 + B l2 / line_norm l2) =
+                     (A l1 * A l1 + B l1 * B l1) / (line_norm l1 * line_norm l1) -
+                     (A l2 * A l2 + B l2 * B l2) / (line_norm l2 * line_norm l2)).
+      { field. split; assumption. }
+      rewrite Hdot, H1, H2. field. split; assumption.
+  - simpl.
+    assert (H1 : A l1 * A l1 + B l1 * B l1 = line_norm l1 * line_norm l1) by lra.
+    assert (H2 : A l2 * A l2 + B l2 * B l2 = line_norm l2 * line_norm l2) by lra.
+    assert (Hdot : (A l1 / line_norm l1 - A l2 / line_norm l2) *
+                   (A l1 / line_norm l1 + A l2 / line_norm l2) +
+                   (B l1 / line_norm l1 - B l2 / line_norm l2) *
+                   (B l1 / line_norm l1 + B l2 / line_norm l2) =
+                   (A l1 * A l1 + B l1 * B l1) / (line_norm l1 * line_norm l1) -
+                   (A l2 * A l2 + B l2 * B l2) / (line_norm l2 * line_norm l2)).
+    { field. split; assumption. }
+    rewrite Hdot, H1, H2. field. split; assumption.
+Qed.
+
+(** O3 Reflection Property: Reflecting the intersection point is a fixed point.
+    The intersection of l1 and l2 lies on the bisector, so reflection fixes it. *)
+Lemma bisector_reflect_intersection_fixed : forall l1 l2,
+  line_wf l1 -> line_wf l2 ->
+  A l1 * B l2 - A l2 * B l1 <> 0 ->
+  A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
+  B l1 / line_norm l1 - B l2 / line_norm l2 <> 0 ->
+  line_wf (bisector l1 l2) ->
+  reflect_point (line_intersection l1 l2) (bisector l1 l2) = line_intersection l1 l2.
+Proof.
+  intros l1 l2 Hwf1 Hwf2 Hnonpar Hnondeg Hwfb.
+  apply reflect_point_on_line.
+  apply bisector_through_intersection; assumption.
+Qed.
+
+(** O3 Angle Property: Definition of angle measure between two lines.
+    We use the dot product of normalized normal vectors as a measure of angle.
+    This equals cos(θ) where θ is the angle between the lines. *)
+Definition line_cos_angle (l1 l2 : Line) : R :=
+  (A l1 / line_norm l1) * (A l2 / line_norm l2) +
+  (B l1 / line_norm l1) * (B l2 / line_norm l2).
+
+(** Symmetry of line_cos_angle. *)
+Lemma line_cos_angle_sym : forall l1 l2,
+  line_cos_angle l1 l2 = line_cos_angle l2 l1.
+Proof.
+  intros l1 l2. unfold line_cos_angle. ring.
+Qed.
+
+(** O3 Concrete Example: The perpendicular axes.
+    The x-axis (y=0) and y-axis (x=0) are perpendicular.
+    line_cos_angle returns 0 for perpendicular lines. *)
+Lemma perpendicular_axes_angle :
+  line_cos_angle line_xaxis line_yaxis = 0.
+Proof.
+  unfold line_cos_angle, line_xaxis, line_yaxis, line_norm. simpl.
+  assert (H1 : sqrt 1 = 1) by exact sqrt_1.
+  assert (H2 : 1 <> 0) by lra.
+  lra.
+Qed.
+
+(** O3 Concrete Example: bisector of perpendicular axes is well-formed. *)
+Lemma bisector_axes_wf :
+  line_wf (bisector line_xaxis line_yaxis).
+Proof.
+  apply bisector_wf.
+  unfold line_wf, line_xaxis. simpl. right. lra.
 Qed.
 
 (* Origami operation O5: fold p1 onto l through p2.
