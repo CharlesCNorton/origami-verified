@@ -9431,6 +9431,8 @@ Proof.
     destruct (g n'); lia.
 Qed.
 
+End CRT_Machinery.
+
 Section Impossibility.
 (** Impossibility results and strict extension proofs *)
 
