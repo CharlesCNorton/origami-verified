@@ -8425,7 +8425,7 @@ Lemma gcd_mod : forall k n, (n > 0)%nat -> Nat.gcd k n = Nat.gcd (k mod n) n.
 Proof.
   intros k n Hn.
   rewrite Nat.gcd_comm.
-  rewrite Nat.gcd_mod by lia.
+  rewrite Nat.Lcm0.gcd_mod.
   rewrite Nat.gcd_comm.
   reflexivity.
 Qed.
@@ -8455,7 +8455,7 @@ Lemma coprime_mod_equiv : forall k m,
 Proof.
   intros k m Hm.
   rewrite Nat.gcd_comm.
-  rewrite Nat.gcd_mod by lia.
+  rewrite Nat.Lcm0.gcd_mod.
   rewrite Nat.gcd_comm.
   reflexivity.
 Qed.
@@ -8512,8 +8512,7 @@ Lemma mod_mul_zero : forall a b m,
 Proof.
   intros a b m Hm.
   replace (a * b * m)%nat with ((a * b) * m)%nat by lia.
-  apply Nat.mod_mul.
-  lia.
+  apply Nat.Div0.mod_mul.
 Qed.
 
 (** u·m = 1 + v·n → (u·m) mod n = 1 *)
@@ -8524,10 +8523,10 @@ Lemma bezout_mod_one : forall u v m n,
 Proof.
   intros u v m n Hn Heq.
   rewrite Heq.
-  rewrite Nat.add_mod by lia.
-  rewrite Nat.mod_mul by lia.
+  rewrite Nat.Div0.add_mod by lia.
+  rewrite Nat.Div0.mod_mul.
   rewrite Nat.add_0_r.
-  rewrite Nat.mod_mod by lia.
+  rewrite Nat.Div0.mod_mod by lia.
   apply Nat.mod_small.
   lia.
 Qed.
@@ -8539,11 +8538,10 @@ Lemma mul_mod_one : forall a c m,
   ((a * c) mod m = a mod m)%nat.
 Proof.
   intros a c m Hm Hc.
-  rewrite Nat.mul_mod by lia.
+  rewrite Nat.Div0.mul_mod by lia.
   rewrite Hc.
   rewrite Nat.mul_1_r.
-  apply Nat.mod_mod.
-  lia.
+  apply Nat.Div0.mod_mod.
 Qed.
 
 (** a mod m = 0 → (a + b) mod m = b mod m *)
@@ -8553,11 +8551,10 @@ Lemma add_mod_zero_l : forall a b m,
   ((a + b) mod m = b mod m)%nat.
 Proof.
   intros a b m Hm Ha.
-  rewrite Nat.add_mod by lia.
+  rewrite Nat.Div0.add_mod by lia.
   rewrite Ha.
   rewrite Nat.add_0_l.
-  apply Nat.mod_mod.
-  lia.
+  apply Nat.Div0.mod_mod.
 Qed.
 
 (** b mod m = 0 → (a + b) mod m = a mod m *)
@@ -8578,11 +8575,10 @@ Lemma mul_by_one_mod : forall a k n,
   ((a * k) mod n = a mod n)%nat.
 Proof.
   intros a k n Hn Hk.
-  rewrite Nat.mul_mod by lia.
+  rewrite Nat.Div0.mul_mod by lia.
   rewrite Hk.
   rewrite Nat.mul_1_r.
-  apply Nat.mod_mod.
-  lia.
+  apply Nat.Div0.mod_mod.
 Qed.
 
 (** u·m = 1 + v·n → (a·(u·m)) mod n = a mod n *)
@@ -8603,8 +8599,7 @@ Lemma mul_mod_self : forall k m,
   ((k * m) mod m = 0)%nat.
 Proof.
   intros k m Hm.
-  apply Nat.mod_mul.
-  lia.
+  apply Nat.Div0.mod_mul.
 Qed.
 
 (** gcd(m,n) = 1 → ∃ u, (u·m) mod n = 1 *)
@@ -8662,23 +8657,21 @@ Lemma add_mul_mod : forall a m t,
   ((a + m * t) mod m = a mod m)%nat.
 Proof.
   intros a m t Hm.
-  rewrite Nat.add_mod by lia.
+  rewrite Nat.Div0.add_mod by lia.
   replace (m * t)%nat with (t * m)%nat by lia.
-  rewrite Nat.mod_mul by lia.
+  rewrite Nat.Div0.mod_mul.
   rewrite Nat.add_0_r.
-  apply Nat.mod_mod.
-  lia.
+  apply Nat.Div0.mod_mod.
 Qed.
 
 (** (a + n) mod n = a mod n *)
 Lemma mod_add_self : forall a n, (n > 0)%nat -> ((a + n) mod n = a mod n)%nat.
 Proof.
   intros a n Hn.
-  rewrite Nat.add_mod by lia.
-  rewrite Nat.mod_same by lia.
+  rewrite Nat.Div0.add_mod by lia.
+  rewrite Nat.Div0.mod_same by lia.
   rewrite Nat.add_0_r.
-  apply Nat.mod_mod.
-  lia.
+  apply Nat.Div0.mod_mod.
 Qed.
 
 (** b < n → b + n - b = n *)
@@ -8694,7 +8687,7 @@ Lemma crt_zero_zero : forall m n,
   (0 mod m = 0 /\ 0 mod n = 0)%nat.
 Proof.
   intros m n Hm Hn.
-  split; apply Nat.mod_0_l; lia.
+  split; apply Nat.Div0.mod_0_l; lia.
 Qed.
 
 (** (k mod (m·n)) mod m = k mod m *)
@@ -8711,14 +8704,14 @@ Proof.
   assert (Hrem_lt : (rem < mod1 * mod2)%nat).
   { unfold rem. apply Nat.mod_upper_bound. lia. }
   rewrite Hdiv.
-  rewrite Nat.add_mod by lia.
-  rewrite Nat.mul_mod by lia.
+  rewrite Nat.Div0.add_mod by lia.
+  rewrite Nat.Div0.mul_mod by lia.
   replace ((mod1 * mod2) mod mod1)%nat with 0%nat.
-  2: { rewrite Nat.mul_comm. symmetry. apply Nat.mod_mul. lia. }
+  2: { rewrite Nat.mul_comm. symmetry. apply Nat.Div0.mod_mul. }
   rewrite Nat.mul_0_r.
-  rewrite Nat.mod_0_l by lia.
+  rewrite Nat.Div0.mod_0_l by lia.
   rewrite Nat.add_0_l.
-  rewrite Nat.mod_mod by lia.
+  rewrite Nat.Div0.mod_mod by lia.
   fold rem.
   reflexivity.
 Qed.
@@ -8750,7 +8743,7 @@ Lemma mod_eq_divides : forall a b m,
 Proof.
   intros a b m Hm Hge Heq.
   assert (Hab: (a / m >= b / m)%nat).
-  { apply Nat.div_le_mono; lia. }
+  { apply Nat.Div0.div_le_mono; lia. }
   assert (Ha := div_mod_eq a m Hm).
   assert (Hb := div_mod_eq b m Hm).
   assert (Hmod_a: (a mod m < m)%nat) by (apply Nat.mod_upper_bound; lia).
@@ -8836,10 +8829,10 @@ Proof.
     replace ((mod_val + (tgt_val - res_val)) mod mod_val)%nat with (tgt_val - res_val)%nat.
     2: {
       rewrite Nat.add_comm.
-      rewrite Nat.add_mod by lia.
-      rewrite Nat.mod_same by lia.
+      rewrite Nat.Div0.add_mod by lia.
+      rewrite Nat.Div0.mod_same by lia.
       rewrite Nat.add_0_r.
-      rewrite Nat.mod_mod by lia.
+      rewrite Nat.Div0.mod_mod by lia.
       symmetry. apply Nat.mod_small. lia.
     }
     replace (res_val + (tgt_val - res_val))%nat with tgt_val by lia.
@@ -8851,10 +8844,10 @@ Proof.
     replace ((tgt_val + mod_val - res_val) mod mod_val)%nat with (tgt_val + mod_val - res_val)%nat.
     2: { symmetry. apply Nat.mod_small. exact Hlt. }
     replace (res_val + (tgt_val + mod_val - res_val))%nat with (tgt_val + mod_val)%nat by lia.
-    rewrite Nat.add_mod by lia.
-    rewrite Nat.mod_same by lia.
+    rewrite Nat.Div0.add_mod by lia.
+    rewrite Nat.Div0.mod_same by lia.
     rewrite Nat.add_0_r.
-    rewrite Nat.mod_mod by lia.
+    rewrite Nat.Div0.mod_mod by lia.
     assert (Hsmall: (tgt_val mod mod_val = tgt_val)%nat).
     { apply Nat.mod_small. exact Htgt. }
     rewrite Hsmall. reflexivity.
@@ -8880,17 +8873,17 @@ Proof.
   - apply Nat.mod_upper_bound. lia.
   - rewrite mod_mul_mod_l by lia.
     unfold k.
-    rewrite Nat.add_mod by lia.
+    rewrite Nat.Div0.add_mod by lia.
     rewrite Hk1_mod_m.
-    rewrite Nat.mul_mod by lia.
-    rewrite Nat.mod_same by lia.
+    rewrite Nat.Div0.mul_mod by lia.
+    rewrite Nat.Div0.mod_same by lia.
     rewrite Nat.mul_0_l.
-    rewrite Nat.mod_0_l by lia.
+    rewrite Nat.Div0.mod_0_l by lia.
     rewrite Nat.add_0_r.
     apply Nat.mod_small. lia.
   - rewrite mod_mul_mod_r by lia.
     unfold k.
-    rewrite Nat.add_mod by lia.
+    rewrite Nat.Div0.add_mod by lia.
     rewrite Ht2.
     unfold diff.
     assert (Hkn: (k1 mod n < n)%nat) by (apply Nat.mod_upper_bound; lia).
@@ -9267,7 +9260,7 @@ Proof.
   intros n k Hn Hmod.
   exists (Nat.div k n).
   rewrite Nat.mul_comm.
-  apply Nat.div_exact; lia.
+  apply Nat.Div0.div_exact; lia.
 Qed.
 
 (** For k in [1..m*n-1], the residue pair determines k uniquely (CRT) *)
@@ -9409,9 +9402,9 @@ Lemma residue_pred_boundary : forall (m n : nat) f g,
   (fun k => f (k mod m) && g (k mod n)) (m * n)%nat.
 Proof.
   intros m n f g Hm Hn.
-  simpl. rewrite Nat.mod_0_l by lia. rewrite Nat.mod_0_l by lia.
-  rewrite Nat.mod_mul by lia. rewrite Nat.mul_comm.
-  rewrite Nat.mod_mul by lia. reflexivity.
+  simpl. rewrite Nat.Div0.mod_0_l by lia. rewrite Nat.Div0.mod_0_l by lia.
+  rewrite Nat.Div0.mod_mul. rewrite Nat.mul_comm.
+  rewrite Nat.Div0.mod_mul. reflexivity.
 Qed.
 
 (** |{(a,b) ∈ [0,m-1]×[0,n-1] : f(a) ∧ g(b)}| *)
@@ -9945,10 +9938,10 @@ Proof.
   destruct (n mod 3) as [|[|[|k]]] eqn:Hmod.
   - lia.
   - replace (2 * n)%nat with (n + n)%nat by lia.
-    rewrite Nat.add_mod by lia. rewrite Hmod.
+    rewrite Nat.Div0.add_mod by lia. rewrite Hmod.
     simpl. lia.
   - replace (2 * n)%nat with (n + n)%nat by lia.
-    rewrite Nat.add_mod by lia. rewrite Hmod.
+    rewrite Nat.Div0.add_mod by lia. rewrite Hmod.
     simpl. lia.
   - assert (H : (n mod 3 < 3)%nat) by (apply Nat.mod_upper_bound; lia).
     lia.
@@ -10613,7 +10606,7 @@ Proof.
   unfold expr.
   replace (((A l * fst q + B l * snd q + C l) / (A l * A l + B l * B l)) ^ 2)
     with ((A l * fst q + B l * snd q + C l) ^ 2 / (A l * A l + B l * B l) ^ 2).
-  2: { unfold Rdiv. rewrite Rpow_mult_distr. rewrite Rinv_pow by lra. reflexivity. }
+  2: { unfold Rdiv. rewrite Rpow_mult_distr. rewrite pow_inv by lra. reflexivity. }
   replace ((A l * A l + B l * B l) ^ 2) with ((A l * A l + B l * B l) * (A l * A l + B l * B l)) by ring.
   unfold Rdiv.
   rewrite Rinv_mult.
