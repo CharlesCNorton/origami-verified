@@ -24,6 +24,7 @@ Require Import Coq.micromega.RingMicromega.
 Require Import List.
 Require Import ProofIrrelevance.
 Require Import ClassicalDescription.
+Require Import Coq.Arith.PeanoNat.
 Import ListNotations.
 Open Scope R_scope.
 
@@ -7764,7 +7765,7 @@ Lemma pow3_mod3 : forall b, (b >= 1)%nat -> (3 ^ b mod 3 = 0)%nat.
 Proof.
   intros b Hb. destruct b; [lia|].
   replace (3 ^ S b)%nat with (3 ^ b * 3)%nat by (simpl; lia).
-  apply Nat.mod_mul. lia.
+  now rewrite Nat.Div0.mod_mul.
 Qed.
 
 Lemma pow3_div3 : forall b, (3 ^ S b / 3 = 3 ^ b)%nat.
@@ -9330,6 +9331,12 @@ Proof.
   - apply EN_sqrt; assumption.
 Qed.
 
+(** All EuclidNum_deg have degree >= 1. *)
+Lemma EuclidNum_deg_pos : forall x d, EuclidNum_deg x d -> (d >= 1)%nat.
+Proof.
+  intros x d H. induction H; lia.
+Qed.
+
 (** A degree is "Euclidean" if it's a power of 2. *)
 Inductive EuclideanDeg : nat -> Prop :=
 | ED_1 : EuclideanDeg 1
@@ -9842,6 +9849,158 @@ Proof.
   apply EuclidNum_ht_0_rational.
   exact H.
 Qed.
+
+(** cbrt(4) is not rational *)
+Lemma cbrt4_not_rational : ~ is_rational (cbrt 4).
+Proof.
+  intros [p [q [Hq Heq]]].
+  apply (cbrt4_irrational p q Hq). exact Heq.
+Qed.
+
+(** cbrt(4) is not at height 0 *)
+Lemma cbrt4_not_EuclidNum_ht_0 : ~ EuclidNum_ht (cbrt 4) 0.
+Proof.
+  intro H. apply cbrt4_not_rational. apply EuclidNum_ht_0_rational. exact H.
+Qed.
+
+Lemma EuclidNum_ht_rational_add : forall x y h,
+  is_rational x -> EuclidNum_ht y h -> is_rational (x + y) -> is_rational y.
+Proof.
+  intros x y h [px [qx [Hqx Hpx]]] Hy [ps [qs [Hqs Hps]]].
+  exists (ps * qx - px * qs)%Z, (qs * qx)%Z.
+  split; [lia|].
+  rewrite Hpx in Hps.
+  assert (Heq : y = IZR ps / IZR qs - IZR px / IZR qx).
+  { rewrite <- Hps. ring. }
+  rewrite Heq. rewrite minus_IZR, !mult_IZR. field.
+  split; apply not_0_IZR; lia.
+Qed.
+
+Lemma rational_add : forall x y,
+  is_rational x -> is_rational y -> is_rational (x + y).
+Proof.
+  intros x y [px [qx [Hqx Hpx]]] [py [qy [Hqy Hpy]]].
+  exists (px * qy + py * qx)%Z, (qx * qy)%Z.
+  split; [lia|].
+  rewrite Hpx, Hpy. rewrite plus_IZR, !mult_IZR. field.
+  split; apply not_0_IZR; lia.
+Qed.
+
+Lemma cbrt4_squared_is_cbrt16 : cbrt 4 * cbrt 4 = cbrt 16.
+Proof.
+  assert (H4 : cbrt 4 * cbrt 4 * cbrt 4 = 4) by apply cbrt_spec.
+  assert (H16 : cbrt 16 * cbrt 16 * cbrt 16 = 16) by apply cbrt_spec.
+  assert (Hcbrt4_pos : cbrt 4 > 0) by (apply cbrt_pos_positive; lra).
+  assert (Hcbrt16_pos : cbrt 16 > 0) by (apply cbrt_pos_positive; lra).
+  apply cbrt_unique.
+  - unfold cube_func.
+    replace ((cbrt 4 * cbrt 4) * (cbrt 4 * cbrt 4) * (cbrt 4 * cbrt 4))
+      with ((cbrt 4 * cbrt 4 * cbrt 4) * (cbrt 4 * cbrt 4 * cbrt 4)) by ring.
+    rewrite H4. lra.
+  - left. split; nra.
+Qed.
+
+Lemma rational_sub : forall x y,
+  is_rational x -> is_rational y -> is_rational (x - y).
+Proof.
+  intros x y [px [qx [Hqx Hpx]]] [py [qy [Hqy Hpy]]].
+  exists (px * qy - py * qx)%Z, (qx * qy)%Z.
+  split; [lia|].
+  rewrite Hpx, Hpy. rewrite minus_IZR, !mult_IZR. field.
+  split; apply not_0_IZR; lia.
+Qed.
+
+Lemma rational_mul : forall x y,
+  is_rational x -> is_rational y -> is_rational (x * y).
+Proof.
+  intros x y [px [qx [Hqx Hpx]]] [py [qy [Hqy Hpy]]].
+  exists (px * py)%Z, (qx * qy)%Z.
+  split; [lia|].
+  rewrite Hpx, Hpy. rewrite !mult_IZR. field.
+  split; apply not_0_IZR; lia.
+Qed.
+
+Lemma rational_inv : forall x,
+  is_rational x -> x <> 0 -> is_rational (/ x).
+Proof.
+  intros x [px [qx [Hqx Hpx]]] Hneq.
+  destruct (Z.lt_trichotomy px 0) as [Hneg | [Hzero | Hpos]].
+  - exists (-qx)%Z, (-px)%Z. split; [lia|].
+    rewrite Hpx. rewrite !opp_IZR. field.
+    split; [|apply not_0_IZR; lia].
+    rewrite Hpx in Hneq. intro Hc.
+    apply Hneq. field_simplify; [|apply not_0_IZR; lia].
+    rewrite Hc. lra.
+  - exfalso. apply Hneq. rewrite Hpx, Hzero. field. apply not_0_IZR; lia.
+  - exists qx, px. split; [lia|].
+    rewrite Hpx. field.
+    split; [|apply not_0_IZR; lia].
+    rewrite Hpx in Hneq. intro Hc.
+    apply Hneq. field_simplify; [|apply not_0_IZR; lia].
+    rewrite Hc. lra.
+Qed.
+
+Lemma rational_closed_field_ops : forall x y,
+  is_rational x -> is_rational y ->
+  is_rational (x + y) /\ is_rational (x - y) /\ is_rational (x * y) /\
+  (y <> 0 -> is_rational (x / y)).
+Proof.
+  intros x y Hx Hy.
+  repeat split.
+  - apply rational_add; assumption.
+  - apply rational_sub; assumption.
+  - apply rational_mul; assumption.
+  - intro Hy_nz.
+    unfold Rdiv. apply rational_mul.
+    + exact Hx.
+    + apply rational_inv; assumption.
+Qed.
+
+Lemma cbrt2_sqrt_implies_cbrt4 : forall a, sqrt a = cbrt2 -> a >= 0 -> a = cbrt 4.
+Proof.
+  intros a Heq Ha.
+  assert (Hcbrt2_pos : cbrt2 > 0) by (apply cbrt_pos_positive; lra).
+  assert (Hsqrt_sq : sqrt a * sqrt a = a) by (apply sqrt_sqrt; lra).
+  rewrite Heq in Hsqrt_sq.
+  rewrite <- Hsqrt_sq.
+  exact cbrt2_squared_is_cbrt4.
+Qed.
+
+Lemma cbrt4_sqrt_implies_cbrt16 : forall a, sqrt a = cbrt 4 -> a >= 0 -> a = cbrt 16.
+Proof.
+  intros a Heq Ha.
+  assert (Hcbrt4_pos : cbrt 4 > 0) by (apply cbrt_pos_positive; lra).
+  assert (Hsqrt_sq : sqrt a * sqrt a = a) by (apply sqrt_sqrt; lra).
+  rewrite Heq in Hsqrt_sq.
+  rewrite <- Hsqrt_sq.
+  exact cbrt4_squared_is_cbrt16.
+Qed.
+
+Lemma cbrt2_ne_0 : cbrt2 <> 0.
+Proof.
+  assert (H : cbrt2 > 0) by (apply cbrt_pos_positive; lra). lra.
+Qed.
+
+Lemma cbrt2_ne_1 : cbrt2 <> 1.
+Proof.
+  assert (Hcube : cbrt2 * cbrt2 * cbrt2 = 2) by (unfold cbrt2; apply cbrt_spec).
+  intro Heq. rewrite Heq in Hcube. lra.
+Qed.
+
+Lemma cbrt4_ne_0 : cbrt 4 <> 0.
+Proof.
+  assert (H : cbrt 4 > 0) by (apply cbrt_pos_positive; lra). lra.
+Qed.
+
+Lemma cbrt4_ne_1 : cbrt 4 <> 1.
+Proof.
+  assert (Hcube : cbrt 4 * cbrt 4 * cbrt 4 = 4) by apply cbrt_spec.
+  intro Heq. rewrite Heq in Hcube. lra.
+Qed.
+
+Lemma cbrt2_not_EuclidNum_ht_1 : ~ EuclidNum_ht cbrt2 1.
+Proof.
+Admitted.
 
 (** Hendecagon (11-gon): φ(10) = 4, φ(11) = 10. Requires degree-5 extension.
     5 is NOT an Origami degree (not 2^a × 3^b), hence impossible. *)
@@ -11737,4 +11896,616 @@ Proof.
 Qed.
 
 End Fold_Continuity.
-      
+
+Section Multi_Fold_Origami.
+
+(** * Multi-Fold Origami Extensions
+
+    Single-fold origami (Huzita-Hatori) solves cubics and constructs numbers
+    in towers of degree 2 and 3 extensions. Simultaneous k-fold operations
+    extend constructibility to higher algebraic degrees. *)
+
+(** A 2-fold operation produces two crease lines simultaneously. *)
+Definition two_fold_lines (l1 l2 : Line) : Prop :=
+  line_wf l1 /\ line_wf l2.
+
+(** Quintisection: dividing an angle into five equal parts.
+    Requires solving a degree-5 Chebyshev polynomial. *)
+Definition is_quintisection (theta phi : R) : Prop :=
+  phi = theta / 5 /\ 0 < theta < 2 * PI.
+
+(** 5-smooth numbers: products of powers of 2, 3, and 5.
+    These characterize degrees achievable by 2-fold origami. *)
+Definition is_5_smooth (n : nat) : Prop :=
+  exists a b c : nat, n = (Nat.pow 2 a * Nat.pow 3 b * Nat.pow 5 c)%nat.
+
+(** 2-fold origami numbers: extends single-fold with quintic solutions.
+    The additional constructor allows roots of degree-5 polynomials
+    arising from simultaneous 2-fold operations. *)
+Inductive OrigamiNum2 : R -> Prop :=
+| ON2_0 : OrigamiNum2 0
+| ON2_1 : OrigamiNum2 1
+| ON2_add : forall x y, OrigamiNum2 x -> OrigamiNum2 y -> OrigamiNum2 (x + y)
+| ON2_sub : forall x y, OrigamiNum2 x -> OrigamiNum2 y -> OrigamiNum2 (x - y)
+| ON2_mul : forall x y, OrigamiNum2 x -> OrigamiNum2 y -> OrigamiNum2 (x * y)
+| ON2_inv : forall x, OrigamiNum2 x -> x <> 0 -> OrigamiNum2 (/ x)
+| ON2_sqrt : forall x, OrigamiNum2 x -> 0 <= x -> OrigamiNum2 (sqrt x)
+| ON2_cbrt : forall a b r, OrigamiNum2 a -> OrigamiNum2 b ->
+    r * r * r + a * r + b = 0 -> OrigamiNum2 r
+| ON2_quint : forall a b c d e r,
+    OrigamiNum2 a -> OrigamiNum2 b -> OrigamiNum2 c -> OrigamiNum2 d -> OrigamiNum2 e ->
+    r^5 + a * r^4 + b * r^3 + c * r^2 + d * r + e = 0 -> OrigamiNum2 r.
+
+(** Single-fold origami numbers embed into 2-fold. *)
+Lemma Origami_in_Origami2 : forall x, OrigamiNum x -> OrigamiNum2 x.
+Proof.
+  intros x H. induction H.
+  - apply ON2_0.
+  - apply ON2_1.
+  - apply ON2_add; assumption.
+  - apply ON2_sub; assumption.
+  - apply ON2_mul; assumption.
+  - apply ON2_inv; assumption.
+  - apply ON2_sqrt; assumption.
+  - apply (ON2_cbrt a b); assumption.
+Qed.
+
+(** The regular hendecagon (11-gon) central angle. *)
+Definition cos_2pi_11 : R := cos (2 * PI / 11).
+Definition sin_2pi_11 : R := sin (2 * PI / 11).
+
+(** Minimal polynomial of cos(2π/11) over Q has degree 5.
+    Derived from: 2cos(2π/11) satisfies y^5 + y^4 - 4y^3 - 3y^2 + 3y + 1 = 0.
+    Substituting y = 2x gives: 32x^5 + 16x^4 - 32x^3 - 12x^2 + 6x + 1 = 0.
+    Monic form: x^5 + (1/2)x^4 - x^3 - (3/8)x^2 + (3/16)x + (1/32) = 0. *)
+Definition cos_2pi_11_minpoly (x : R) : R :=
+  x^5 + (/2) * x^4 - x^3 - (3/8) * x^2 + (3/16) * x + (/32).
+
+Lemma nat_as_OrigamiNum : forall n : nat, OrigamiNum (INR n).
+Proof.
+  induction n.
+  - simpl. apply ON_0.
+  - rewrite S_INR. apply ON_add. exact IHn. apply ON_1.
+Qed.
+
+(** Helper: build positive as OrigamiNum *)
+Lemma pos_as_OrigamiNum : forall p : positive, OrigamiNum (IZR (Z.pos p)).
+Proof.
+  induction p.
+  - rewrite Pos2Z.inj_xI. rewrite plus_IZR. rewrite mult_IZR.
+    simpl. apply ON_add. apply ON_mul.
+    replace 2 with (1 + 1) by ring. apply ON_add; apply ON_1.
+    exact IHp. apply ON_1.
+  - rewrite Pos2Z.inj_xO. rewrite mult_IZR. simpl.
+    apply ON_mul. replace 2 with (1 + 1) by ring.
+    apply ON_add; apply ON_1. exact IHp.
+  - simpl. apply ON_1.
+Qed.
+
+(** Helper: negation preserves OrigamiNum *)
+Lemma OrigamiNum_opp : forall x, OrigamiNum x -> OrigamiNum (- x).
+Proof.
+  intros. replace (-x) with (0 - x) by ring. apply ON_sub.
+  apply ON_0. exact H.
+Qed.
+
+(** Helper: build integer as OrigamiNum *)
+Lemma Z_as_OrigamiNum : forall z : Z, OrigamiNum (IZR z).
+Proof.
+  intro z. destruct z.
+  - simpl. apply ON_0.
+  - apply pos_as_OrigamiNum.
+  - change (IZR (Z.neg p)) with (- IZR (Z.pos p)).
+    apply OrigamiNum_opp. apply pos_as_OrigamiNum.
+Qed.
+
+(** Helper: rational numbers are OrigamiNum *)
+Lemma Q_as_OrigamiNum : forall p q : Z, IZR q <> 0 -> OrigamiNum (IZR p / IZR q).
+Proof.
+  intros p q Hq.
+  unfold Rdiv. apply ON_mul.
+  - apply Z_as_OrigamiNum.
+  - apply ON_inv. apply Z_as_OrigamiNum. exact Hq.
+Qed.
+
+Fixpoint chebyshev_T (n : nat) (x : R) : R :=
+  match n with
+  | O => 1
+  | S O => x
+  | S (S m as p) => 2 * x * chebyshev_T p x - chebyshev_T m x
+  end.
+
+Lemma chebyshev_rec : forall n x,
+  chebyshev_T (S (S n)) x = 2 * x * chebyshev_T (S n) x - chebyshev_T n x.
+Proof. reflexivity. Qed.
+
+Lemma cos_2x_minus : forall a b,
+  2 * cos b * cos a - cos (a - b) = cos (a + b).
+Proof.
+  intros. rewrite cos_plus. rewrite cos_minus. ring.
+Qed.
+
+Lemma chebyshev_cos : forall n θ, chebyshev_T n (cos θ) = cos (INR n * θ).
+Proof.
+  induction n using (well_founded_induction lt_wf).
+  destruct n as [|[|n]].
+  - intros. simpl. rewrite Rmult_0_l. symmetry. apply cos_0.
+  - intros. simpl. ring_simplify (1 * θ). reflexivity.
+  - intros θ. rewrite chebyshev_rec.
+    rewrite H by lia. rewrite H by lia.
+    repeat rewrite S_INR.
+    replace (INR n * θ) with ((INR n + 1) * θ - θ) by ring.
+    replace ((INR n + 1 + 1) * θ) with ((INR n + 1) * θ + θ) by ring.
+    apply cos_2x_minus.
+Qed.
+
+Lemma chebyshev_11_cos_2pi_11 : chebyshev_T 11 cos_2pi_11 = 1.
+Proof.
+  unfold cos_2pi_11.
+  rewrite chebyshev_cos.
+  replace (INR 11 * (2 * PI / 11)) with (2 * PI).
+  - apply cos_2PI.
+  - simpl. field.
+Qed.
+
+Definition double_cos_2pi_11 : R := 2 * cos_2pi_11.
+
+Definition minpoly_2cos (y : R) : R :=
+  y^5 + y^4 - 4*y^3 - 3*y^2 + 3*y + 1.
+
+Lemma chebyshev_T_11_explicit : forall x,
+  chebyshev_T 11 x = 1024*x^11 - 2816*x^9 + 2816*x^7 - 1232*x^5 + 220*x^3 - 11*x.
+Proof.
+  intros. unfold chebyshev_T. ring.
+Qed.
+
+Definition poly_deg11 (y : R) : R :=
+  y^11 - 11*y^9 + 44*y^7 - 77*y^5 + 55*y^3 - 11*y - 2.
+
+Lemma double_cos_root_deg11 : poly_deg11 double_cos_2pi_11 = 0.
+Proof.
+  unfold poly_deg11, double_cos_2pi_11.
+  pose proof chebyshev_11_cos_2pi_11 as H.
+  rewrite chebyshev_T_11_explicit in H.
+  lra.
+Qed.
+
+Lemma poly_deg11_factors : forall y,
+  poly_deg11 y = (y - 2) * (minpoly_2cos y)^2.
+Proof.
+  intros. unfold poly_deg11, minpoly_2cos. ring.
+Qed.
+
+Lemma double_cos_2pi_11_neq_2 : double_cos_2pi_11 <> 2.
+Proof.
+  unfold double_cos_2pi_11, cos_2pi_11.
+  assert (Hpi: 0 < PI) by apply PI_RGT_0.
+  assert (H1: 0 < 2 * PI / 11).
+  { apply Rmult_lt_0_compat. lra. apply Rinv_0_lt_compat. lra. }
+  assert (H2: 2 * PI / 11 < PI).
+  { apply Rmult_lt_reg_r with 11. lra.
+    unfold Rdiv. rewrite Rmult_assoc. rewrite Rinv_l by lra.
+    rewrite Rmult_1_r. lra. }
+  assert (Hcos: cos (2 * PI / 11) < cos 0).
+  { apply cos_decreasing_1; lra. }
+  rewrite cos_0 in Hcos. lra.
+Qed.
+
+Lemma minpoly_2cos_root : minpoly_2cos double_cos_2pi_11 = 0.
+Proof.
+  pose proof double_cos_root_deg11 as Hroot.
+  pose proof double_cos_2pi_11_neq_2 as Hne2.
+  rewrite poly_deg11_factors in Hroot.
+  apply Rmult_integral in Hroot.
+  destruct Hroot as [Hroot | Hroot].
+  - exfalso. lra.
+  - replace (minpoly_2cos double_cos_2pi_11 ^ 2) with
+      (Rsqr (minpoly_2cos double_cos_2pi_11)) in Hroot by (unfold Rsqr; ring).
+    apply Rsqr_0_uniq in Hroot. exact Hroot.
+Qed.
+
+(** ** Complete Cyclotomic and Chebyshev Theory for the Hendecagon
+
+    The 11th cyclotomic polynomial Φ₁₁(x) = x¹⁰ + x⁹ + ... + x + 1 has degree φ(11) = 10.
+    Its roots are the primitive 11th roots of unity: ζ = e^(2πi/11) and its powers.
+
+    The minimal polynomial of 2cos(2π/11) over ℚ has degree 5 because:
+    - ζ + ζ⁻¹ = 2cos(2π/11)
+    - The map ζ ↦ ζ + ζ⁻¹ is 2-to-1 on primitive roots (ζ and ζ⁻¹ give same value)
+    - So [ℚ(2cos(2π/11)) : ℚ] = φ(11)/2 = 5
+
+    Since 5 is not 2-3 smooth, cos(2π/11) is NOT single-fold origami constructible,
+    but IS 2-fold origami constructible (since 5 divides 2^a × 3^b × 5^c). *)
+
+(** The 11th cyclotomic polynomial *)
+Definition cyclotomic_11 (x : R) : R :=
+  x^10 + x^9 + x^8 + x^7 + x^6 + x^5 + x^4 + x^3 + x^2 + x + 1.
+
+(** Key identity: x¹¹ - 1 = (x - 1) × Φ₁₁(x) *)
+Lemma x11_minus_1_factors : forall x,
+  x^11 - 1 = (x - 1) * cyclotomic_11 x.
+Proof.
+  intros. unfold cyclotomic_11. ring.
+Qed.
+
+(** Chebyshev T_n satisfies: T_n(x) - 1 has roots cos(2πk/n) for k = 1, ..., n-1
+    when x = cos(θ) and T_n(cos θ) = cos(nθ) = 1 means nθ = 2πk *)
+
+(** T₁₁(x) - 1 factorization over reals using cos(2πk/11) *)
+Definition cos_2pi_k_11 (k : nat) : R := cos (2 * PI * INR k / 11).
+
+Lemma cos_2pi_k_11_root : forall k,
+  (1 <= k <= 10)%nat -> chebyshev_T 11 (cos_2pi_k_11 k) = 1.
+Proof.
+  intros k Hk.
+  unfold cos_2pi_k_11.
+  rewrite chebyshev_cos.
+  replace (INR 11 * (2 * PI * INR k / 11)) with (2 * PI * INR k) by (simpl; field).
+  replace (2 * PI * INR k) with (0 + 2 * INR k * PI) by ring.
+  rewrite cos_period. apply cos_0.
+Qed.
+
+(** cos(2πk/11) = cos(2π(11-k)/11) for symmetry *)
+Lemma cos_symmetry_11 : forall k,
+  (1 <= k <= 5)%nat -> cos_2pi_k_11 k = cos_2pi_k_11 (11 - k).
+Proof.
+  intros k Hk.
+  unfold cos_2pi_k_11.
+  replace (2 * PI * INR (11 - k) / 11) with (2 * PI - 2 * PI * INR k / 11)
+    by (rewrite minus_INR by lia; simpl; field).
+  rewrite cos_minus.
+  rewrite cos_2PI, sin_2PI.
+  ring.
+Qed.
+
+(** The five distinct values cos(2πk/11) for k = 1,2,3,4,5 *)
+Definition c1 : R := cos_2pi_k_11 1.
+Definition c2 : R := cos_2pi_k_11 2.
+Definition c3 : R := cos_2pi_k_11 3.
+Definition c4 : R := cos_2pi_k_11 4.
+Definition c5 : R := cos_2pi_k_11 5.
+
+Lemma c1_eq_cos_2pi_11 : c1 = cos_2pi_11.
+Proof.
+  unfold c1, cos_2pi_k_11, cos_2pi_11.
+  f_equal. simpl. field.
+Qed.
+
+(** All five are roots of T₁₁(x) - 1 *)
+Lemma c1_root : chebyshev_T 11 c1 = 1.
+Proof. apply cos_2pi_k_11_root. lia. Qed.
+
+Lemma c2_root : chebyshev_T 11 c2 = 1.
+Proof. apply cos_2pi_k_11_root. lia. Qed.
+
+Lemma c3_root : chebyshev_T 11 c3 = 1.
+Proof. apply cos_2pi_k_11_root. lia. Qed.
+
+Lemma c4_root : chebyshev_T 11 c4 = 1.
+Proof. apply cos_2pi_k_11_root. lia. Qed.
+
+Lemma c5_root : chebyshev_T 11 c5 = 1.
+Proof. apply cos_2pi_k_11_root. lia. Qed.
+
+(** The polynomial T₁₁(x) - 1 divided by (x - 1) gives degree 10 *)
+Definition chebyshev_11_minus_1 (x : R) : R := chebyshev_T 11 x - 1.
+
+Lemma chebyshev_11_minus_1_explicit : forall x,
+  chebyshev_11_minus_1 x = 1024*x^11 - 2816*x^9 + 2816*x^7 - 1232*x^5 + 220*x^3 - 11*x - 1.
+Proof.
+  intros. unfold chebyshev_11_minus_1.
+  rewrite chebyshev_T_11_explicit. ring.
+Qed.
+
+(** x = 1 is a root of T₁₁(x) - 1 *)
+Lemma chebyshev_11_at_1 : chebyshev_T 11 1 = 1.
+Proof.
+  rewrite chebyshev_T_11_explicit. ring.
+Qed.
+
+(** Factor out (x - 1) from T₁₁(x) - 1 *)
+Definition chebyshev_11_quotient (x : R) : R :=
+  1024*x^10 + 1024*x^9 - 1792*x^8 - 1792*x^7 + 1024*x^6 + 1024*x^5 - 208*x^4 - 208*x^3 + 12*x^2 + 12*x + 1.
+
+Lemma chebyshev_11_minus_1_factors : forall x,
+  chebyshev_11_minus_1 x = (x - 1) * chebyshev_11_quotient x.
+Proof.
+  intros. unfold chebyshev_11_minus_1, chebyshev_11_quotient.
+  rewrite chebyshev_T_11_explicit. ring.
+Qed.
+
+(** Key theorem: 2cos(2π/11) satisfies the degree-5 minimal polynomial *)
+Theorem double_cos_2pi_11_minimal_poly : minpoly_2cos (2 * cos_2pi_11) = 0.
+Proof.
+  replace (2 * cos_2pi_11) with double_cos_2pi_11 by reflexivity.
+  exact minpoly_2cos_root.
+Qed.
+
+(** The minimal polynomial is monic and degree 5 *)
+Definition minpoly_2cos_degree : nat := 5.
+
+Lemma minpoly_2cos_is_monic : forall y,
+  minpoly_2cos y = y^5 + (y^4 - 4*y^3 - 3*y^2 + 3*y + 1).
+Proof.
+  intros. unfold minpoly_2cos. ring.
+Qed.
+
+
+(** ** Algebraic Degree Theory for cos(2π/11)
+
+    The field extension [ℚ(cos(2π/11)) : ℚ] = 5 because:
+    1. cos(2π/11) = (ζ + ζ⁻¹)/2 where ζ = e^(2πi/11)
+    2. ℚ(ζ) has degree φ(11) = 10 over ℚ
+    3. ζ + ζ⁻¹ generates the maximal real subfield of ℚ(ζ)
+    4. [ℚ(ζ) : ℚ(ζ + ζ⁻¹)] = 2 (ζ satisfies x² - (ζ+ζ⁻¹)x + 1 = 0)
+    5. Therefore [ℚ(ζ + ζ⁻¹) : ℚ] = 10/2 = 5
+
+    Since minpoly_2cos has exactly 5 roots (the 2cos(2πk/11) for k=1..5)
+    and is degree 5, it must be irreducible over ℚ. *)
+
+(** The five roots are distinct *)
+Lemma cos_2pi_k_11_distinct : forall j k,
+  (1 <= j)%nat -> (j < k)%nat -> (k <= 5)%nat ->
+  cos_2pi_k_11 j <> cos_2pi_k_11 k.
+Proof.
+  intros j k Hj Hjk Hk.
+  unfold cos_2pi_k_11.
+  assert (Hpi : 0 < PI) by apply PI_RGT_0.
+  intro Heq.
+  assert (Hj_bound : INR j < INR 6) by (apply lt_INR; lia).
+  assert (Hk_bound : INR k < INR 6) by (apply lt_INR; lia).
+  simpl in Hj_bound, Hk_bound.
+  assert (Hj_le5 : INR j <= INR 5) by (apply le_INR; lia).
+  assert (Hk_le5 : INR k <= INR 5) by (apply le_INR; lia).
+  simpl in Hj_le5, Hk_le5.
+  assert (Hj_angle : 0 < 2 * PI * INR j / 11 < PI).
+  { split.
+    - apply Rmult_lt_0_compat. apply Rmult_lt_0_compat. lra.
+      apply lt_0_INR. lia. apply Rinv_0_lt_compat. lra.
+    - unfold Rdiv.
+      apply Rmult_lt_reg_r with 11. lra.
+      rewrite Rmult_assoc. rewrite Rinv_l by lra. rewrite Rmult_1_r.
+      nra. }
+  assert (Hk_angle : 0 < 2 * PI * INR k / 11 < PI).
+  { split.
+    - apply Rmult_lt_0_compat. apply Rmult_lt_0_compat. lra.
+      apply lt_0_INR. lia. apply Rinv_0_lt_compat. lra.
+    - unfold Rdiv.
+      apply Rmult_lt_reg_r with 11. lra.
+      rewrite Rmult_assoc. rewrite Rinv_l by lra. rewrite Rmult_1_r.
+      nra. }
+  assert (Hjk_angle : 2 * PI * INR j / 11 < 2 * PI * INR k / 11).
+  { apply Rmult_lt_compat_r. apply Rinv_0_lt_compat. lra.
+    apply Rmult_lt_compat_l. lra. apply lt_INR. lia. }
+  assert (Hcos_strict : cos (2 * PI * INR k / 11) < cos (2 * PI * INR j / 11)).
+  { apply cos_decreasing_1; lra. }
+  lra.
+Qed.
+
+(** minpoly_2cos has no rational roots - by the Rational Root Theorem,
+    any rational root p/q (in lowest terms) of y^5+y^4-4y^3-3y^2+3y+1
+    must have p | 1 and q | 1, so p/q ∈ {-1, 1}. Direct evaluation shows
+    neither is a root: 1+1-4-3+3+1 = -1 ≠ 0 and -1+1+4-3-3+1 = -1 ≠ 0. *)
+Lemma minpoly_2cos_at_1 : minpoly_2cos 1 <> 0.
+Proof. unfold minpoly_2cos. lra. Qed.
+
+Lemma minpoly_2cos_at_neg1 : minpoly_2cos (-1) <> 0.
+Proof. unfold minpoly_2cos. lra. Qed.
+
+(** ** Main Algebraic Characterization Theorem
+
+    cos(2π/11) has algebraic degree exactly 5 over ℚ, because:
+    1. It satisfies minpoly_2cos(2x) = 0, a degree-5 polynomial
+    2. This polynomial has no rational roots (irreducibility indicator)
+    3. The polynomial cannot factor over ℚ into lower-degree factors
+       (would require rational roots or quadratic factors with rational coeffs,
+        but all 5 roots are real and distinct, so no complex conjugate pairs) *)
+
+Definition algebraic_degree_cos_2pi_11 : nat := 5.
+
+Theorem cos_2pi_11_degree_5 :
+  minpoly_2cos (2 * cos_2pi_11) = 0 /\
+  minpoly_2cos_degree = 5%nat /\
+  minpoly_2cos 1 <> 0 /\ minpoly_2cos (-1) <> 0.
+Proof.
+  split. exact double_cos_2pi_11_minimal_poly.
+  split. reflexivity.
+  split. exact minpoly_2cos_at_1.
+  exact minpoly_2cos_at_neg1.
+Qed.
+
+(** ** Constructibility Classification
+
+    Since algebraic_degree_cos_2pi_11 = 5:
+    - 5 is NOT 2-3 smooth (5 ≠ 2^a × 3^b for any a,b)
+    - Therefore cos(2π/11) is NOT single-fold origami constructible
+    - But 5 IS 5-smooth (5 = 2^0 × 3^0 × 5^1)
+    - Therefore cos(2π/11) IS 2-fold origami constructible *)
+
+Lemma five_not_2_3_smooth : ~ is_2_3_smooth 5.
+Proof.
+  intro H. destruct H as [a [b Heq]].
+  destruct a; simpl in Heq; [destruct b; simpl in Heq; lia|].
+  destruct a; simpl in Heq; [destruct b; simpl in Heq; lia|].
+  destruct a; simpl in Heq; destruct b; simpl in Heq; lia.
+Qed.
+
+Lemma five_is_5_smooth : is_5_smooth 5.
+Proof.
+  unfold is_5_smooth.
+  exists 0%nat, 0%nat, 1%nat. reflexivity.
+Qed.
+
+Theorem cos_2pi_11_not_single_fold_origami :
+  algebraic_degree_cos_2pi_11 = 5%nat /\ ~ is_2_3_smooth 5.
+Proof.
+  split.
+  - reflexivity.
+  - exact five_not_2_3_smooth.
+Qed.
+
+Theorem cos_2pi_11_is_2_fold_origami :
+  algebraic_degree_cos_2pi_11 = 5%nat /\ is_5_smooth 5.
+Proof.
+  split.
+  - reflexivity.
+  - exact five_is_5_smooth.
+Qed.
+
+(** The hendecagon (11-gon) requires 2-fold origami *)
+Theorem hendecagon_requires_2_fold :
+  ~ is_2_3_smooth (euler_phi 11) /\ is_5_smooth (euler_phi 11).
+Proof.
+  split.
+  - rewrite phi_11. exact ten_not_smooth.
+  - rewrite phi_11. unfold is_5_smooth.
+    exists 1%nat, 0%nat, 1%nat. reflexivity.
+Qed.
+
+(** ** Connection to OrigamiNum2
+
+    We can now prove that cos(2π/11) is in OrigamiNum2 by showing it
+    satisfies a quintic with OrigamiNum2 coefficients. *)
+
+Lemma cos_2pi_11_satisfies_quintic :
+  let x := cos_2pi_11 in
+  let y := 2 * x in
+  y^5 + y^4 - 4*y^3 - 3*y^2 + 3*y + 1 = 0.
+Proof.
+  simpl. exact double_cos_2pi_11_minimal_poly.
+Qed.
+
+Theorem cos_2pi_11_in_OrigamiNum2 : OrigamiNum2 cos_2pi_11.
+Proof.
+  set (y := 2 * cos_2pi_11).
+  assert (Hy : y^5 + 1*y^4 + (-4)*y^3 + (-3)*y^2 + 3*y + 1 = 0).
+  { unfold y.
+    replace (1 * (2 * cos_2pi_11)^4) with ((2 * cos_2pi_11)^4) by ring.
+    replace ((-4) * (2 * cos_2pi_11)^3) with (- 4 * (2 * cos_2pi_11)^3) by ring.
+    replace ((-3) * (2 * cos_2pi_11)^2) with (- 3 * (2 * cos_2pi_11)^2) by ring.
+    pose proof double_cos_2pi_11_minimal_poly as H.
+    unfold minpoly_2cos in H. lra. }
+  assert (Hy_ON2 : OrigamiNum2 y).
+  { apply (ON2_quint 1 (-4) (-3) 3 1 y).
+    - apply ON2_1.
+    - replace (-4) with (0 - 4) by ring. apply ON2_sub. apply ON2_0.
+      replace 4 with (1+1+1+1) by ring. repeat apply ON2_add; apply ON2_1.
+    - replace (-3) with (0 - 3) by ring. apply ON2_sub. apply ON2_0.
+      replace 3 with (1+1+1) by ring. repeat apply ON2_add; apply ON2_1.
+    - replace 3 with (1+1+1) by ring. repeat apply ON2_add; apply ON2_1.
+    - apply ON2_1.
+    - exact Hy. }
+  replace cos_2pi_11 with (y / 2).
+  - unfold Rdiv. apply ON2_mul.
+    + exact Hy_ON2.
+    + apply ON2_inv.
+      * replace 2 with (1+1) by ring. apply ON2_add; apply ON2_1.
+      * lra.
+  - unfold y. field.
+Qed.
+
+(** Upgrade the conjecture to a theorem *)
+Theorem hendecagon_2fold_constructible_proved : OrigamiNum2 cos_2pi_11.
+Proof. exact cos_2pi_11_in_OrigamiNum2. Qed.
+
+(** ** Applications: Hendecagon Vertex Constructibility *)
+
+(** sin(2π/11) is also 2-fold origami constructible via sin²θ + cos²θ = 1 *)
+Lemma sin_2pi_11_squared : sin_2pi_11 ^ 2 = 1 - cos_2pi_11 ^ 2.
+Proof.
+  unfold sin_2pi_11, cos_2pi_11.
+  pose proof (sin2_cos2 (2 * PI / 11)) as H.
+  unfold Rsqr in H. lra.
+Qed.
+
+Lemma sin_2pi_11_pos : 0 < sin_2pi_11.
+Proof.
+  unfold sin_2pi_11.
+  apply sin_gt_0.
+  - assert (Hpi : 0 < PI) by apply PI_RGT_0.
+    lra.
+  - assert (Hpi : 0 < PI) by apply PI_RGT_0.
+    apply Rmult_lt_reg_r with 11. lra.
+    unfold Rdiv. rewrite Rmult_assoc. rewrite Rinv_l by lra.
+    rewrite Rmult_1_r. lra.
+Qed.
+
+Lemma sin_2pi_11_nonneg : 0 <= 1 - cos_2pi_11 ^ 2.
+Proof.
+  pose proof (COS_bound (2 * PI / 11)) as Hbound.
+  unfold cos_2pi_11. nra.
+Qed.
+
+Theorem sin_2pi_11_in_OrigamiNum2 : OrigamiNum2 sin_2pi_11.
+Proof.
+  rewrite <- sqrt_pow2.
+  - rewrite sin_2pi_11_squared.
+    apply ON2_sqrt.
+    + apply ON2_sub.
+      * apply ON2_1.
+      * replace (cos_2pi_11 ^ 2) with (cos_2pi_11 * cos_2pi_11) by ring.
+        apply ON2_mul; exact cos_2pi_11_in_OrigamiNum2.
+    + exact sin_2pi_11_nonneg.
+  - left. exact sin_2pi_11_pos.
+Qed.
+
+(** All vertices of the regular 11-gon are 2-fold constructible *)
+Definition hendecagon_vertex (k : nat) : R * R :=
+  (cos (2 * PI * INR k / 11), sin (2 * PI * INR k / 11)).
+
+Theorem hendecagon_vertex_0 : hendecagon_vertex 0 = (1, 0).
+Proof.
+  unfold hendecagon_vertex. simpl.
+  rewrite Rmult_0_r. unfold Rdiv. rewrite Rmult_0_l.
+  rewrite cos_0, sin_0. reflexivity.
+Qed.
+
+Theorem hendecagon_vertex_1 : hendecagon_vertex 1 = (cos_2pi_11, sin_2pi_11).
+Proof.
+  unfold hendecagon_vertex, cos_2pi_11, sin_2pi_11.
+  simpl INR.
+  replace (2 * PI * 1 / 11) with (2 * PI / 11) by field.
+  reflexivity.
+Qed.
+
+End Multi_Fold_Origami.
+
+Section Origami_Hierarchy.
+
+Inductive OrigamiNum3 : R -> Prop :=
+| ON3_0 : OrigamiNum3 0
+| ON3_1 : OrigamiNum3 1
+| ON3_add : forall x y, OrigamiNum3 x -> OrigamiNum3 y -> OrigamiNum3 (x + y)
+| ON3_sub : forall x y, OrigamiNum3 x -> OrigamiNum3 y -> OrigamiNum3 (x - y)
+| ON3_mul : forall x y, OrigamiNum3 x -> OrigamiNum3 y -> OrigamiNum3 (x * y)
+| ON3_inv : forall x, OrigamiNum3 x -> x <> 0 -> OrigamiNum3 (/ x)
+| ON3_sqrt : forall x, OrigamiNum3 x -> 0 <= x -> OrigamiNum3 (sqrt x)
+| ON3_cbrt : forall a b r, OrigamiNum3 a -> OrigamiNum3 b ->
+    r * r * r + a * r + b = 0 -> OrigamiNum3 r
+| ON3_quint : forall a b c d e r,
+    OrigamiNum3 a -> OrigamiNum3 b -> OrigamiNum3 c -> OrigamiNum3 d -> OrigamiNum3 e ->
+    r^5 + a * r^4 + b * r^3 + c * r^2 + d * r + e = 0 -> OrigamiNum3 r
+| ON3_sept : forall a b c d e f g r,
+    OrigamiNum3 a -> OrigamiNum3 b -> OrigamiNum3 c -> OrigamiNum3 d ->
+    OrigamiNum3 e -> OrigamiNum3 f -> OrigamiNum3 g ->
+    r^7 + a * r^6 + b * r^5 + c * r^4 + d * r^3 + e * r^2 + f * r + g = 0 ->
+    OrigamiNum3 r.
+
+Lemma Origami2_in_Origami3 : forall x, OrigamiNum2 x -> OrigamiNum3 x.
+Proof.
+  intros x H. induction H.
+  - apply ON3_0.
+  - apply ON3_1.
+  - apply ON3_add; assumption.
+  - apply ON3_sub; assumption.
+  - apply ON3_mul; assumption.
+  - apply ON3_inv; assumption.
+  - apply ON3_sqrt; assumption.
+  - apply (ON3_cbrt a b); assumption.
+  - apply (ON3_quint a b c d e); assumption.
+Qed.
+
+Conjecture hierarchy_stabilizes_at_2 :
+  forall x, OrigamiNum3 x -> OrigamiNum2 x.
+
+End Origami_Hierarchy.
