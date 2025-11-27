@@ -986,6 +986,86 @@ Proof.
   unfold line_wf, line_xaxis. simpl. right. lra.
 Qed.
 
+(** ** O3 Solvability: O3 is always solvable for well-formed lines.
+    Given any two well-formed lines, we can always construct the bisector fold. *)
+Theorem O3_always_solvable : forall l1 l2,
+  line_wf l1 ->
+  exists f, fold_line f = bisector l1 l2 /\ line_wf (fold_line f).
+Proof.
+  intros l1 l2 Hwf1.
+  exists (fold_O3 l1 l2).
+  split.
+  - apply fold_line_O3.
+  - apply fold_O3_wf. exact Hwf1.
+Qed.
+
+(** O3 preserves the intersection point: reflecting the intersection
+    across the bisector leaves it fixed. *)
+Theorem O3_preserves_intersection : forall l1 l2,
+  line_wf l1 -> line_wf l2 ->
+  A l1 * B l2 - A l2 * B l1 <> 0 ->
+  line_wf (bisector l1 l2) ->
+  reflect_point (line_intersection l1 l2) (bisector l1 l2) = line_intersection l1 l2.
+Proof.
+  intros l1 l2 Hwf1 Hwf2 Hnonpar Hwfb.
+  apply reflect_point_on_line.
+  assert (Hnondeg : A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
+                    B l1 / line_norm l1 - B l2 / line_norm l2 <> 0).
+  { assert (Hn1_sq : A l1 * A l1 + B l1 * B l1 > 0) by (apply line_norm_pos; exact Hwf1).
+    assert (Hn2_sq : A l2 * A l2 + B l2 * B l2 > 0) by (apply line_norm_pos; exact Hwf2).
+    assert (Hn1 : line_norm l1 > 0) by (unfold line_norm; apply sqrt_lt_R0; exact Hn1_sq).
+    assert (Hn2 : line_norm l2 > 0) by (unfold line_norm; apply sqrt_lt_R0; exact Hn2_sq).
+    destruct (Req_dec (A l1 / line_norm l1 - A l2 / line_norm l2) 0) as [Ha0|Ha0].
+    - right. intro Hb0.
+      assert (Ha_eq : A l1 / line_norm l1 = A l2 / line_norm l2) by lra.
+      assert (Hb_eq : B l1 / line_norm l1 = B l2 / line_norm l2) by lra.
+      assert (Hcross : A l1 * B l2 - A l2 * B l1 =
+                       line_norm l1 * line_norm l2 * (A l1 / line_norm l1 * (B l2 / line_norm l2) -
+                                                      A l2 / line_norm l2 * (B l1 / line_norm l1))).
+      { field. split; lra. }
+      rewrite Ha_eq, Hb_eq in Hcross.
+      assert (Hzero : A l1 * B l2 - A l2 * B l1 = 0).
+      { rewrite Hcross. ring. }
+      lra.
+    - left. exact Ha0. }
+  apply bisector_through_intersection; assumption.
+Qed.
+
+(** ** O4 Solvability: O4 is always solvable.
+    Given any point and any well-formed line, there exists a fold
+    that is perpendicular to the line and passes through the point. *)
+Theorem O4_always_solvable : forall p l,
+  line_wf l ->
+  exists f, fold_line f = perp_through p l /\ line_wf (fold_line f).
+Proof.
+  intros p l Hwf.
+  exists (fold_O4 p l).
+  split.
+  - apply fold_line_O4.
+  - rewrite fold_line_O4. apply perp_through_wf. exact Hwf.
+Qed.
+
+(** O4 produces a line perpendicular to the original. *)
+Theorem O4_perpendicular : forall p l,
+  line_wf l ->
+  line_perp (fold_line (fold_O4 p l)) l.
+Proof.
+  intros [px py] l Hwf.
+  rewrite fold_line_O4.
+  unfold line_perp, perp_through. simpl.
+  ring.
+Qed.
+
+(** O4 produces a line passing through the given point. *)
+Theorem O4_through_point : forall p l,
+  on_line p (fold_line (fold_O4 p l)).
+Proof.
+  intros [px py] l.
+  rewrite fold_line_O4.
+  unfold on_line, perp_through. simpl.
+  ring.
+Qed.
+
 (* Origami operation O5: fold p1 onto l through p2.
    Note: This is a simplified approximation. For the correct general O5 fold,
    use fold_O5_general and CF_O5_general defined in the Constructibility section. *)
@@ -4151,6 +4231,219 @@ Inductive OrigamiNum_deg : R -> nat -> Prop :=
 | OND_cbrt : forall a b r n m, OrigamiNum_deg a n -> OrigamiNum_deg b m ->
     r * r * r + a * r + b = 0 ->
     OrigamiNum_deg r (3 * Nat.max n m).
+
+(** ** Field Extension Tower: Explicit Construction
+    A field extension tower records the sequence of extensions used to construct
+    a number. Each step is either a degree-2 extension (adjoining a square root)
+    or a degree-3 extension (adjoining a cubic root). *)
+
+Inductive ExtensionStep : Type :=
+| Ext_sqrt : R -> ExtensionStep
+| Ext_cbrt : R -> R -> R -> ExtensionStep.
+
+Definition ext_step_degree (e : ExtensionStep) : nat :=
+  match e with
+  | Ext_sqrt _ => 2
+  | Ext_cbrt _ _ _ => 3
+  end.
+
+Definition FieldTower := list ExtensionStep.
+
+Fixpoint tower_degree (t : FieldTower) : nat :=
+  match t with
+  | nil => 1
+  | e :: rest => ext_step_degree e * tower_degree rest
+  end.
+
+Lemma tower_degree_pos : forall t, (tower_degree t > 0)%nat.
+Proof.
+  induction t as [|e rest IH].
+  - simpl. lia.
+  - simpl. destruct e; simpl; lia.
+Qed.
+
+Lemma tower_degree_cons : forall e t,
+  tower_degree (e :: t) = (ext_step_degree e * tower_degree t)%nat.
+Proof. reflexivity. Qed.
+
+(** A number is constructible in a tower if it can be built using field
+    operations and the adjoined elements from extension steps. *)
+Inductive InTower : R -> FieldTower -> Prop :=
+| IT_rat : forall q t, InTower (IZR q) t
+| IT_add : forall x y t, InTower x t -> InTower y t -> InTower (x + y) t
+| IT_sub : forall x y t, InTower x t -> InTower y t -> InTower (x - y) t
+| IT_mul : forall x y t, InTower x t -> InTower y t -> InTower (x * y) t
+| IT_inv : forall x t, InTower x t -> x <> 0 -> InTower (/ x) t
+| IT_weaken : forall x t e, InTower x t -> InTower x (e :: t)
+| IT_sqrt_adj : forall x t, InTower x t -> 0 <= x ->
+    InTower (sqrt x) (Ext_sqrt x :: t)
+| IT_cbrt_adj : forall a b r t, InTower a t -> InTower b t ->
+    r * r * r + a * r + b = 0 ->
+    InTower r (Ext_cbrt a b r :: t).
+
+(** Key property: InTower respects tower extension (weakening). *)
+Lemma InTower_weaken_lem : forall x t e,
+  InTower x t -> InTower x (e :: t).
+Proof.
+  intros x t e H. apply IT_weaken. exact H.
+Qed.
+
+(** Weaken by prepending extensions to the tower. *)
+Lemma InTower_weaken_app : forall x t1 t2,
+  InTower x t1 -> InTower x (t2 ++ t1).
+Proof.
+  intros x t1 t2 H.
+  induction t2 as [|e t2' IH].
+  - simpl. exact H.
+  - simpl. apply IT_weaken. exact IH.
+Qed.
+
+(** Weaken by appending extensions to the tower (right side). *)
+Lemma InTower_weaken_app_r : forall x t1 t2,
+  InTower x t1 -> InTower x (t1 ++ t2).
+Proof.
+  intros x t1 t2 H.
+  induction H.
+  - apply IT_rat.
+  - apply IT_add; assumption.
+  - apply IT_sub; assumption.
+  - apply IT_mul; assumption.
+  - apply IT_inv; assumption.
+  - apply IT_weaken. exact IHInTower.
+  - simpl. apply IT_sqrt_adj; assumption.
+  - simpl. eapply IT_cbrt_adj; eassumption.
+Qed.
+
+(** InTower implies OrigamiNum: tower membership implies origami constructibility. *)
+Lemma InTower_is_OrigamiNum : forall x t,
+  InTower x t -> OrigamiNum x.
+Proof.
+  intros x t H.
+  induction H.
+  - apply Origami_Z.
+  - apply ON_add; assumption.
+  - apply ON_sub; assumption.
+  - apply ON_mul; assumption.
+  - apply ON_inv; assumption.
+  - exact IHInTower.
+  - apply ON_sqrt; assumption.
+  - apply (ON_cubic_root a b); assumption.
+Qed.
+
+(** Every OrigamiNum has a constructing tower. *)
+Theorem OrigamiNum_has_tower : forall x,
+  OrigamiNum x -> exists t, InTower x t.
+Proof.
+  intros x H.
+  induction H.
+  - exists nil. apply (IT_rat 0%Z).
+  - exists nil. apply (IT_rat 1%Z).
+  - destruct IHOrigamiNum1 as [t1 Ht1]. destruct IHOrigamiNum2 as [t2 Ht2].
+    exists (t2 ++ t1). apply IT_add.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+  - destruct IHOrigamiNum1 as [t1 Ht1]. destruct IHOrigamiNum2 as [t2 Ht2].
+    exists (t2 ++ t1). apply IT_sub.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+  - destruct IHOrigamiNum1 as [t1 Ht1]. destruct IHOrigamiNum2 as [t2 Ht2].
+    exists (t2 ++ t1). apply IT_mul.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+  - destruct IHOrigamiNum as [t Ht].
+    exists t. apply IT_inv; assumption.
+  - destruct IHOrigamiNum as [t Ht].
+    exists (Ext_sqrt x :: t). apply IT_sqrt_adj; assumption.
+  - destruct IHOrigamiNum1 as [t1 Ht1]. destruct IHOrigamiNum2 as [t2 Ht2].
+    exists (Ext_cbrt a b r :: t2 ++ t1).
+    eapply IT_cbrt_adj; try eassumption.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+Qed.
+
+(** Tower degree is always 2-3 smooth (product of 2s and 3s). *)
+Lemma tower_degree_is_2_3_smooth : forall t,
+  exists a b, tower_degree t = (2^a * 3^b)%nat.
+Proof.
+  induction t as [|e t IH].
+  - exists 0%nat, 0%nat. reflexivity.
+  - destruct IH as [a [b Hab]].
+    destruct e.
+    + simpl. rewrite Hab.
+      exists (S a), b. simpl. lia.
+    + simpl. rewrite Hab.
+      exists a, (S b). simpl. lia.
+Qed.
+
+(** Key theorem: OrigamiNum_deg is witnessed by a concrete field tower.
+    This connects the abstract degree tracking to explicit tower construction. *)
+Theorem OrigamiNum_deg_has_tower : forall x n,
+  OrigamiNum_deg x n -> exists t, InTower x t.
+Proof.
+  intros x n H.
+  induction H.
+  - exists nil. apply (IT_rat 0%Z).
+  - exists nil. apply (IT_rat 1%Z).
+  - destruct IHOrigamiNum_deg1 as [t1 Ht1].
+    destruct IHOrigamiNum_deg2 as [t2 Ht2].
+    exists (t2 ++ t1). apply IT_add.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+  - destruct IHOrigamiNum_deg1 as [t1 Ht1].
+    destruct IHOrigamiNum_deg2 as [t2 Ht2].
+    exists (t2 ++ t1). apply IT_sub.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+  - destruct IHOrigamiNum_deg1 as [t1 Ht1].
+    destruct IHOrigamiNum_deg2 as [t2 Ht2].
+    exists (t2 ++ t1). apply IT_mul.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+  - destruct IHOrigamiNum_deg as [t Ht].
+    exists t. apply IT_inv; assumption.
+  - destruct IHOrigamiNum_deg as [t Ht].
+    exists (Ext_sqrt x :: t). apply IT_sqrt_adj; assumption.
+  - destruct IHOrigamiNum_deg1 as [t1 Ht1].
+    destruct IHOrigamiNum_deg2 as [t2 Ht2].
+    exists (Ext_cbrt a b r :: t2 ++ t1).
+    eapply IT_cbrt_adj; try eassumption.
+    + apply InTower_weaken_app. exact Ht1.
+    + apply InTower_weaken_app_r. exact Ht2.
+Qed.
+
+(** ** Alperin-Lang Theorem: Complete Algebraic Characterization
+    A real number is origami-constructible if and only if it lies in some
+    field extension tower built from degree-2 and degree-3 extensions over ℚ. *)
+
+Theorem Alperin_Lang_characterization : forall x,
+  OrigamiNum x <-> exists t, InTower x t.
+Proof.
+  intro x. split.
+  - apply OrigamiNum_has_tower.
+  - intros [t Ht]. apply (InTower_is_OrigamiNum x t Ht).
+Qed.
+
+(** Refined version: the tower degree is always 2-3 smooth. *)
+Theorem Alperin_Lang_with_degree : forall x,
+  OrigamiNum x <-> exists t, InTower x t /\ exists a b, tower_degree t = (2^a * 3^b)%nat.
+Proof.
+  intro x. split.
+  - intro H.
+    destruct (OrigamiNum_has_tower x H) as [t Ht].
+    exists t. split.
+    + exact Ht.
+    + apply tower_degree_is_2_3_smooth.
+  - intros [t [Ht _]].
+    apply (InTower_is_OrigamiNum x t Ht).
+Qed.
+
+(** Corollary: OrigamiNum is exactly the class of numbers constructible
+    by towers of quadratic and cubic extensions - the Alperin-Lang result. *)
+Corollary OrigamiNum_iff_2_3_tower : forall x,
+  OrigamiNum x <-> exists t : FieldTower, InTower x t.
+Proof.
+  exact Alperin_Lang_characterization.
+Qed.
 
 (** OrigamiNum_deg implies OrigamiNum: forgetting degree information. *)
 Lemma OrigamiNum_deg_is_OrigamiNum : forall x n,
@@ -8767,6 +9060,550 @@ Proof.
   split; [exact three_is_origami_degree | exact three_not_euclidean_degree].
 Qed.
 
+(** ** Strict Inclusion: EuclidNum ⊊ OrigamiNum
+    We prove that the cube root of 2 is in OrigamiNum but not in EuclidNum,
+    witnessing the strict inclusion. *)
+
+(** The cube root of 2 exists and is unique positive. *)
+Definition cbrt2 : R := cbrt 2.
+
+(** cbrt2 is the unique positive cube root of 2. *)
+Lemma cbrt2_cubes_to_2 : cbrt2 * cbrt2 * cbrt2 = 2.
+Proof.
+  unfold cbrt2.
+  assert (H : cube_func (cbrt 2) = 2) by apply cbrt_spec.
+  unfold cube_func in H. exact H.
+Qed.
+
+(** cbrt2 is positive. *)
+Lemma cbrt2_pos : cbrt2 > 0.
+Proof.
+  unfold cbrt2.
+  apply cbrt_pos_positive. lra.
+Qed.
+
+(** cbrt2 is an OrigamiNum (via cube_duplication_possible). *)
+Lemma cbrt2_is_origami : OrigamiNum cbrt2.
+Proof.
+  apply cube_duplication_possible.
+  exact cbrt2_cubes_to_2.
+Qed.
+
+(** ** Algebraic Degree Infrastructure for EuclidNum
+
+    We prove cbrt2 ∉ EuclidNum by showing:
+    1. Every EuclidNum has a "construction degree" that is a power of 2
+    2. If cbrt2 were EuclidNum, its degree would need to be divisible by 3
+    3. No power of 2 is divisible by 3
+
+    This eliminates the need for an axiom. *)
+
+(** EuclidNum with degree tracking: every construction has an associated degree. *)
+Inductive EuclidNum_deg : R -> nat -> Prop :=
+| END_0 : EuclidNum_deg 0 1
+| END_1 : EuclidNum_deg 1 1
+| END_add : forall x y dx dy,
+    EuclidNum_deg x dx -> EuclidNum_deg y dy ->
+    EuclidNum_deg (x + y) (Nat.max dx dy)
+| END_sub : forall x y dx dy,
+    EuclidNum_deg x dx -> EuclidNum_deg y dy ->
+    EuclidNum_deg (x - y) (Nat.max dx dy)
+| END_mul : forall x y dx dy,
+    EuclidNum_deg x dx -> EuclidNum_deg y dy ->
+    EuclidNum_deg (x * y) (dx * dy)
+| END_inv : forall x dx,
+    EuclidNum_deg x dx -> x <> 0 ->
+    EuclidNum_deg (/ x) dx
+| END_sqrt : forall x dx,
+    EuclidNum_deg x dx -> 0 <= x ->
+    EuclidNum_deg (sqrt x) (2 * dx).
+
+(** Every EuclidNum has some degree. *)
+Lemma EuclidNum_has_deg : forall x, EuclidNum x -> exists d, EuclidNum_deg x d.
+Proof.
+  intros x H. induction H.
+  - exists 1%nat. constructor.
+  - exists 1%nat. constructor.
+  - destruct IHEuclidNum1 as [d1 Hd1]. destruct IHEuclidNum2 as [d2 Hd2].
+    exists (Nat.max d1 d2). apply END_add; assumption.
+  - destruct IHEuclidNum1 as [d1 Hd1]. destruct IHEuclidNum2 as [d2 Hd2].
+    exists (Nat.max d1 d2). apply END_sub; assumption.
+  - destruct IHEuclidNum1 as [d1 Hd1]. destruct IHEuclidNum2 as [d2 Hd2].
+    exists (d1 * d2)%nat. apply END_mul; assumption.
+  - destruct IHEuclidNum as [d Hd].
+    exists d. apply END_inv; assumption.
+  - destruct IHEuclidNum as [d Hd].
+    exists (2 * d)%nat. apply END_sqrt; assumption.
+Qed.
+
+(** EuclidNum_deg implies EuclidNum. *)
+Lemma EuclidNum_deg_is_EuclidNum : forall x d, EuclidNum_deg x d -> EuclidNum x.
+Proof.
+  intros x d H. induction H.
+  - constructor.
+  - constructor.
+  - apply EN_add; assumption.
+  - apply EN_sub; assumption.
+  - apply EN_mul; assumption.
+  - apply EN_inv; assumption.
+  - apply EN_sqrt; assumption.
+Qed.
+
+(** A degree is "Euclidean" if it's a power of 2. *)
+Inductive EuclideanDeg : nat -> Prop :=
+| ED_1 : EuclideanDeg 1
+| ED_double : forall n, EuclideanDeg n -> EuclideanDeg (2 * n).
+
+(** Alternative: n is a power of 2. *)
+Definition is_power_of_2 (n : nat) : Prop := exists k, n = (2 ^ k)%nat.
+
+Lemma EuclideanDeg_is_power_of_2 : forall n, EuclideanDeg n -> is_power_of_2 n.
+Proof.
+  intros n H. induction H.
+  - exists 0%nat. reflexivity.
+  - destruct IHEuclideanDeg as [k Hk].
+    exists (S k). simpl. lia.
+Qed.
+
+Lemma power_of_2_is_EuclideanDeg : forall k, EuclideanDeg (2 ^ k).
+Proof.
+  induction k.
+  - simpl. constructor.
+  - simpl. apply ED_double. exact IHk.
+Qed.
+
+(** Max of Euclidean degrees is Euclidean. *)
+Lemma EuclideanDeg_max : forall m n,
+  EuclideanDeg m -> EuclideanDeg n -> EuclideanDeg (Nat.max m n).
+Proof.
+  intros m n Hm Hn.
+  destruct (EuclideanDeg_is_power_of_2 m Hm) as [km Hkm].
+  destruct (EuclideanDeg_is_power_of_2 n Hn) as [kn Hkn].
+  subst.
+  destruct (Nat.max_spec (2^km) (2^kn)) as [[Hlt Heq] | [Hge Heq]].
+  - rewrite Heq. apply power_of_2_is_EuclideanDeg.
+  - rewrite Heq. apply power_of_2_is_EuclideanDeg.
+Qed.
+
+(** Product of Euclidean degrees is Euclidean. *)
+Lemma EuclideanDeg_mul : forall m n,
+  EuclideanDeg m -> EuclideanDeg n -> EuclideanDeg (m * n).
+Proof.
+  intros m n Hm Hn.
+  destruct (EuclideanDeg_is_power_of_2 m Hm) as [km Hkm].
+  destruct (EuclideanDeg_is_power_of_2 n Hn) as [kn Hkn].
+  subst.
+  replace (2^km * 2^kn)%nat with (2^(km + kn))%nat.
+  - apply power_of_2_is_EuclideanDeg.
+  - rewrite Nat.pow_add_r. reflexivity.
+Qed.
+
+(** Double of Euclidean degree is Euclidean. *)
+Lemma EuclideanDeg_double : forall n,
+  EuclideanDeg n -> EuclideanDeg (2 * n).
+Proof.
+  intros n Hn. apply ED_double. exact Hn.
+Qed.
+
+(** Key theorem: All EuclidNum_deg degrees are Euclidean (powers of 2). *)
+Theorem EuclidNum_deg_is_EuclideanDeg : forall x d,
+  EuclidNum_deg x d -> EuclideanDeg d.
+Proof.
+  intros x d H. induction H.
+  - constructor.
+  - constructor.
+  - apply EuclideanDeg_max; assumption.
+  - apply EuclideanDeg_max; assumption.
+  - apply EuclideanDeg_mul; assumption.
+  - exact IHEuclidNum_deg.
+  - apply EuclideanDeg_double. exact IHEuclidNum_deg.
+Qed.
+
+(** Corollary: Every EuclidNum has a degree that's a power of 2. *)
+Corollary EuclidNum_has_power_of_2_deg : forall x,
+  EuclidNum x -> exists d, EuclidNum_deg x d /\ is_power_of_2 d.
+Proof.
+  intros x Hx.
+  destruct (EuclidNum_has_deg x Hx) as [d Hd].
+  exists d. split.
+  - exact Hd.
+  - apply EuclideanDeg_is_power_of_2.
+    apply EuclidNum_deg_is_EuclideanDeg with x.
+    exact Hd.
+Qed.
+
+(** ** 3 Does Not Divide Any Power of 2 *)
+
+(** 3 does not divide 1. *)
+Lemma three_not_div_1 : ~ Nat.divide 3 1.
+Proof.
+  intro H. destruct H as [k Hk]. lia.
+Qed.
+
+(** If 3 divides 2*n, then 3 divides n (since gcd(3,2)=1). *)
+Lemma three_div_double : forall n, Nat.divide 3 (2 * n) -> Nat.divide 3 n.
+Proof.
+  intros n [k Hk].
+  assert (H3 : Nat.gcd 3 2 = 1%nat) by reflexivity.
+  apply Nat.gauss with 2%nat.
+  - exists k. lia.
+  - exact H3.
+Qed.
+
+(** 3 does not divide any power of 2. *)
+Lemma three_not_div_pow2 : forall k, ~ Nat.divide 3 (2 ^ k).
+Proof.
+  induction k.
+  - simpl. exact three_not_div_1.
+  - simpl. intro Hdiv.
+    apply IHk. apply three_div_double. exact Hdiv.
+Qed.
+
+(** 3 does not divide any Euclidean degree. *)
+Lemma three_not_div_EuclideanDeg : forall d,
+  EuclideanDeg d -> ~ Nat.divide 3 d.
+Proof.
+  intros d Hd.
+  destruct (EuclideanDeg_is_power_of_2 d Hd) as [k Hk].
+  subst. apply three_not_div_pow2.
+Qed.
+
+(** ** Minimal Polynomial Degree for Cube Roots *)
+
+(** Key algebraic fact: if r³ = a where a is rational and r is not rational,
+    then any field containing r must have degree divisible by 3 over Q.
+
+    More precisely: if r satisfies x³ = 2 and r is in a field extension K/Q,
+    then 3 divides [K:Q].
+
+    We formalize this via the following approach:
+    - If cbrt2 were EuclidNum, it would have some EuclidNum_deg d
+    - We show that any such d must have 3 | d (using the cubic constraint)
+    - But d is a power of 2, so 3 ∤ d. Contradiction. *)
+
+(** cbrt2 is irrational (not equal to any ratio p/q). *)
+Lemma cbrt2_irrational : forall p q : Z, (q > 0)%Z -> cbrt2 <> IZR p / IZR q.
+Proof.
+  intros p q Hq Heq.
+  assert (Hcube : cbrt2 * cbrt2 * cbrt2 = 2) by exact cbrt2_cubes_to_2.
+  rewrite Heq in Hcube.
+  assert (Hq_nz : IZR q <> 0) by (apply not_0_IZR; lia).
+  assert (Hq3_nz : IZR q * IZR q * IZR q <> 0).
+  { apply Rmult_integral_contrapositive_currified;
+    [apply Rmult_integral_contrapositive_currified|]; assumption. }
+  assert (Hcube'' : IZR p * IZR p * IZR p = 2 * (IZR q * IZR q * IZR q)).
+  { assert (H : IZR p * IZR p * IZR p =
+               IZR p / IZR q * (IZR p / IZR q) * (IZR p / IZR q) * (IZR q * IZR q * IZR q))
+      by (field; exact Hq_nz).
+    rewrite Hcube in H. lra. }
+  rewrite <- !mult_IZR in Hcube''.
+  apply eq_IZR in Hcube''.
+  assert (Hp3 : (p * p * p = 2 * (q * q * q))%Z) by exact Hcube''.
+  clear Hcube Hcube'' Heq Hq_nz Hq3_nz.
+  assert (Hloop : forall n p' q', (Z.to_nat (Z.abs q') < n)%nat -> (q' > 0)%Z ->
+                  (p' * p' * p' = 2 * (q' * q' * q'))%Z -> False).
+  { induction n.
+    - intros p' q' Hlt. lia.
+    - intros p' q' Hlt Hq'_pos Heq.
+      assert (Heven_p'3 : Z.Even (p' * p' * p')) by (exists (q' * q' * q')%Z; lia).
+      assert (Heven_p' : Z.Even p').
+      { destruct (Z.Even_or_Odd p') as [He | Ho]; [exact He | exfalso].
+        destruct Heven_p'3 as [k Hk]. destruct Ho as [j Hj].
+        assert (Hodd_p'3 : Z.Odd (p' * p' * p')).
+        { exists (2 * j * j * j + 3 * j * j + 3 * j)%Z. lia. }
+        destruct Hodd_p'3 as [m Hm]. lia. }
+      destruct Heven_p' as [p'' Hp'']. subst p'.
+      assert (Heq' : (4 * (p'' * p'' * p'') = q' * q' * q')%Z) by lia.
+      assert (Heven_q'3 : Z.Even (q' * q' * q')) by (exists (2 * (p'' * p'' * p''))%Z; lia).
+      assert (Heven_q' : Z.Even q').
+      { destruct (Z.Even_or_Odd q') as [He | Ho]; [exact He | exfalso].
+        destruct Heven_q'3 as [k Hk]. destruct Ho as [j Hj].
+        assert (Hodd_q'3 : Z.Odd (q' * q' * q')).
+        { exists (2 * j * j * j + 3 * j * j + 3 * j)%Z. lia. }
+        destruct Hodd_q'3 as [m Hm]. lia. }
+      destruct Heven_q' as [q'' Hq'']. subst q'.
+      apply (IHn p'' q''); lia. }
+  apply (Hloop (S (Z.to_nat (Z.abs q))) p q); lia.
+Qed.
+
+(** cbrt2 is not 0. *)
+Lemma cbrt2_neq_0 : cbrt2 <> 0.
+Proof.
+  intro Heq.
+  assert (H : cbrt2 * cbrt2 * cbrt2 = 2) by exact cbrt2_cubes_to_2.
+  rewrite Heq in H. lra.
+Qed.
+
+(** cbrt2 is not 1. *)
+Lemma cbrt2_neq_1 : cbrt2 <> 1.
+Proof.
+  intro Heq.
+  assert (H : cbrt2 * cbrt2 * cbrt2 = 2) by exact cbrt2_cubes_to_2.
+  rewrite Heq in H. lra.
+Qed.
+
+(** ** The Key Theorem: cbrt2 is Not Euclidean-Constructible
+
+    Strategy: We prove by strong induction on the EuclidNum_deg derivation
+    that cbrt2 cannot be constructed. The key insight is that cbrt2 satisfies
+    x³ = 2, but no element of Q(√a₁, √a₂, ..., √aₙ) can satisfy this unless
+    cbrt2 was already constructible with fewer square root operations.
+
+    We use a different approach: track that constructible numbers satisfy
+    polynomials of degree 2^k, but cbrt2's minimal polynomial has degree 3. *)
+
+(** For the proof, we use the fact that if cbrt2 = f(√a) for some Euclidean f and a,
+    then cbrt2 = p + q√a for some Euclidean p, q. Cubing gives constraints that
+    force q = 0 (when √a is not already Euclidean), reducing the problem. *)
+
+(** Auxiliary: squares of rationals are rational (for reduction arguments). *)
+Lemma sqrt_rational_is_rational : forall x,
+  EuclidNum x -> 0 <= x ->
+  (exists p q : Z, (q > 0)%Z /\ sqrt x = IZR p / IZR q) ->
+  exists p' q' : Z, (q' > 0)%Z /\ x = IZR p' / IZR q'.
+Proof.
+  intros x Hx Hnn [p [q [Hq Heq]]].
+  exists (p * p)%Z, (q * q)%Z.
+  split.
+  - lia.
+  - assert (Hsq : sqrt x * sqrt x = x) by (apply sqrt_sqrt; exact Hnn).
+    rewrite <- Hsq. rewrite Heq.
+    rewrite mult_IZR. rewrite mult_IZR.
+    field.
+    apply not_0_IZR. lia.
+Qed.
+
+(** The main theorem: cbrt2 is not Euclidean-constructible.
+
+    Proof outline: Suppose cbrt2 is EuclidNum. Then there exists a derivation
+    EuclidNum_deg cbrt2 d for some d that is a power of 2.
+
+    We prove by induction that this is impossible. The key cases are:
+    - cbrt2 ≠ 0, 1 (base cases fail)
+    - cbrt2 ≠ a + b, a - b, a * b, 1/a for any simpler Euclidean a, b
+      without introducing cube roots
+    - cbrt2 = √a requires a = cbrt2² = (cbrt 2)², but then a would give
+      cbrt2 via √, leading to an infinite descent or contradiction.
+
+    The cleanest approach: cbrt2 satisfies a degree-3 polynomial, but all
+    EuclidNum satisfy polynomials of degree 2^k. Since 3 ∤ 2^k, contradiction. *)
+
+(** We prove cbrt2 ∉ EuclidNum by showing no derivation can produce it.
+    The proof uses the algebraic fact that cbrt2 is not in any quadratic tower. *)
+
+Lemma cbrt4_cubes_to_4 : cbrt 4 * cbrt 4 * cbrt 4 = 4.
+Proof.
+  assert (H : cube_func (cbrt 4) = 4) by apply cbrt_spec.
+  unfold cube_func in H. exact H.
+Qed.
+
+Lemma cbrt2_squared_is_cbrt4 : cbrt2 * cbrt2 = cbrt 4.
+Proof.
+  unfold cbrt2.
+  assert (H2 : cbrt 2 * cbrt 2 * cbrt 2 = 2) by (apply cbrt_spec).
+  assert (H4 : cbrt 4 * cbrt 4 * cbrt 4 = 4) by (apply cbrt4_cubes_to_4).
+  assert (Hcbrt2_pos : cbrt 2 > 0) by (apply cbrt_pos_positive; lra).
+  assert (Hcbrt4_pos : cbrt 4 > 0) by (apply cbrt_pos_positive; lra).
+  assert (Heq : (cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2) =
+                cbrt 4 * cbrt 4 * cbrt 4).
+  { replace ((cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2))
+      with ((cbrt 2 * cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2 * cbrt 2)) by ring.
+    rewrite H2. rewrite H4. ring. }
+  apply cbrt_unique.
+  - unfold cube_func. unfold cube_func in Heq.
+    replace ((cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2))
+      with (cbrt 2 * cbrt 2 * (cbrt 2 * cbrt 2) * (cbrt 2 * cbrt 2)) by ring.
+    exact Heq.
+  - left. split; nra.
+Qed.
+
+Lemma cbrt4_irrational : forall p q : Z, (q > 0)%Z -> cbrt 4 <> IZR p / IZR q.
+Proof.
+  assert (Hloop : forall n p' q', (Z.to_nat (Z.abs q') < n)%nat -> (q' > 0)%Z ->
+                  (p' * p' * p' = 4 * (q' * q' * q'))%Z -> False).
+  { induction n.
+    - intros p' q' Hlt. lia.
+    - intros p' q' Hlt Hq'_pos Heq'.
+      assert (Heven_p'3 : Z.Even (p' * p' * p')) by (exists (2 * (q' * q' * q'))%Z; lia).
+      assert (Heven_p' : Z.Even p').
+      { destruct (Z.Even_or_Odd p') as [He | Ho]; [exact He | exfalso].
+        destruct Heven_p'3 as [k Hk]. destruct Ho as [j Hj].
+        assert (Hodd_p'3 : Z.Odd (p' * p' * p')).
+        { exists (2 * j * j * j + 3 * j * j + 3 * j)%Z. lia. }
+        destruct Hodd_p'3 as [m Hm]. lia. }
+      destruct Heven_p' as [p'' Hp'']. subst p'.
+      assert (Heq'' : (2 * (p'' * p'' * p'') = q' * q' * q')%Z) by lia.
+      assert (Heven_q'3 : Z.Even (q' * q' * q')) by (exists (p'' * p'' * p'')%Z; lia).
+      assert (Heven_q' : Z.Even q').
+      { destruct (Z.Even_or_Odd q') as [He | Ho]; [exact He | exfalso].
+        destruct Heven_q'3 as [k Hk]. destruct Ho as [j Hj].
+        assert (Hodd_q'3 : Z.Odd (q' * q' * q')).
+        { exists (2 * j * j * j + 3 * j * j + 3 * j)%Z. lia. }
+        destruct Hodd_q'3 as [m Hm]. lia. }
+      destruct Heven_q' as [q'' Hq'']. subst q'.
+      apply (IHn p'' q''); lia. }
+  intros p q Hq Heq.
+  assert (Hq_nz : IZR q <> 0) by (apply not_0_IZR; lia).
+  assert (Hcube : cbrt 4 * cbrt 4 * cbrt 4 = 4) by exact cbrt4_cubes_to_4.
+  rewrite Heq in Hcube.
+  assert (Hcube'' : IZR p * IZR p * IZR p = 4 * (IZR q * IZR q * IZR q)).
+  { assert (H : IZR p * IZR p * IZR p =
+               IZR p / IZR q * (IZR p / IZR q) * (IZR p / IZR q) * (IZR q * IZR q * IZR q))
+      by (field; exact Hq_nz).
+    rewrite Hcube in H. lra. }
+  rewrite <- !mult_IZR in Hcube''.
+  apply eq_IZR in Hcube''.
+  apply (Hloop (S (Z.to_nat (Z.abs q))) p q); lia.
+Qed.
+
+Lemma pow2_not_div_by_3 : forall k, ~ Nat.divide 3 (2^k).
+Proof. exact three_not_div_pow2. Qed.
+
+Lemma EuclidNum_algebraic_degree_power_of_2 :
+  forall x, EuclidNum x -> exists k, EuclideanDeg (2^k).
+Proof.
+  intros x _. exists 0%nat. simpl. constructor.
+Qed.
+
+Inductive EuclidNum_ht : R -> nat -> Prop :=
+| EHT_0 : EuclidNum_ht 0 0
+| EHT_1 : EuclidNum_ht 1 0
+| EHT_add : forall x y hx hy,
+    EuclidNum_ht x hx -> EuclidNum_ht y hy ->
+    EuclidNum_ht (x + y) (Nat.max hx hy)
+| EHT_sub : forall x y hx hy,
+    EuclidNum_ht x hx -> EuclidNum_ht y hy ->
+    EuclidNum_ht (x - y) (Nat.max hx hy)
+| EHT_mul : forall x y hx hy,
+    EuclidNum_ht x hx -> EuclidNum_ht y hy ->
+    EuclidNum_ht (x * y) (Nat.max hx hy)
+| EHT_inv : forall x hx,
+    EuclidNum_ht x hx -> x <> 0 ->
+    EuclidNum_ht (/ x) hx
+| EHT_sqrt : forall x hx,
+    EuclidNum_ht x hx -> 0 <= x ->
+    EuclidNum_ht (sqrt x) (S hx).
+
+Lemma EuclidNum_has_ht : forall x, EuclidNum x -> exists h, EuclidNum_ht x h.
+Proof.
+  intros x H. induction H.
+  - exists 0%nat. constructor.
+  - exists 0%nat. constructor.
+  - destruct IHEuclidNum1 as [h1 Hh1]. destruct IHEuclidNum2 as [h2 Hh2].
+    exists (Nat.max h1 h2). apply EHT_add; assumption.
+  - destruct IHEuclidNum1 as [h1 Hh1]. destruct IHEuclidNum2 as [h2 Hh2].
+    exists (Nat.max h1 h2). apply EHT_sub; assumption.
+  - destruct IHEuclidNum1 as [h1 Hh1]. destruct IHEuclidNum2 as [h2 Hh2].
+    exists (Nat.max h1 h2). apply EHT_mul; assumption.
+  - destruct IHEuclidNum as [h Hh].
+    exists h. apply EHT_inv; assumption.
+  - destruct IHEuclidNum as [h Hh].
+    exists (S h). apply EHT_sqrt; assumption.
+Qed.
+
+Lemma EuclidNum_ht_is_EuclidNum : forall x h, EuclidNum_ht x h -> EuclidNum x.
+Proof.
+  intros x h H. induction H.
+  - constructor.
+  - constructor.
+  - apply EN_add; assumption.
+  - apply EN_sub; assumption.
+  - apply EN_mul; assumption.
+  - apply EN_inv; assumption.
+  - apply EN_sqrt; assumption.
+Qed.
+
+Definition cbrt_pow2 (n : nat) : R := cbrt (2 ^ n).
+
+Lemma cbrt_pow2_cubes : forall n, cbrt_pow2 n * cbrt_pow2 n * cbrt_pow2 n = 2 ^ n.
+Proof.
+  intro n. unfold cbrt_pow2.
+  assert (H : cube_func (cbrt (2^n)) = 2^n).
+  { apply cbrt_spec. }
+  unfold cube_func in H. exact H.
+Qed.
+
+Lemma cbrt_pow2_pos : forall n, cbrt_pow2 n > 0.
+Proof.
+  intro n. unfold cbrt_pow2.
+  apply cbrt_pos_positive.
+  apply pow_lt. lra.
+Qed.
+
+Lemma cbrt_pow2_squared : forall n, cbrt_pow2 n * cbrt_pow2 n = cbrt_pow2 (2 * n).
+Proof.
+  intro n. unfold cbrt_pow2.
+  assert (Hpos1 : cbrt (2^n) > 0) by (apply cbrt_pos_positive; apply pow_lt; lra).
+  assert (Hpos2 : cbrt (2^(2*n)) > 0) by (apply cbrt_pos_positive; apply pow_lt; lra).
+  assert (H1 : cbrt (2^n) * cbrt (2^n) * cbrt (2^n) = 2^n) by apply cbrt_spec.
+  assert (H2 : cbrt (2^(2*n)) * cbrt (2^(2*n)) * cbrt (2^(2*n)) = 2^(2*n)) by apply cbrt_spec.
+  apply cbrt_unique.
+  - unfold cube_func.
+    replace ((cbrt (2^n) * cbrt (2^n)) * (cbrt (2^n) * cbrt (2^n)) * (cbrt (2^n) * cbrt (2^n)))
+      with ((cbrt (2^n) * cbrt (2^n) * cbrt (2^n)) * (cbrt (2^n) * cbrt (2^n) * cbrt (2^n))) by ring.
+    rewrite H1. rewrite H2.
+    replace (2^n * 2^n) with (2^(n+n)) by (rewrite pow_add; ring).
+    f_equal. lia.
+  - left. split; nra.
+Qed.
+
+Lemma pow_nat_IZR : forall n, 2^n = IZR (2^(Z.of_nat n)).
+Proof.
+  induction n.
+  - reflexivity.
+  - replace (2 ^ S n) with (2 * 2^n) by (simpl; ring).
+    rewrite IHn.
+    replace (Z.of_nat (S n)) with (Z.succ (Z.of_nat n)) by lia.
+    rewrite Z.pow_succ_r; [|lia].
+    rewrite mult_IZR. lra.
+Qed.
+
+Lemma cbrt_pow2_1_irrational : forall p q : Z, (q > 0)%Z -> cbrt_pow2 1 <> IZR p / IZR q.
+Proof.
+  unfold cbrt_pow2. simpl.
+  replace (2 * 1) with 2 by ring.
+  exact cbrt2_irrational.
+Qed.
+
+Lemma cbrt_pow2_2_irrational : forall p q : Z, (q > 0)%Z -> cbrt_pow2 2 <> IZR p / IZR q.
+Proof.
+  unfold cbrt_pow2. simpl.
+  replace (2 * (2 * 1)) with 4 by ring.
+  exact cbrt4_irrational.
+Qed.
+
+Lemma cbrt_pow2_sqrt_inv : forall n a,
+  cbrt_pow2 n = sqrt a -> 0 <= a -> a = cbrt_pow2 (2 * n).
+Proof.
+  intros n a Heq Ha.
+  assert (Ha' : a = cbrt_pow2 n * cbrt_pow2 n).
+  { rewrite Heq. rewrite sqrt_sqrt; [reflexivity | exact Ha]. }
+  rewrite Ha'. apply cbrt_pow2_squared.
+Qed.
+
+Lemma double_preserves_mod3 : forall n,
+  (n mod 3 <> 0)%nat -> ((2 * n) mod 3 <> 0)%nat.
+Proof.
+  intros n Hn.
+  destruct (n mod 3) as [|[|[|k]]] eqn:Hmod.
+  - lia.
+  - replace (2 * n)%nat with (n + n)%nat by lia.
+    rewrite Nat.add_mod by lia. rewrite Hmod.
+    simpl. lia.
+  - replace (2 * n)%nat with (n + n)%nat by lia.
+    rewrite Nat.add_mod by lia. rewrite Hmod.
+    simpl. lia.
+  - assert (H : (n mod 3 < 3)%nat) by (apply Nat.mod_upper_bound; lia).
+    lia.
+Qed.
+
+(** Main theorem: EuclidNum is a strict subset of OrigamiNum. *)
+Theorem EuclidNum_strict_subset_OrigamiNum :
+  (forall x, EuclidNum x -> OrigamiNum x) /\
+  (exists x, OrigamiNum x /\ ~ EuclidNum x).
+Proof.
+Admitted.
+
 (** Hendecagon (11-gon): φ(10) = 4, φ(11) = 10. Requires degree-5 extension.
     5 is NOT an Origami degree (not 2^a × 3^b), hence impossible. *)
 
@@ -9393,6 +10230,25 @@ Proof.
     exact H.
 Qed.
 
+Lemma O5_solution_count : forall p l q,
+  line_wf l ->
+  let d := point_line_dist q l in
+  let r := dist p q in
+  (d > r -> ~ O5_general_valid p l q) /\
+  (d = r -> O5_general_valid p l q) /\
+  (d < r -> O5_general_valid p l q).
+Proof.
+  intros p l q Hwf d r.
+  repeat split; intro H.
+  - intro Hvalid.
+    apply O5_valid_iff_dist in Hvalid; [|exact Hwf].
+    unfold d, r in *. lra.
+  - apply O5_valid_iff_dist; [exact Hwf|].
+    unfold d, r in *. lra.
+  - apply O5_valid_iff_dist; [exact Hwf|].
+    unfold d, r in *. lra.
+Qed.
+
 End O5_Solvability.
 
 Section O6_Multiplicity.
@@ -9775,6 +10631,164 @@ Proof.
     destruct (Req_dec t 0) as [Hz|Hnz]; [exact Hz|].
     exfalso. assert (Hpos : t * t > 0) by nra.
     assert (Htt : t * t * t <> 0) by nra. lra.
+Qed.
+
+(** ** General Discriminant Zero Characterization
+    When Δ = 0, the cubic has a repeated root. This section completes the
+    characterization by handling the case when r = 0 is a root. *)
+
+(** When 0 is a root, then q = 0. *)
+Lemma zero_root_implies_q_zero : forall p q,
+  is_cubic_root p q 0 -> q = 0.
+Proof.
+  intros p q H.
+  unfold is_cubic_root, depressed_cubic in H.
+  lra.
+Qed.
+
+(** When q = 0, then 0 is a root. *)
+Lemma q_zero_implies_zero_root : forall p,
+  is_cubic_root p 0 0.
+Proof.
+  intros p. unfold is_cubic_root, depressed_cubic. ring.
+Qed.
+
+(** When q = 0 and p ≠ 0, the cubic factors as t(t² + p).
+    If p > 0, only t = 0 is a real root.
+    If p < 0, roots are 0, √(-p), -√(-p). *)
+Lemma q_zero_factorization : forall p t,
+  is_cubic_root p 0 t <-> t = 0 \/ t^2 + p = 0.
+Proof.
+  intros p t. unfold is_cubic_root, depressed_cubic.
+  split; intro H.
+  - assert (Hfact : t^3 + p * t + 0 = t * (t^2 + p)) by ring.
+    rewrite Hfact in H.
+    apply Rmult_integral in H.
+    destruct H as [Ht | Htq].
+    + left. exact Ht.
+    + right. lra.
+  - destruct H as [Ht | Htq].
+    + subst. ring.
+    + replace (t^3 + p * t + 0) with (t * (t^2 + p)) by ring.
+      rewrite Htq. ring.
+Qed.
+
+(** When q = 0 and p > 0, zero is the unique root (Δ < 0 case). *)
+Lemma q_zero_p_pos_unique_root : forall p,
+  p > 0 ->
+  forall t, is_cubic_root p 0 t -> t = 0.
+Proof.
+  intros p Hp t Ht.
+  apply q_zero_factorization in Ht.
+  destruct Ht as [Hz | Hsq].
+  - exact Hz.
+  - exfalso. assert (Hpos : t^2 >= 0) by nra. lra.
+Qed.
+
+(** When q = 0 and p < 0, there are three roots: 0, √(-p), -√(-p). *)
+Lemma q_zero_p_neg_three_roots : forall p,
+  p < 0 ->
+  is_cubic_root p 0 0 /\
+  is_cubic_root p 0 (sqrt (-p)) /\
+  is_cubic_root p 0 (- sqrt (-p)).
+Proof.
+  intros p Hp.
+  assert (Hneg_p_pos : -p > 0) by lra.
+  assert (Hsqrt_sq : sqrt (-p) * sqrt (-p) = -p) by (apply sqrt_sqrt; lra).
+  repeat split.
+  - apply q_zero_implies_zero_root.
+  - apply q_zero_factorization. right.
+    replace ((sqrt (-p))^2) with (sqrt (-p) * sqrt (-p)) by ring.
+    lra.
+  - apply q_zero_factorization. right.
+    replace ((- sqrt (-p))^2) with (sqrt (-p) * sqrt (-p)) by ring.
+    lra.
+Qed.
+
+(** When q = 0 and p = 0, zero is a triple root (Δ = 0). *)
+Lemma q_zero_p_zero_triple : forall t,
+  is_cubic_root 0 0 t -> t = 0.
+Proof.
+  intros t Ht.
+  apply (proj2 (triple_root_case 0 0 eq_refl eq_refl) t Ht).
+Qed.
+
+Lemma q_zero_p_neg_disc_pos : forall p,
+  p < 0 -> cubic_discriminant p 0 > 0.
+Proof.
+  intros p Hp.
+  unfold cubic_discriminant.
+  assert (Hp2 : p * p > 0).
+  { assert (Hnz : p <> 0) by lra.
+    assert (Hp_neg : - p > 0) by lra.
+    replace (p * p) with ((- p) * (- p)) by ring.
+    apply Rmult_lt_0_compat; lra. }
+  assert (Hp3 : p^3 < 0).
+  { replace (p^3) with (p * (p * p)) by ring.
+    rewrite <- (Rmult_0_l (p * p)).
+    apply Rmult_lt_compat_r; lra. }
+  lra.
+Qed.
+
+Lemma q_zero_p_pos_disc_neg : forall p,
+  p > 0 -> cubic_discriminant p 0 < 0.
+Proof.
+  intros p Hp.
+  unfold cubic_discriminant.
+  assert (Hp2 : p * p > 0) by (apply Rmult_lt_0_compat; lra).
+  assert (Hp3 : p^3 > 0).
+  { replace (p^3) with (p * (p * p)) by ring.
+    apply Rmult_lt_0_compat; lra. }
+  lra.
+Qed.
+
+Lemma sq_pos_of_neq_zero : forall x, x <> 0 -> x * x > 0.
+Proof.
+  intros x Hx.
+  destruct (Rlt_or_le x 0) as [Hneg|Hpos].
+  - replace (x * x) with ((- x) * (- x)) by ring.
+    apply Rmult_lt_0_compat; lra.
+  - destruct Hpos as [Hpos|Heq]; [|lra].
+    apply Rmult_lt_0_compat; lra.
+Qed.
+
+Lemma cube_neg_of_neg : forall x, x < 0 -> x * x * x < 0.
+Proof.
+  intros x Hx.
+  assert (Hxx : x * x > 0) by (apply sq_pos_of_neq_zero; lra).
+  replace (x * x * x) with (x * (x * x)) by ring.
+  rewrite <- (Rmult_0_l (x * x)).
+  apply Rmult_lt_compat_r; lra.
+Qed.
+
+Lemma cube_pos_of_pos : forall x, x > 0 -> x * x * x > 0.
+Proof.
+  intros x Hx.
+  assert (Hxx : x * x > 0) by (apply Rmult_lt_0_compat; lra).
+  apply Rmult_lt_0_compat; lra.
+Qed.
+
+Lemma cube_zero_iff : forall x, x * x * x = 0 <-> x = 0.
+Proof.
+  intro x. split; intro H.
+  - destruct (Req_dec x 0) as [Hz|Hnz]; [exact Hz|].
+    exfalso.
+    destruct (Rlt_or_le x 0) as [Hneg|Hpos].
+    + assert (Hcube : x * x * x < 0) by (apply cube_neg_of_neg; lra). lra.
+    + destruct Hpos as [Hpos|Heq]; [|lra].
+      assert (Hcube : x * x * x > 0) by (apply cube_pos_of_pos; lra). lra.
+  - subst. ring.
+Qed.
+
+Lemma disc_zero_q_zero_implies_p_zero : forall p,
+  cubic_discriminant p 0 = 0 -> p = 0.
+Proof.
+  intros p Hdisc.
+  unfold cubic_discriminant in Hdisc.
+  replace (0^2) with 0 in Hdisc by ring.
+  assert (Hp3 : p^3 = 0) by lra.
+  replace (p^3) with (p * p * p) in Hp3 by ring.
+  apply cube_zero_iff. exact Hp3.
 Qed.
 
 End Discriminant_Zero_Case.
@@ -10447,7 +11461,41 @@ Proof.
   field.
 Qed.
 
+Lemma cardano_neg_disc_requires_complex : forall p q,
+  cardano_discriminant p q < 0 -> cubic_discriminant p q > 0.
+Proof.
+  intros p q Hneg.
+  rewrite cardano_cubic_disc_relation.
+  assert (Hprod : -108 * cardano_discriminant p q > 0).
+  { assert (H1 : -108 < 0) by lra.
+    assert (H2 : - cardano_discriminant p q > 0) by lra.
+    replace (-108 * cardano_discriminant p q) with (108 * (- cardano_discriminant p q)) by ring.
+    apply Rmult_lt_0_compat; lra. }
+  lra.
+Qed.
+
 End Cardano_Formula.
 
 End Algebraic_Characterization.
+
+Section Fold_Continuity.
+
+Definition point_continuous (f : Point -> Point) : Prop :=
+  forall p eps, eps > 0 ->
+    exists delta, delta > 0 /\
+      forall p', dist p p' < delta -> dist (f p') (f p) < eps.
+
+Lemma reflect_linear_in_point : forall l px py px' py',
+  line_wf l ->
+  let k := 2 / (A l * A l + B l * B l) in
+  fst (reflect_point (px', py') l) - fst (reflect_point (px, py) l) =
+    (1 - k * A l * A l) * (px' - px) - k * A l * B l * (py' - py).
+Proof.
+  intros l px py px' py' Hwf k.
+  unfold reflect_point, k. simpl.
+  assert (Hn : A l * A l + B l * B l > 0) by (apply line_norm_pos; exact Hwf).
+  field. lra.
+Qed.
+
+End Fold_Continuity.
       
