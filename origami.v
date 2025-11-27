@@ -4048,6 +4048,187 @@ Qed.
 
 End Decidability.
 
+Section Fold_Sequences.
+
+Inductive FoldStep : Type :=
+| FS_O1 : Point -> Point -> FoldStep
+| FS_O2 : Point -> Point -> FoldStep
+| FS_O3 : Line -> Line -> FoldStep
+| FS_O4 : Point -> Line -> FoldStep
+| FS_O5 : Point -> Line -> Point -> FoldStep
+| FS_O6 : Point -> Line -> Point -> Line -> FoldStep
+| FS_O7 : Point -> Line -> Line -> FoldStep.
+
+Definition FoldSequence : Type := list FoldStep.
+
+Definition execute_fold_step (step : FoldStep) : Line :=
+  match step with
+  | FS_O1 p1 p2 => fold_line (fold_O1 p1 p2)
+  | FS_O2 p1 p2 => fold_line (fold_O2 p1 p2)
+  | FS_O3 l1 l2 => fold_line (fold_O3 l1 l2)
+  | FS_O4 p l => fold_line (fold_O4 p l)
+  | FS_O5 p l q => fold_line (fold_O5_general p l q)
+  | FS_O6 p1 l1 p2 l2 => beloch_fold_line (fst p1)
+  | FS_O7 p l1 l2 => fold_line (fold_O7 p l1 l2)
+  end.
+
+Record ConstructionState : Type := mkState {
+  state_points : list Point;
+  state_lines : list Line
+}.
+
+Definition initial_state : ConstructionState :=
+  mkState ((0, 0) :: (1, 0) :: nil) (line_xaxis :: nil).
+
+Definition add_fold_to_state (st : ConstructionState) (step : FoldStep) : ConstructionState :=
+  let new_line := execute_fold_step step in
+  mkState (state_points st) (new_line :: state_lines st).
+
+Fixpoint execute_sequence (st : ConstructionState) (seq : FoldSequence) : ConstructionState :=
+  match seq with
+  | nil => st
+  | step :: rest => execute_sequence (add_fold_to_state st step) rest
+  end.
+
+Definition midpoint_fold_sequence (p1 p2 : Point) : FoldSequence :=
+  FS_O2 p1 p2 :: nil.
+
+Lemma midpoint_fold_produces_bisector : forall p1 p2,
+  p1 <> p2 ->
+  execute_fold_step (FS_O2 p1 p2) = perp_bisector p1 p2.
+Proof.
+  intros p1 p2 Hneq.
+  unfold execute_fold_step, fold_O2, fold_line. simpl.
+  reflexivity.
+Qed.
+
+Definition cbrt_construction_setup (a : R) : Point * Line * Point * Line :=
+  let p1 := (-1, 0) in
+  let l1 := line_yaxis in
+  let p2 := (-a, 0) in
+  let l2 := {| A := 0; B := 1; C := -2 |} in
+  (p1, l1, p2, l2).
+
+Definition cbrt_fold_sequence (a : R) : FoldSequence :=
+  let '(p1, l1, p2, l2) := cbrt_construction_setup a in
+  FS_O6 p1 l1 p2 l2 :: nil.
+
+Definition trisection_setup (theta : R) : Point * Line * Point * Line :=
+  let c := cos theta in
+  let p1 := (0, 1) in
+  let l1 := line_xaxis in
+  let p2 := (0, c) in
+  let l2 := {| A := 0; B := 1; C := 1 |} in
+  (p1, l1, p2, l2).
+
+Definition trisection_fold_sequence (theta : R) : FoldSequence :=
+  let '(p1, l1, p2, l2) := trisection_setup theta in
+  FS_O6 p1 l1 p2 l2 :: nil.
+
+Definition perpendicular_fold_sequence (p : Point) (l : Line) : FoldSequence :=
+  FS_O4 p l :: nil.
+
+Definition line_through_points_sequence (p1 p2 : Point) : FoldSequence :=
+  FS_O1 p1 p2 :: nil.
+
+Definition reflect_point_via_fold (p : Point) (step : FoldStep) : Point :=
+  reflect_point p (execute_fold_step step).
+
+Definition fold_sequence_length (seq : FoldSequence) : nat := length seq.
+
+Lemma initial_state_has_origin : In (0, 0) (state_points initial_state).
+Proof.
+  unfold initial_state. simpl. left. reflexivity.
+Qed.
+
+Lemma initial_state_has_unit : In (1, 0) (state_points initial_state).
+Proof.
+  unfold initial_state. simpl. right. left. reflexivity.
+Qed.
+
+Definition angle_bisector_fold_sequence (l1 l2 : Line) : FoldSequence :=
+  FS_O3 l1 l2 :: nil.
+
+Definition parallel_through_point_sequence (p : Point) (l : Line) : FoldSequence :=
+  let perp := FS_O4 p l in
+  let perp_line := execute_fold_step perp in
+  perp :: FS_O4 p perp_line :: nil.
+
+Lemma execute_sequence_nil : forall st,
+  execute_sequence st nil = st.
+Proof.
+  intro st. reflexivity.
+Qed.
+
+Lemma execute_sequence_cons : forall st step rest,
+  execute_sequence st (step :: rest) =
+  execute_sequence (add_fold_to_state st step) rest.
+Proof.
+  intros. reflexivity.
+Qed.
+
+Lemma fold_sequence_length_nil : fold_sequence_length nil = O.
+Proof.
+  reflexivity.
+Qed.
+
+Lemma fold_sequence_length_cons : forall step rest,
+  fold_sequence_length (step :: rest) = S (fold_sequence_length rest).
+Proof.
+  intros. reflexivity.
+Qed.
+
+Definition add_point_to_state (st : ConstructionState) (p : Point) : ConstructionState :=
+  mkState (p :: state_points st) (state_lines st).
+
+Definition add_intersection_to_state (st : ConstructionState) (l1 l2 : Line) : ConstructionState :=
+  add_point_to_state st (line_intersection l1 l2).
+
+Definition heptagon_cubic_a : R := -7/12.
+Definition heptagon_cubic_b : R := -7/216.
+
+Definition heptagon_cos_setup : Point * Line * Point * Line :=
+  let p1 := (0, 1) in
+  let l1 := line_xaxis in
+  let p2 := (0, heptagon_cubic_b / 2) in
+  let l2 := {| A := 0; B := 1; C := - heptagon_cubic_a / 3 |} in
+  (p1, l1, p2, l2).
+
+Definition heptagon_cos_fold_sequence : FoldSequence :=
+  let '(p1, l1, p2, l2) := heptagon_cos_setup in
+  FS_O6 p1 l1 p2 l2 :: nil.
+
+Definition rotate_point (p : Point) (angle : R) : Point :=
+  let x := fst p in
+  let y := snd p in
+  (x * cos angle - y * sin angle, x * sin angle + y * cos angle).
+
+Definition heptagon_vertex (k : nat) : Point :=
+  rotate_point (1, 0) (2 * PI * INR k / 7).
+
+Definition heptagon_vertices : list Point :=
+  map heptagon_vertex (seq 0 7).
+
+Definition heptagon_edge_fold (k : nat) : FoldStep :=
+  FS_O1 (heptagon_vertex k) (heptagon_vertex (S k mod 7)).
+
+Definition heptagon_full_sequence : FoldSequence :=
+  heptagon_cos_fold_sequence ++
+  map heptagon_edge_fold (seq 0 7).
+
+Lemma heptagon_has_seven_vertices : length heptagon_vertices = 7%nat.
+Proof.
+  unfold heptagon_vertices. rewrite map_length, seq_length. reflexivity.
+Qed.
+
+Lemma heptagon_full_sequence_length :
+  fold_sequence_length heptagon_full_sequence = 8%nat.
+Proof.
+  reflexivity.
+Qed.
+
+End Fold_Sequences.
+
 Section Origami_Algebra.
 
 Inductive OrigamiNum : R -> Prop :=
