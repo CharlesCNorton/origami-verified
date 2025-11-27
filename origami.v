@@ -20,8 +20,10 @@ Open Scope R_scope.
 Section Geometry_Primitives.
 (** Points in ℝ², lines as {(x,y) : Ax + By + C = 0} with A ≠ 0 ∨ B ≠ 0 *)
 
+(** (x, y) ∈ ℝ² *)
 Definition Point : Type := R * R.
 
+(** Implicit line Ax + By + C = 0 *)
 Record Line : Type := {
   A : R;
   B : R;
@@ -31,6 +33,7 @@ Record Line : Type := {
 (** A ≠ 0 ∨ B ≠ 0 *)
 Definition line_wf (l : Line) : Prop := A l <> 0 \/ B l <> 0.
 
+(** Constructor with well-formedness witness *)
 Definition mkLine (a b c : R) (H : a <> 0 \/ b <> 0) : Line :=
   {| A := a; B := b; C := c |}.
 
@@ -42,6 +45,7 @@ Definition normalize_line (l : Line) : Line :=
   let n := sqrt (a * a + b * b) in
   {| A := a / n; B := b / n; C := c / n |}.
 
+(** Normalization preserves well-formedness *)
 Lemma normalize_line_wf : forall l, line_wf l -> line_wf (normalize_line l).
 Proof.
   intros l Hnz.
@@ -75,6 +79,7 @@ Section Geometric_Predicates.
 Definition on_line (p : Point) (l : Line) : Prop :=
   let '(x, y) := p in A l * x + B l * y + C l = 0.
 
+(** p ∈ l ⟺ p ∈ normalize(l) *)
 Lemma normalize_line_on_line : forall p l, line_wf l -> (on_line p l <-> on_line p (normalize_line l)).
 Proof.
   intros [x y] l Hwf; unfold on_line, normalize_line; simpl.
@@ -101,6 +106,7 @@ Proof.
     rewrite Heq, H; ring.
 Qed.
 
+(** p = q as points *)
 Definition point_eq (p q : Point) : Prop :=
   fst p = fst q /\ snd p = snd q.
 
@@ -117,6 +123,7 @@ End Geometric_Predicates.
 Section Computable_Predicates.
 (** Decidable predicates for computation *)
 
+(** {p = q} + {p ≠ q} *)
 Definition point_eq_dec (p q : Point) : {p = q} + {p <> q}.
 Proof.
   destruct p as [x1 y1], q as [x2 y2].
@@ -216,9 +223,11 @@ End Metric_Geometry.
 Section Fold_Primitives.
 (** Folds as reflection lines, point/line reflection operations *)
 
+(** A fold is determined by its crease line *)
 Inductive Fold : Type :=
 | fold_line_ctor : Line -> Fold.
 
+(** Extract crease line from fold *)
 Definition fold_line (f : Fold) : Line :=
   match f with
   | fold_line_ctor l => l
@@ -248,6 +257,7 @@ Definition base_points (l : Line) : Point * Point :=
       ((0, y0), (1, y1))
   end.
 
+(** Image of p under fold f *)
 Definition map_point (f : Fold) (p : Point) : Point :=
   reflect_point p (fold_line f).
 
@@ -265,6 +275,7 @@ Definition line_through (p1 p2 : Point) : Line :=
       {| A := a; B := b; C := c |}
   end.
 
+(** line_through(p₁,p₂) is well-formed *)
 Lemma line_through_wf : forall p1 p2, line_wf (line_through p1 p2).
 Proof.
   intros [x1 y1] [x2 y2].
@@ -274,6 +285,7 @@ Proof.
   - right. assert (Hgoal: x2 - x1 <> 0) by lra. exact Hgoal.
 Qed.
 
+(** p₁ ∈ line_through(p₁,p₂) *)
 Lemma line_through_on_line_fst : forall p1 p2,
   on_line p1 (line_through p1 p2).
 Proof.
@@ -282,6 +294,7 @@ Proof.
   destruct (Req_EM_T x1 x2); simpl; ring.
 Qed.
 
+(** p₂ ∈ line_through(p₁,p₂) *)
 Lemma line_through_on_line_snd : forall p1 p2,
   on_line p2 (line_through p1 p2).
 Proof.
@@ -323,6 +336,7 @@ Proof.
     + rewrite mul_div_cancel_l by exact Hb. lra.
 Qed.
 
+(** fst(base_points(l)) ≠ snd(base_points(l)) *)
 Lemma base_points_distinct : forall l,
   fst (base_points l) <> snd (base_points l).
 Proof.
@@ -393,6 +407,7 @@ Definition line_intersection (l1 l2 : Line) : Point :=
   | right Hnz => (Dx / D, Dy / D)
   end.
 
+(** l₁ ∥ l₂ → line_intersection returns (0,0) *)
 Lemma line_intersection_parallel : forall l1 l2,
   A l1 * B l2 - A l2 * B l1 = 0 -> line_intersection l1 l2 = (0, 0).
 Proof.
@@ -558,6 +573,7 @@ Definition perp_bisector (p1 p2 : Point) : Line :=
       {| A := a; B := b; C := c |}
   end.
 
+(** perp_bisector(p₁,p₂) is well-formed *)
 Lemma perp_bisector_wf : forall p1 p2, line_wf (perp_bisector p1 p2).
 Proof.
   intros [x1 y1] [x2 y2].
@@ -590,9 +606,11 @@ Proof.
   - simpl. field.
 Qed.
 
+(** fold_line(fold_O1(p₁,p₂)) = line_through(p₁,p₂) *)
 Lemma fold_line_O1 : forall p1 p2, fold_line (fold_O1 p1 p2) = line_through p1 p2.
 Proof. reflexivity. Qed.
 
+(** fold_line(fold_O2(p₁,p₂)) = perp_bisector(p₁,p₂) *)
 Lemma fold_line_O2 : forall p1 p2, fold_line (fold_O2 p1 p2) = perp_bisector p1 p2.
 Proof. reflexivity. Qed.
 
@@ -1106,13 +1124,19 @@ Qed.
 
 (** O6 (Beloch fold) solves t³ + pt + q = 0 via parabola tangent construction *)
 
-(** Focus of reference parabola y = x²/4 *)
+(** (0, 1): focus of reference parabola y = x²/4 *)
 Definition beloch_P1 : Point := (0, 1).
+
+(** y = -1 (directrix of reference parabola) *)
 Definition beloch_L1 : Line := {| A := 0; B := 1; C := 1 |}.
+
+(** (q, p) *)
 Definition beloch_P2 (p q : R) : Point := (q, p).
+
+(** x = -q *)
 Definition beloch_L2 (q : R) : Line := {| A := 1; B := 0; C := q |}.
 
-(** The Beloch fold line: y = tx - t², i.e., tx - y - t² = 0 *)
+(** tx - y - t² = 0 (tangent to parabola at slope t) *)
 Definition beloch_fold_line (t : R) : Line := {| A := t; B := -1; C := -(t*t) |}.
 
 Definition fold_O6_beloch (p q t : R) : Fold :=
@@ -1127,7 +1151,7 @@ Proof. intro q; unfold line_wf, beloch_L2; simpl; left; lra. Qed.
 Lemma beloch_fold_line_wf : forall t, line_wf (beloch_fold_line t).
 Proof. intro t; unfold line_wf, beloch_fold_line; simpl; right; lra. Qed.
 
-(** Reflection of P1 = (0, 1) across Beloch fold line lands on L1: y = -1 *)
+(** reflect(P₁, beloch_fold_line(t)) ∈ L₁ *)
 Lemma beloch_P1_reflects_to_L1 : forall t,
   on_line (reflect_point beloch_P1 (beloch_fold_line t)) beloch_L1.
 Proof.
@@ -1139,7 +1163,7 @@ Proof.
   lra.
 Qed.
 
-(** Reflection of P2 = (q, p) across Beloch fold lands on L2: x = -q, when t³ + pt + q = 0 *)
+(** t³ + pt + q = 0 → reflect(P₂, beloch_fold_line(t)) ∈ L₂ *)
 Lemma beloch_P2_reflects_to_L2 : forall p q t,
   t * t * t + p * t + q = 0 ->
   on_line (reflect_point (beloch_P2 p q) (beloch_fold_line t)) (beloch_L2 q).
@@ -1152,13 +1176,7 @@ Proof.
   nra.
 Qed.
 
-(** O6 Geometric Characterization:
-    A fold line f satisfying O6(p1, l1, p2, l2) must satisfy:
-    - reflect_point p1 f lies on l1
-    - reflect_point p2 f lies on l2
-
-    This generally yields a cubic equation in the fold line parameters. *)
-
+(** O6 constraint: reflect(p₁,f) ∈ l₁ ∧ reflect(p₂,f) ∈ l₂ *)
 Definition satisfies_O6_constraint (f : Fold) (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line) : Prop :=
   let crease := fold_line f in
   on_line (reflect_point p1 crease) l1 /\ on_line (reflect_point p2 crease) l2.
@@ -1175,7 +1193,7 @@ Proof.
   exact H.
 Qed.
 
-(** The Beloch fold satisfies O6 constraints when t is a cubic root *)
+(** t³ + pt + q = 0 → beloch_fold satisfies O6 *)
 Theorem beloch_fold_satisfies_O6 : forall p q t,
   t * t * t + p * t + q = 0 ->
   satisfies_O6_constraint (fold_O6_beloch p q t) beloch_P1 beloch_L1 (beloch_P2 p q) (beloch_L2 q).
@@ -1187,6 +1205,7 @@ Proof.
   - apply beloch_P2_reflects_to_L2. exact Hcubic.
 Qed.
 
+(** p₁,p₂ ∈ l ∧ p₁ ≠ p₂ → perp_bisector(p₁,p₂) ⊥ l *)
 Lemma perp_bisector_perp_to_connecting_line : forall p1 p2 l,
   on_line p1 l -> on_line p2 l -> p1 <> p2 ->
   line_perp (perp_bisector p1 p2) l.
@@ -1207,6 +1226,7 @@ Proof.
     lra.
 Qed.
 
+(** l₁ ⊥ l₂ → l₂ ⊥ l₁ *)
 Lemma line_perp_comm : forall l1 l2,
   line_perp l1 l2 -> line_perp l2 l1.
 Proof.
@@ -1215,6 +1235,7 @@ Proof.
   lra.
 Qed.
 
+(** perp_through(p,l) ⊥ l *)
 Lemma perp_through_perp : forall p l,
   line_perp (perp_through p l) l.
 Proof.
@@ -1224,6 +1245,7 @@ Proof.
 Qed.
 
 
+(** Line through p parallel to l *)
 Definition parallel_line_through (p : Point) (l : Line) : Line :=
   {| A := A l; B := B l; C := - A l * (fst p) - B l * (snd p) |}.
 
@@ -1234,6 +1256,7 @@ Proof.
   exact Hwf.
 Qed.
 
+(** parallel_line_through(p,l) ∥ l *)
 Lemma parallel_line_through_parallel : forall p l,
   line_parallel (parallel_line_through p l) l.
 Proof.
@@ -1242,6 +1265,7 @@ Proof.
   ring.
 Qed.
 
+(** p ∈ parallel_line_through(p,l) *)
 Lemma parallel_line_through_incident : forall p l,
   on_line p (parallel_line_through p l).
 Proof.
@@ -1251,6 +1275,7 @@ Proof.
   ring.
 Qed.
 
+(** l₁ ⊥ l₂ ⟺ A₁A₂ + B₁B₂ = 0 *)
 Lemma perp_to_line_perp : forall l1 l2,
   line_perp l1 l2 <-> A l1 * A l2 + B l1 * B l2 = 0.
 Proof.
@@ -1258,6 +1283,7 @@ Proof.
   unfold line_perp. split; intro H; exact H.
 Qed.
 
+(** Alias for perp_through *)
 Definition construct_perp_line_at (p : Point) (l : Line) : Line :=
   perp_through p l.
 
@@ -1277,6 +1303,7 @@ Proof.
   destruct (Req_EM_T (A l) 0); simpl; ring.
 Qed.
 
+(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
 Lemma perp_bisector_reflects_to_other : forall p1 p2,
   p1 <> p2 -> reflect_point p1 (perp_bisector p1 p2) = p2.
 Proof.
@@ -1300,6 +1327,7 @@ Proof.
     f_equal; field; assumption.
 Qed.
 
+(** p ∈ l → reflect(p,l) = p *)
 Lemma reflect_point_on_line_stays : forall p l,
   on_line p l -> reflect_point p l = p.
 Proof.
@@ -1309,6 +1337,7 @@ Proof.
 Qed.
 
 
+(** l₁ ⊥ l₂ → l₂ ⊥ l₁ *)
 Theorem perpendicularity_symmetric : forall l1 l2,
   line_perp l1 l2 -> line_perp l2 l1.
 Proof.
@@ -1317,6 +1346,7 @@ Proof.
   exact H.
 Qed.
 
+(** l₁ ∥ l₂ → l₂ ∥ l₁ *)
 Theorem parallel_is_symmetric : forall l1 l2,
   line_parallel l1 l2 -> line_parallel l2 l1.
 Proof.
@@ -1325,6 +1355,7 @@ Proof.
   lra.
 Qed.
 
+(** p ∈ parallel_line_through(p,l) *)
 Theorem point_on_parallel_line : forall p l,
   on_line p (parallel_line_through p l).
 Proof.
@@ -1332,6 +1363,7 @@ Proof.
   apply parallel_line_through_incident.
 Qed.
 
+(** parallel_line_through(p,l) ∥ l *)
 Theorem constructed_line_is_parallel : forall p l,
   line_parallel (parallel_line_through p l) l.
 Proof.
@@ -1339,6 +1371,7 @@ Proof.
   apply parallel_line_through_parallel.
 Qed.
 
+(** construct_perp_line_at(p,l) ⊥ l ∧ p ∈ construct_perp_line_at(p,l) *)
 Theorem perpendicular_construction_works : forall p l,
   line_perp (construct_perp_line_at p l) l /\
   on_line p (construct_perp_line_at p l).
@@ -1349,6 +1382,7 @@ Proof.
   - apply construct_perp_line_at_incident.
 Qed.
 
+(** l₁ ∦ l₂ → l₁ ∩ l₂ ∈ l₁ ∧ l₁ ∩ l₂ ∈ l₂ *)
 Theorem line_intersection_on_both_lines : forall l1 l2,
   A l1 * B l2 - A l2 * B l1 <> 0 ->
   on_line (line_intersection l1 l2) l1 /\
@@ -1364,6 +1398,7 @@ Proof.
     simpl. field. exact Hneq.
 Qed.
 
+(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
 Theorem perp_bisector_reflects_correctly : forall p1 p2,
   p1 <> p2 ->
   reflect_point p1 (perp_bisector p1 p2) = p2.
@@ -1373,6 +1408,7 @@ Proof.
   exact Hneq.
 Qed.
 
+(** dist²(p₁,p₂) = dist²(reflect(p₁,l), reflect(p₂,l)) *)
 Theorem reflection_is_isometry : forall p1 p2 l,
   line_wf l -> dist2 p1 p2 = dist2 (reflect_point p1 l) (reflect_point p2 l).
 Proof.
@@ -1387,6 +1423,7 @@ Proof.
   unfold d1, d2, n; field; exact Hn.
 Qed.
 
+(** foot(p,l) ∈ l *)
 Theorem foot_on_line_minimizes_distance : forall p l,
   line_wf l -> on_line (foot_on_line p l) l.
 Proof.
@@ -1394,6 +1431,7 @@ Proof.
   apply foot_on_line_incident. exact Hwf.
 Qed.
 
+(** ∃ fold through p₁ and p₂ *)
 Theorem origami_axiom_O1_always_exists : forall p1 p2,
   exists f, on_line p1 (fold_line f) /\ on_line p2 (fold_line f).
 Proof.
@@ -1404,6 +1442,7 @@ Proof.
   - apply line_through_on_line_snd.
 Qed.
 
+(** ∃ fold mapping p₁ to p₂ *)
 Theorem origami_axiom_O2_always_exists : forall p1 p2,
   exists f, reflect_point p1 (fold_line f) = p2.
 Proof.
@@ -1421,6 +1460,7 @@ Proof.
 Qed.
 
 
+(** l₁ ∦ l₂ → l₁ ∩ l₂ ∈ l₂ *)
 Lemma line_intersection_on_line_snd : forall l1 l2,
   A l1 * B l2 - A l2 * B l1 <> 0 ->
   on_line (line_intersection l1 l2) l2.
@@ -1434,6 +1474,7 @@ Qed.
 
 
 
+(** O6 constraint ⟹ map_point(f,pᵢ) ∈ lᵢ *)
 Lemma O6_constraint_verification : forall f p1 l1 p2 l2,
   satisfies_O6_constraint f p1 l1 p2 l2 ->
   on_line (map_point f p1) l1 /\ on_line (map_point f p2) l2.
@@ -1443,6 +1484,7 @@ Proof.
   split; assumption.
 Qed.
 
+(** O6 approximation via midpoints of point-to-projection segments *)
 Definition fold_O6_approx (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line) : Fold :=
   let proj1 := foot_on_line p1 l1 in
   let proj2 := foot_on_line p2 l2 in
@@ -1473,7 +1515,7 @@ Proof.
   apply line_through_on_line_snd.
 Qed.
 
-(** The approximation satisfies O6 when both points already lie on their target lines *)
+(** p₁ ∈ l₁ ∧ p₂ ∈ l₂ → fold_O6_approx satisfies O6 *)
 Lemma fold_O6_approx_satisfies_when_on_lines : forall p1 l1 p2 l2,
   on_line p1 l1 -> on_line p2 l2 ->
   satisfies_O6_constraint (fold_O6_approx p1 l1 p2 l2) p1 l1 p2 l2.
@@ -1544,9 +1586,7 @@ Proof.
     exact H2.
 Qed.
 
-(** For general O6, we show that the fold line passes through the correct midpoints,
-    which is the geometric construction approach. The general case requires solving
-    a cubic equation to find the exact fold line satisfying both constraints. *)
+(** fold_O6_approx passes through midpoint(pᵢ, foot(pᵢ,lᵢ)) *)
 Lemma fold_O6_approx_geometric_property : forall p1 l1 p2 l2,
   let f := fold_O6_approx p1 l1 p2 l2 in
   let m1 := midpoint p1 (foot_on_line p1 l1) in
@@ -1560,12 +1600,14 @@ Proof.
   - apply line_through_on_line_snd.
 Qed.
 
+(** Alias for fold_O6_approx *)
 Definition fold_O6 := fold_O6_approx.
 
 Lemma fold_line_O6 : forall p1 l1 p2 l2,
   fold_line (fold_O6 p1 l1 p2 l2) = line_through (midpoint p1 (foot_on_line p1 l1)) (midpoint p2 (foot_on_line p2 l2)).
 Proof. reflexivity. Qed.
 
+(** p₁ ∈ l₁ ∧ p₂ ∈ l₂ → fold_O6 satisfies O6 *)
 Theorem O6_approx_correctness : forall p1 l1 p2 l2,
   on_line p1 l1 -> on_line p2 l2 ->
   satisfies_O6_constraint (fold_O6 p1 l1 p2 l2) p1 l1 p2 l2.
@@ -1574,6 +1616,7 @@ Proof.
   apply fold_O6_approx_satisfies_when_on_lines; assumption.
 Qed.
 
+(** p₁ ∈ l₁ ∧ p₂ ∈ l₂ → ∃ crease satisfying O6 *)
 Lemma O6_solution_exists_special_case : forall p1 l1 p2 l2,
   on_line p1 l1 -> on_line p2 l2 ->
   exists crease, satisfies_O6_line_constraint crease p1 l1 p2 l2.
@@ -1584,6 +1627,7 @@ Proof.
   apply fold_O6_approx_satisfies_when_on_lines; assumption.
 Qed.
 
+(** midpoint(p,p) = p *)
 Lemma midpoint_self : forall p,
   midpoint p p = p.
 Proof.
@@ -1591,6 +1635,7 @@ Proof.
   unfold midpoint. simpl. f_equal; field.
 Qed.
 
+(** p ∈ l → foot(p,l) = p *)
 Lemma foot_on_line_when_on_line : forall p l,
   on_line p l -> foot_on_line p l = p.
 Proof.
@@ -1603,6 +1648,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** p₁ ∈ l₁ → reflect(p₁, fold_O6) ∈ l₁ *)
 Lemma O6_approx_first_constraint : forall p1 l1 p2 l2,
   on_line p1 l1 ->
   on_line (reflect_point p1 (fold_line (fold_O6 p1 l1 p2 l2))) l1.
@@ -1615,6 +1661,7 @@ Proof.
   exact H1.
 Qed.
 
+(** p₁ ∈ l₁ ∧ p₂ ∈ l₂ → reflect(p₂, fold_O6) ∈ l₂ *)
 Lemma O6_approx_second_constraint : forall p1 l1 p2 l2,
   on_line p1 l1 -> on_line p2 l2 ->
   on_line (reflect_point p2 (fold_line (fold_O6 p1 l1 p2 l2))) l2.
@@ -1629,6 +1676,7 @@ Proof.
   exact H2.
 Qed.
 
+(** p₁ ∈ l₁ ∧ p₂ ∈ l₂ → fold_O6 satisfies O6 line constraint *)
 Theorem O6_exact_when_both_on_lines : forall p1 l1 p2 l2,
   on_line p1 l1 -> on_line p2 l2 ->
   satisfies_O6_line_constraint (fold_line (fold_O6 p1 l1 p2 l2)) p1 l1 p2 l2.
@@ -1640,18 +1688,16 @@ Proof.
   - apply O6_approx_second_constraint; assumption.
 Qed.
 
-(** O7 Geometric Characterization:
-    A fold line f satisfying O7(p1, l1, l2) must satisfy:
-    - reflect_point p1 f lies on l1
-    - f is perpendicular to l2 *)
-
+(** O7 constraint: reflect(p₁,f) ∈ l₁ ∧ f ⊥ l₂ *)
 Definition satisfies_O7_constraint (f : Fold) (p1 : Point) (l1 : Line) (l2 : Line) : Prop :=
   let crease := fold_line f in
   on_line (reflect_point p1 crease) l1 /\ line_perp crease l2.
 
+(** Alias for perp_through *)
 Definition line_perp_through (p : Point) (l : Line) : Line :=
   perp_through p l.
 
+(** perp_through(p,l) ⊥ l *)
 Lemma perp_through_is_perp : forall p l,
   line_perp (perp_through p l) l.
 Proof.
@@ -1660,6 +1706,7 @@ Proof.
   destruct (Req_EM_T (A l) 0); simpl; ring.
 Qed.
 
+(** p ∈ perp_through(p,l) *)
 Lemma perp_through_incident : forall p l,
   on_line p (perp_through p l).
 Proof.
@@ -1668,6 +1715,7 @@ Proof.
   destruct (Req_EM_T (A l) 0); simpl; ring.
 Qed.
 
+(** dist²(p₁, midpoint(p₁,p₂)) = dist²(p₂, midpoint(p₁,p₂)) *)
 Lemma perp_bisector_dist2_eq : forall p1 p2,
   dist2 p1 (midpoint p1 p2) = dist2 p2 (midpoint p1 p2).
 Proof.
@@ -1676,6 +1724,7 @@ Proof.
   unfold sqr. field.
 Qed.
 
+(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
 Lemma reflect_perp_bisector_swap : forall p1 p2,
   p1 <> p2 -> reflect_point p1 (perp_bisector p1 p2) = p2.
 Proof.
@@ -1698,16 +1747,13 @@ Proof.
     f_equal; field; assumption.
 Qed.
 
-(** O7 construction: Create a line perpendicular to l2 that reflects p1 onto l1.
-    This is done by:
-    1. Creating a line through p1 perpendicular to l2
-    2. Finding where this perpendicular intersects l1 (the target point)
-    3. Constructing the perpendicular bisector of p1 and the target point *)
+(** O7: Fold ⊥ l₂ placing p₁ onto l₁ *)
 Definition fold_O7_simple (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
   let perp_l2 := perp_through p1 l2 in
   let target := line_intersection perp_l2 l1 in
   fold_line_ctor (perp_bisector p1 target).
 
+(** reflect(p₁, fold_O7_simple) ∈ l₁ when lines not parallel *)
 Lemma fold_O7_simple_satisfies_reflection : forall p1 l1 l2,
   A (perp_through p1 l2) * B l1 - A l1 * B (perp_through p1 l2) <> 0 ->
   on_line (reflect_point p1 (fold_line (fold_O7_simple p1 l1 l2))) l1.
@@ -1734,7 +1780,7 @@ Proof.
     exact Htarget_l1.
 Qed.
 
-(** Corrected O7 construction *)
+(** O7 via parametric intersection with l₁ along direction ⊥ l₂ *)
 Definition fold_O7_corrected (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
   let dir_x := B l2 in
   let dir_y := - A l2 in
@@ -1749,7 +1795,7 @@ Definition fold_O7_corrected (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
       fold_line_ctor (perp_bisector p1 q)
   end.
 
-(** Auxiliary lemma about perpendicularity when direction is parallel to l2 *)
+(** (p₂-p₁) ∥ direction(l) → perp_bisector(p₁,p₂) ⊥ l *)
 Lemma perp_bisector_parallel_direction_perp : forall (p1 p2 : Point) (l : Line),
   let dx := fst p2 - fst p1 in
   let dy := snd p2 - snd p1 in
@@ -1781,7 +1827,7 @@ Proof.
     lra.
 Qed.
 
-(** Perpendicularity proof for fold_O7_corrected (non-degenerate case) *)
+(** fold_O7_corrected ⊥ l₂ *)
 Lemma fold_O7_corrected_perp_to_l2 : forall p1 l1 l2,
   line_wf l2 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -1849,8 +1895,10 @@ Proof.
     apply (perp_bisector_parallel_direction_perp p1 q l2 Hpar Hneq_q).
 Qed.
 
+(** Alias for fold_O7_corrected *)
 Definition fold_O7 := fold_O7_corrected.
 
+(** l₁ ∥ l₂ → fold_O7 ⊥ l₂ *)
 Lemma fold_O7_degenerate_perp : forall p1 l1 l2,
   A l1 * B l2 - B l1 * A l2 = 0 ->
   line_perp (fold_line (fold_O7 p1 l1 l2)) l2.
@@ -1865,6 +1913,7 @@ Proof.
   - contradiction.
 Qed.
 
+(** p ∈ perp_through(p,l) *)
 Lemma point_on_perp_through : forall p l,
   on_line p (perp_through p l).
 Proof.
@@ -1873,6 +1922,7 @@ Proof.
   destruct (Req_EM_T (A l) 0); simpl; ring.
 Qed.
 
+(** l₁ ∥ l₂ ∧ p₁ ∈ l₁ → reflect(p₁, fold_O7) ∈ l₁ *)
 Lemma fold_O7_degenerate_reflection : forall p1 l1 l2,
   A l1 * B l2 - B l1 * A l2 = 0 ->
   on_line p1 l1 ->
@@ -1888,7 +1938,7 @@ Proof.
   - contradiction.
 Qed.
 
-(** When p1 is on l1, the parameter t in fold_O7_corrected equals 0. *)
+(** p₁ ∈ l₁ → t = 0 in fold_O7_corrected *)
 Lemma fold_O7_t_zero_when_on_line : forall p1 l1 l2,
   on_line p1 l1 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -1899,7 +1949,7 @@ Proof.
   rewrite Hon. field. lra.
 Qed.
 
-(** When p1 is on l1 (non-parallel case), p1 lies on the fold line. *)
+(** p₁ ∈ l₁ ∧ l₁ ∦ l₂ → p₁ ∈ fold_O7 *)
 Lemma fold_O7_p1_on_fold_when_on_l1 : forall p1 l1 l2,
   on_line p1 l1 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -1922,7 +1972,7 @@ Proof.
   simpl. ring.
 Qed.
 
-(** When p1 is on l1 (non-parallel case), reflection is trivial. *)
+(** p₁ ∈ l₁ ∧ l₁ ∦ l₂ → reflect(p₁, fold_O7) ∈ l₁ *)
 Lemma fold_O7_reflection_when_on_l1 : forall p1 l1 l2,
   on_line p1 l1 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -1934,6 +1984,7 @@ Proof.
   - apply fold_O7_p1_on_fold_when_on_l1; assumption.
 Qed.
 
+(** l₁ ∥ l₂ ∧ p₁ ∈ l₁ → fold_O7 satisfies O7 *)
 Theorem O7_degenerate_case_complete : forall p1 l1 l2,
   A l1 * B l2 - B l1 * A l2 = 0 ->
   on_line p1 l1 ->
@@ -1946,56 +1997,67 @@ Proof.
   - apply fold_O7_degenerate_perp; assumption.
 Qed.
 
+(** (a+b)/2 = (a+b)·(1/2) *)
 Lemma midpoint_avg : forall a b, (a + b) / 2 = (a + b) * / 2.
 Proof.
   intros. unfold Rdiv. reflexivity.
 Qed.
 
+(** a² - b² = (a-b)(a+b) *)
 Lemma diff_sqr : forall a b, a * a - b * b = (a - b) * (a + b).
 Proof.
   intros. ring.
 Qed.
 
+(** ((a+b)/2)·2 = a+b *)
 Lemma mid_coord : forall a b, (a + b) / 2 * 2 = a + b.
 Proof.
   intros. field.
 Qed.
 
+(** 2 ≠ 0 *)
 Lemma two_neq_zero : 2 <> 0.
 Proof.
   lra.
 Qed.
 
+(** a - (a+b)/2 = (a-b)/2 *)
 Lemma half_sum : forall a b, a - (a + b) / 2 = (a - b) / 2.
 Proof.
   intros. field.
 Qed.
 
+(** a² - b² = -2(b-a)·((a+b)/2) *)
 Lemma sqr_diff_factor : forall a b, a * a - b * b = -(2 * (b - a)) * ((a + b) / 2).
 Proof.
   intros. field.
 Qed.
 
+(** b ≠ 0 → 2b·(a/b²) = 2a/b *)
 Lemma double_cancel : forall a b, b <> 0 -> 2 * b * (a / (b * b)) = 2 * a / b.
 Proof.
   intros. field. assumption.
 Qed.
 
+(** b ≠ 0 → a·(b/b²) = a/b *)
 Lemma cancel_fraction : forall a b, b <> 0 -> a * (b / (b * b)) = a / b.
 Proof.
   intros. field. assumption.
 Qed.
 
+(** 4 ≠ 0 *)
 Lemma four_is_nonzero : 4 <> 0.
 Proof.
   lra.
 Qed.
 
+(** 4a² = 2·(2a)·(2a)/2 *)
 Lemma four_sqr : forall a, 4 * a * a = 2 * (2 * a) * (2 * a) / 2.
 Proof.
   intros. field.
 Qed.
 
+(** a ≠ 0 → a² + b² ≠ 0 *)
 Lemma sum_sqr_nonzero : forall a b, a <> 0 -> a * a + b * b <> 0.
 Proof.
   intros a b Ha.
@@ -2006,6 +2068,7 @@ Proof.
   destruct (Rmult_integral _ _ Ha_sq_z) as [Ha_z | Ha_z]; lra.
 Qed.
 
+(** b ≠ 0 → a² + b² ≠ 0 *)
 Lemma sum_sqr_nonzero_sym : forall a b, b <> 0 -> a * a + b * b <> 0.
 Proof.
   intros a b Hb.
@@ -2016,56 +2079,67 @@ Proof.
   destruct (Rmult_integral _ _ Hb_sq_z) as [Hb_z | Hb_z]; lra.
 Qed.
 
+(** p - 2px = p(1 - 2x) *)
 Lemma refl_sub_main : forall p x, p - 2 * p * x = p * (1 - 2 * x).
 Proof.
   intros. ring.
 Qed.
 
+(** c ≠ 0 → a/c + b/c = (a+b)/c *)
 Lemma fold_div : forall a b c, c <> 0 -> a / c + b / c = (a + b) / c.
 Proof.
   intros. field. assumption.
 Qed.
 
+(** 2(b-a)a + (a²-b²) = -(b-a)² *)
 Lemma factor_half_diff : forall a b, 2 * (b - a) * a + (a * a - b * b) = -(b - a) * (b - a).
 Proof.
   intros. ring.
 Qed.
 
+(** a ≠ 0 → y₁ - 2a·(a·((y₁-y₂)/2)/a²) = y₂ *)
 Lemma simpl_reflect_y : forall a y1 y2, a <> 0 -> y1 - 2 * a * (a * ((y1 - y2) / 2) / (a * a)) = y2.
 Proof.
   intros. field. assumption.
 Qed.
 
+(** a ≠ 0 → x₁ - 2a·(a·((x₁-x₂)/2)/a²) = x₂ *)
 Lemma simpl_reflect_x : forall a x1 x2, a <> 0 -> x1 - 2 * a * (a * ((x1 - x2) / 2) / (a * a)) = x2.
 Proof.
   intros. field. assumption.
 Qed.
 
+(** Midpoint lies on vertical perpendicular bisector *)
 Lemma mid_on_perp_vert : forall x y1 y2, y1 <> y2 -> 0 * x + 2 * (y2 - y1) * ((y1 + y2) / 2) + (x * x + y1 * y1 - x * x - y2 * y2) = 0.
 Proof.
   intros. field.
 Qed.
 
+(** Midpoint lies on horizontal perpendicular bisector *)
 Lemma mid_on_perp_horiz : forall x1 x2 y, x1 <> x2 -> 2 * (x2 - x1) * ((x1 + x2) / 2) + 2 * (y - y) * ((y + y) / 2) + (x1 * x1 + y * y - x2 * x2 - y * y) = 0.
 Proof.
   intros. field.
 Qed.
 
+(** Midpoint lies on general perpendicular bisector *)
 Lemma mid_on_perp_gen : forall x1 y1 x2 y2, x1 <> x2 -> y1 <> y2 -> 2 * (x2 - x1) * ((x1 + x2) / 2) + 2 * (y2 - y1) * ((y1 + y2) / 2) + (x1 * x1 + y1 * y1 - x2 * x2 - y2 * y2) = 0.
 Proof.
   intros. field.
 Qed.
 
+(** 0·a + b = b *)
 Lemma zero_mul_l : forall a b, 0 * a + b = b.
 Proof.
   intros. ring.
 Qed.
 
+(** a + 0·b = a *)
 Lemma zero_mul_r : forall a b, a + 0 * b = a.
 Proof.
   intros. ring.
 Qed.
 
+(** midpoint(p₁,p₂) ∈ perp_bisector(p₁,p₂) *)
 Lemma perp_bisector_midpoint_on : forall p1 p2,
   on_line (midpoint p1 p2) (perp_bisector p1 p2).
 Proof.
@@ -2078,6 +2152,7 @@ Proof.
   - simpl. field.
 Qed.
 
+(** y₁ ≠ y₂ → reflect((x,y₁), perp_bisector) = (x,y₂) *)
 Lemma refl_vert_bisector : forall x y1 y2,
   y1 <> y2 ->
   reflect_point (x, y1) (perp_bisector (x, y1) (x, y2)) = (x, y2).
@@ -2089,6 +2164,7 @@ Proof.
   simpl. f_equal; field; intro; apply Hy; lra.
 Qed.
 
+(** a ≠ 0 → a² + b² ≠ 0 *)
 Lemma sum_sq_nz_l : forall a b, a <> 0 -> a * a + b * b <> 0.
 Proof.
   intros a b Ha. intro H.
@@ -2098,6 +2174,7 @@ Proof.
   apply Rmult_integral in Haz. destruct Haz; lra.
 Qed.
 
+(** x₁ ≠ x₂ → fst(reflect((x₁,y₁), perp_bisector)) = x₂ *)
 Lemma refl_gen_bisector_horiz_x : forall x1 x2 y1 y2,
   x1 <> x2 ->
   fst (reflect_point (x1, y1) (perp_bisector (x1, y1) (x2, y2))) = x2.
@@ -2108,6 +2185,7 @@ Proof.
   simpl. field. apply sum_sq_nz_l. lra.
 Qed.
 
+(** x₁ ≠ x₂ → snd(reflect((x₁,y₁), perp_bisector)) = y₂ *)
 Lemma refl_gen_bisector_horiz_y : forall x1 x2 y1 y2,
   x1 <> x2 ->
   snd (reflect_point (x1, y1) (perp_bisector (x1, y1) (x2, y2))) = y2.
@@ -2118,6 +2196,7 @@ Proof.
   simpl. field. apply sum_sq_nz_l. lra.
 Qed.
 
+(** x₁ ≠ x₂ → reflect((x₁,y₁), perp_bisector) = (x₂,y₂) *)
 Lemma refl_gen_bisector_horiz : forall x1 x2 y1 y2,
   x1 <> x2 ->
   reflect_point (x1, y1) (perp_bisector (x1, y1) (x2, y2)) = (x2, y2).
@@ -2131,6 +2210,7 @@ Proof.
   simpl in Hfst, Hsnd. subst. reflexivity.
 Qed.
 
+(** (x₁,y₁) ≠ (x₂,y₂) → reflect across perp_bisector swaps points *)
 Lemma refl_gen_bisector : forall x1 y1 x2 y2,
   x1 <> x2 \/ y1 <> y2 ->
   reflect_point (x1, y1) (perp_bisector (x1, y1) (x2, y2)) = (x2, y2).
@@ -2143,6 +2223,7 @@ Proof.
   - apply refl_gen_bisector_horiz. assumption.
 Qed.
 
+(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
 Lemma perp_bisector_reflection : forall p1 p2,
   p1 <> p2 ->
   reflect_point p1 (perp_bisector p1 p2) = p2.
@@ -2156,11 +2237,7 @@ Proof.
   - left. assumption.
 Qed.
 
-(** General O6: fold placing p1 onto l1 and p2 onto l2.
-    The fold line is the perpendicular bisector of p1 and its image on l1,
-    which must coincide with the perpendicular bisector of p2 and its image on l2.
-    This constraint yields a cubic equation in general. *)
-
+(** O6 validity: img₁ ∈ l₁, img₂ ∈ l₂, and perp_bisectors coincide *)
 Definition O6_general_valid (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line)
                             (img1 : Point) (img2 : Point) : Prop :=
   on_line img1 l1 /\
@@ -2169,9 +2246,11 @@ Definition O6_general_valid (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line)
   p2 <> img2 /\
   perp_bisector p1 img1 = perp_bisector p2 img2.
 
+(** O6 fold via perp_bisector(p₁, img₁) *)
 Definition fold_O6_general (p1 : Point) (img1 : Point) : Fold :=
   fold_line_ctor (perp_bisector p1 img1).
 
+(** p₁ ≠ img₁ → reflect(p₁, fold_O6_general) = img₁ *)
 Lemma fold_O6_general_reflects_p1 : forall p1 img1,
   p1 <> img1 ->
   reflect_point p1 (fold_line (fold_O6_general p1 img1)) = img1.
@@ -2181,6 +2260,7 @@ Proof.
   apply perp_bisector_reflection. exact Hneq.
 Qed.
 
+(** perp_bisectors equal → reflect(p₂, fold_O6_general(p₁,img₁)) = img₂ *)
 Lemma fold_O6_general_reflects_p2 : forall p1 p2 img1 img2,
   p1 <> img1 ->
   p2 <> img2 ->
@@ -2193,6 +2273,7 @@ Proof.
   apply perp_bisector_reflection. exact Hneq2.
 Qed.
 
+(** O6_general_valid → fold_O6_general satisfies O6 line constraint *)
 Theorem fold_O6_general_satisfies : forall p1 l1 p2 l2 img1 img2,
   O6_general_valid p1 l1 p2 l2 img1 img2 ->
   satisfies_O6_line_constraint (fold_line (fold_O6_general p1 img1)) p1 l1 p2 l2.
@@ -2205,6 +2286,7 @@ Proof.
   - rewrite (fold_O6_general_reflects_p2 p1 p2 img1 img2 Hneq1 Hneq2 Heq). exact Himg2.
 Qed.
 
+(** O6_general_valid → ∃ crease satisfying O6 *)
 Theorem O6_general_existence : forall p1 l1 p2 l2 img1 img2,
   O6_general_valid p1 l1 p2 l2 img1 img2 ->
   exists crease, satisfies_O6_line_constraint crease p1 l1 p2 l2.
@@ -2214,7 +2296,7 @@ Proof.
   exact (fold_O6_general_satisfies p1 l1 p2 l2 img1 img2 Hvalid).
 Qed.
 
-(** Helper: The constructed point q in O7_corrected lies on l1 *)
+(** Constructed point q in fold_O7_corrected lies on l₁ *)
 Lemma fold_O7_corrected_q_on_l1 : forall p1 l1 l2,
   A l1 * B l2 - B l1 * A l2 <> 0 ->
   let dir_x := B l2 in
@@ -2234,7 +2316,7 @@ Proof.
   field; auto.
 Qed.
 
-(** Helper: Perpendicular bisector reflects p1 onto any point q that lies on the target line *)
+(** q ∈ l ∧ p₁ ≠ q → reflect(p₁, perp_bisector(p₁,q)) ∈ l *)
 Lemma perp_bisector_reflects_onto_line : forall p1 q l,
   on_line q l ->
   p1 <> q ->
@@ -2244,7 +2326,7 @@ Proof.
   rewrite perp_bisector_reflection; auto.
 Qed.
 
-(** Helper 1: If t * B l2 = 0 and t * (-A l2) = 0, then t = 0 (using line normal nonzero) *)
+(** line_wf l ∧ t·B = 0 ∧ t·(-A) = 0 → t = 0 *)
 Lemma product_both_zero_implies_zero : forall t l,
   line_wf l -> t * B l = 0 -> t * (- A l) = 0 -> t = 0.
 Proof.
@@ -2261,7 +2343,7 @@ Proof.
     lra.
 Qed.
 
-(** Helper 2: If (x + t*a, y + t*b) = (x, y), then t*a = 0 and t*b = 0 *)
+(** (x + ta, y + tb) = (x, y) → ta = 0 ∧ tb = 0 *)
 Lemma point_eq_implies_offset_zero : forall x y t a b,
   (x + t * a, y + t * b) = (x, y) ->
   t * a = 0 /\ t * b = 0.
@@ -2271,7 +2353,7 @@ Proof.
   split; lra.
 Qed.
 
-(** Helper 3: If t * denom = 0 and denom ≠ 0, then t = 0 *)
+(** denom ≠ 0 ∧ t/denom = 0 → t = 0 *)
 Lemma fraction_zero_num : forall t denom,
   denom <> 0 ->
   t / denom = 0 ->
@@ -2284,7 +2366,7 @@ Proof.
   - apply Rinv_neq_0_compat. exact Hdenom.
 Qed.
 
-(** Helper 4: If p1 is not on l1 and q is constructed as in O7_corrected, then p1 ≠ q *)
+(** p₁ ∉ l₁ → p₁ ≠ q in fold_O7_corrected *)
 Lemma fold_O7_corrected_p1_neq_q : forall p1 l1 l2,
   line_wf l2 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -2311,7 +2393,7 @@ Proof.
   lra.
 Qed.
 
-(** O7 satisfies both constraints: reflection and perpendicularity *)
+(** fold_O7 satisfies O7: reflect(p₁) ∈ l₁ ∧ crease ⊥ l₂ *)
 Lemma fold_O7_satisfies_O7_constraint : forall p1 l1 l2,
   line_wf l2 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -2349,7 +2431,7 @@ Proof.
       apply (perp_bisector_parallel_direction_perp p1 q l2 Hpar Hneq_q).
 Qed.
 
-(** Unified O7: fold_O7 satisfies constraints whenever solvable. *)
+(** fold_O7 satisfies O7 in both degenerate and general cases *)
 Theorem O7_unified : forall p1 l1 l2,
   line_wf l2 ->
   (A l1 * B l2 - B l1 * A l2 = 0 /\ on_line p1 l1) \/
@@ -2364,6 +2446,7 @@ Qed.
 End Origami_Operations.
 
 Section Cubic_Bridge.
+(** Connection between O6 (Beloch fold) and cubic equations *)
 
 Lemma O6_constraint_unfold : forall p1 l1 p2 l2 f,
   satisfies_O6_constraint f p1 l1 p2 l2 ->
@@ -2374,9 +2457,10 @@ Proof.
   exact H.
 Qed.
 
-(** Cubic polynomial in depressed form: t³ + pt + q *)
+(** t³ + pt + q *)
 Definition cubic_depressed (p q t : R) : R := t * t * t + p * t + q.
 
+(** cubic_depressed(p,q,r) = 0 ⟺ r³ + pr + q = 0 *)
 Lemma cubic_root_iff : forall p q r,
   cubic_depressed p q r = 0 <-> r * r * r + p * r + q = 0.
 Proof.
@@ -2385,12 +2469,13 @@ Proof.
   reflexivity.
 Qed.
 
-(** Discriminant of depressed cubic: Δ = -4p³ - 27q² *)
+(** Δ = -4p³ - 27q² *)
 Definition cubic_discriminant (p q : R) : R := -4 * p * p * p - 27 * q * q.
 
-(** Real cube root function for positive reals using IVT *)
+(** x³ *)
 Definition cube_func (x : R) : R := x * x * x.
 
+(** x ↦ x³ is continuous *)
 Lemma cube_func_continuous : continuity cube_func.
 Proof.
   unfold cube_func.
@@ -2401,6 +2486,7 @@ Proof.
   - apply derivable_continuous, derivable_id.
 Qed.
 
+(** 0 ≤ x < y → x³ < y³ *)
 Lemma cube_func_increasing : forall x y, 0 <= x -> x < y -> cube_func x < cube_func y.
 Proof.
   intros x y Hx Hlt.
@@ -2418,6 +2504,7 @@ Proof.
   lra.
 Qed.
 
+(** ∀ y > 0, ∃ x > 0 with x³ = y (via IVT) *)
 Theorem cube_root_pos_exists : forall y, 0 < y -> {x : R | 0 < x /\ cube_func x = y}.
 Proof.
   intros y Hy.
@@ -2458,6 +2545,7 @@ Proof.
       * unfold f in Hfx. lra.
 Qed.
 
+(** x³ = y³ ∧ x,y ≥ 0 → x = y *)
 Lemma cube_func_injective : forall x y, 0 <= x -> 0 <= y -> cube_func x = cube_func y -> x = y.
 Proof.
   intros x y Hx Hy Heq.
@@ -2475,8 +2563,10 @@ Proof.
       lra.
 Qed.
 
+(** Positive cube root (dependent type) *)
 Definition cbrt_pos (y : R) (Hy : 0 < y) : R := proj1_sig (cube_root_pos_exists y Hy).
 
+(** cbrt_pos(y) > 0 ∧ cbrt_pos(y)³ = y *)
 Lemma cbrt_pos_spec : forall y Hy, 0 < cbrt_pos y Hy /\ cube_func (cbrt_pos y Hy) = y.
 Proof.
   intros y Hy.
@@ -2485,12 +2575,15 @@ Proof.
   exact Hx.
 Qed.
 
+(** x < 0 → -x > 0 *)
 Lemma neg_pos_iff : forall x, x < 0 -> 0 < - x.
 Proof. intros x Hx. lra. Qed.
 
+(** ¬(0 < x) ∧ x ≠ 0 → x < 0 *)
 Lemma neg_case_proof : forall x, ~ 0 < x -> x <> 0 -> x < 0.
 Proof. intros x Hnpos Hneg. lra. Qed.
 
+(** Real cube root: ∛x *)
 Definition cbrt (x : R) : R :=
   match Rlt_dec 0 x with
   | left Hpos => cbrt_pos x Hpos
@@ -2501,6 +2594,7 @@ Definition cbrt (x : R) : R :=
       end
   end.
 
+(** x > 0 → (∛x)³ = x *)
 Lemma cbrt_spec_pos : forall x, 0 < x -> cube_func (cbrt x) = x.
 Proof.
   intros x Hx.
@@ -2510,6 +2604,7 @@ Proof.
   - exfalso. lra.
 Qed.
 
+(** ∛0 = 0 *)
 Lemma cbrt_0 : cbrt 0 = 0.
 Proof.
   unfold cbrt.
@@ -2517,6 +2612,7 @@ Proof.
   destruct (Req_EM_T 0 0) as [Heq|Hcontra]; [reflexivity|exfalso; exact (Hcontra eq_refl)].
 Qed.
 
+(** (∛0)³ = 0 *)
 Lemma cbrt_cube_0 : cube_func (cbrt 0) = 0.
 Proof.
   rewrite cbrt_0.
@@ -2524,6 +2620,7 @@ Proof.
   ring.
 Qed.
 
+(** x < 0 → (∛x)³ = x *)
 Lemma cbrt_spec_neg : forall x, x < 0 -> cube_func (cbrt x) = x.
 Proof.
   intros x Hx.
@@ -2542,6 +2639,7 @@ Proof.
   ring.
 Qed.
 
+(** (∛x)³ = x for all x ∈ ℝ *)
 Lemma cbrt_spec : forall x, cube_func (cbrt x) = x.
 Proof.
   intro x.
@@ -2553,10 +2651,12 @@ Proof.
       apply cbrt_spec_pos. exact Hgt.
 Qed.
 
+(** Cardano's formula: ∛(-q/2 + √D) + ∛(-q/2 - √D) where D = q²/4 + p³/27 *)
 Definition cardano_solve (p q : R) : R :=
   cbrt (- q / 2 + sqrt (Rmax 0 (q * q / 4 + p * p * p / 27))) +
   cbrt (- q / 2 - sqrt (Rmax 0 (q * q / 4 + p * p * p / 27))).
 
+(** x ≥ 0 → √(x²) = x *)
 Lemma sqrt_sqr_pos : forall x, 0 <= x -> sqrt (x * x) = x.
 Proof.
   intros x Hx.
@@ -2565,6 +2665,7 @@ Proof.
   exact Hx.
 Qed.
 
+(** (u+v)³ = u³ + v³ + 3uv(u+v) *)
 Lemma sum_cubes_formula : forall u v,
   (u + v) * (u + v) * (u + v) =
   u * u * u + v * v * v + 3 * u * v * (u + v).
@@ -2573,6 +2674,7 @@ Proof.
   ring.
 Qed.
 
+(** u³v³ = (uv)³ *)
 Lemma product_cubes_formula : forall u v,
   u * u * u * (v * v * v) = (u * v) * (u * v) * (u * v).
 Proof.
@@ -2580,12 +2682,14 @@ Proof.
   ring.
 Qed.
 
+(** (a+b)(a-b) = a² - b² *)
 Lemma difference_of_squares : forall a b,
   (a + b) * (a - b) = a * a - b * b.
 Proof.
   intros a b. ring.
 Qed.
 
+(** s² = q²/4 + p³/27 → (-q/2)² - s² = -p³/27 *)
 Lemma cardano_discriminant_identity : forall p q s,
   s * s = q * q / 4 + p * p * p / 27 ->
   (- q / 2) * (- q / 2) - s * s = - p * p * p / 27.
@@ -2595,6 +2699,7 @@ Proof.
   field.
 Qed.
 
+(** √(max(0,x))² = max(0,x) *)
 Lemma sqrt_Rmax_sqr : forall x,
   sqrt (Rmax 0 x) * sqrt (Rmax 0 x) = Rmax 0 x.
 Proof.
@@ -2603,6 +2708,7 @@ Proof.
   apply Rmax_l.
 Qed.
 
+(** u³ = -q/2+√D, v³ = -q/2-√D → (uv)³ = -p³/27 *)
 Lemma cardano_uv_product_nonneg : forall p q u v,
   0 <= q * q / 4 + p * p * p / 27 ->
   u * u * u = - q / 2 + sqrt (q * q / 4 + p * p * p / 27) ->
@@ -2622,6 +2728,7 @@ Proof.
   exact Hs.
 Qed.
 
+(** (∛x)³ = x *)
 Lemma cbrt_cube : forall x,
   cbrt x * cbrt x * cbrt x = x.
 Proof.
@@ -2631,6 +2738,7 @@ Proof.
   exact H.
 Qed.
 
+(** ∛1 = 1 *)
 Lemma cbrt_1 : cbrt 1 = 1.
 Proof.
   unfold cbrt.
@@ -2642,18 +2750,21 @@ Proof.
   - unfold cube_func in *. rewrite Hcube. ring.
 Qed.
 
+(** (∛(xⁿ))³ = xⁿ *)
 Lemma cbrt_mult_power : forall x n,
   cbrt (x ^ n) * cbrt (x ^ n) * cbrt (x ^ n) = x ^ n.
 Proof.
   intros x n. apply cbrt_cube.
 Qed.
 
+(** (∛(8x))³ = 8x *)
 Lemma cbrt_mult_8 : forall x,
   cbrt (8 * x) * cbrt (8 * x) * cbrt (8 * x) = 8 * x.
 Proof.
   intro x. apply cbrt_cube.
 Qed.
 
+(** ∛27 = 3 *)
 Lemma cbrt_27 : cbrt 27 = 3.
 Proof.
   unfold cbrt.
@@ -2665,6 +2776,7 @@ Proof.
   - unfold cube_func in *. rewrite Hcube. ring.
 Qed.
 
+(** x > 0 → ∛x > 0 *)
 Lemma cbrt_pos_positive : forall x (Hx : 0 < x), 0 < cbrt x.
 Proof.
   intros x Hx.
@@ -2673,6 +2785,7 @@ Proof.
   apply (cbrt_pos_spec x H).
 Qed.
 
+(** x,y > 0 → ∛x·∛y = ∛(xy) *)
 Lemma cbrt_pos_mult : forall x y,
   0 < x -> 0 < y -> cbrt x * cbrt y = cbrt (x * y).
 Proof.
@@ -2689,11 +2802,13 @@ Proof.
     reflexivity.
 Qed.
 
+(** (-x)³ = -(x³) *)
 Lemma cube_neg : forall x, cube_func (-x) = - cube_func x.
 Proof.
   intro x. unfold cube_func. ring.
 Qed.
 
+(** x < 0 → ∛x < 0 *)
 Lemma cbrt_neg_negative : forall x, x < 0 -> cbrt x < 0.
 Proof.
   intros x Hx.
@@ -2705,6 +2820,7 @@ Proof.
   lra.
 Qed.
 
+(** x ≥ 0 → ∛x ≥ 0 *)
 Lemma cbrt_nonneg : forall x, 0 <= x -> 0 <= cbrt x.
 Proof.
   intros x Hx.
@@ -2714,6 +2830,7 @@ Proof.
     left. apply cbrt_pos_positive. exact Hx_pos.
 Qed.
 
+(** a³ = b³ ∧ same sign → a = b *)
 Lemma cbrt_unique : forall a b,
   cube_func a = cube_func b ->
   (0 <= a /\ 0 <= b) \/ (a <= 0 /\ b <= 0) ->
@@ -2749,6 +2866,7 @@ Proof.
         lra.
 Qed.
 
+(** ∛(-x) = -∛x *)
 Lemma cbrt_neg : forall x, cbrt (-x) = - cbrt x.
 Proof.
   intro x.
@@ -2774,6 +2892,7 @@ Proof.
            lra.
 Qed.
 
+(** ∛x·∛y = ∛(xy) *)
 Lemma cbrt_mult : forall x y, cbrt x * cbrt y = cbrt (x * y).
 Proof.
   intros x y.
@@ -2827,12 +2946,14 @@ Proof.
               left. split; lra.
 Qed.
 
+(** (∛(x/27))³ = x/27 *)
 Lemma cbrt_div_27 : forall x,
   cbrt (x / 27) * cbrt (x / 27) * cbrt (x / 27) = x / 27.
 Proof.
   intro x. apply cbrt_cube.
 Qed.
 
+(** x ≥ 0 → max(0,x) = x *)
 Lemma Rmax_self : forall x,
   0 <= x -> Rmax 0 x = x.
 Proof.
@@ -2840,6 +2961,7 @@ Proof.
   unfold Rmax. destruct (Rle_dec 0 x); [reflexivity | exfalso; lra].
 Qed.
 
+(** u³ = -q/2 + √Δ where Δ = q²/4 + p³/27 *)
 Lemma cardano_u_cubed : forall p q,
   0 <= q * q / 4 + p * p * p / 27 ->
   let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
@@ -2848,6 +2970,7 @@ Proof.
   intros p q Hdisc u. apply cbrt_cube.
 Qed.
 
+(** v³ = -q/2 - √Δ where Δ = q²/4 + p³/27 *)
 Lemma cardano_v_cubed : forall p q,
   0 <= q * q / 4 + p * p * p / 27 ->
   let v := cbrt (- q / 2 - sqrt (q * q / 4 + p * p * p / 27)) in
@@ -2856,6 +2979,7 @@ Proof.
   intros p q Hdisc v. apply cbrt_cube.
 Qed.
 
+(** u³ + v³ = -q *)
 Lemma cardano_sum_cubes : forall p q,
   0 <= q * q / 4 + p * p * p / 27 ->
   let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
@@ -2869,6 +2993,7 @@ Proof.
   lra.
 Qed.
 
+(** (uv)³ = -p³/27 *)
 Lemma cardano_product_cubes : forall p q,
   0 <= q * q / 4 + p * p * p / 27 ->
   let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
@@ -2881,12 +3006,14 @@ Proof.
     [exact Hdisc | apply cbrt_cube | apply cbrt_cube].
 Qed.
 
+(** (∛(x³))³ = x³ *)
 Lemma cbrt_of_cube : forall x,
   cbrt (x * x * x) * cbrt (x * x * x) * cbrt (x * x * x) = x * x * x.
 Proof.
   intro x. apply cbrt_cube.
 Qed.
 
+(** ∛(x³) = x *)
 Lemma cbrt_of_cube_eq : forall x, cbrt (x * x * x) = x.
 Proof.
   intro x.
@@ -2910,6 +3037,7 @@ Proof.
         -- lra.
 Qed.
 
+(** ∛(-p³/27) = -p/3 *)
 Lemma cbrt_neg_p_cubed_27 : forall p, cbrt (- p * p * p / 27) = - p / 3.
 Proof.
   intro p.
@@ -2918,6 +3046,7 @@ Proof.
   - field.
 Qed.
 
+(** uv = -p/3 *)
 Lemma cardano_product : forall p q,
   0 <= q * q / 4 + p * p * p / 27 ->
   let u := cbrt (- q / 2 + sqrt (q * q / 4 + p * p * p / 27)) in
@@ -2942,6 +3071,7 @@ Proof.
     field.
 Qed.
 
+(** (u+v)³ = u³ + v³ + 3uv(u+v) *)
 Lemma sum_of_cubes_identity : forall u v,
   (u + v) * (u + v) * (u + v) =
   u * u * u + v * v * v + 3 * u * v * (u + v).
@@ -2949,6 +3079,7 @@ Proof.
   intros u v. ring.
 Qed.
 
+(** Δ ≥ 0 → cardano_solve(p,q)³ + p·cardano_solve(p,q) + q = 0 *)
 Theorem cardano_solves_depressed_cubic : forall p q,
   0 <= q * q / 4 + p * p * p / 27 ->
   cubic_depressed p q (cardano_solve p q) = 0.
@@ -2972,36 +3103,40 @@ Qed.
 End Cubic_Bridge.
 
 Section Construction_Algorithms.
+(** Algorithms for origami constructions *)
 
-(** Algorithm to construct a point by reflecting across a fold. *)
+(** reflect(p,f) *)
 Definition construct_reflection (p : Point) (f : Fold) : Point :=
   map_point f p.
 
-(** Algorithm to construct the midpoint of two points. *)
+(** midpoint(p₁,p₂) *)
 Definition construct_midpoint (p1 p2 : Point) : Point :=
   midpoint p1 p2.
 
-(** Algorithm to construct intersection of two lines. *)
+(** l₁ ∩ l₂ *)
 Definition construct_intersection (l1 l2 : Line) : Point :=
   line_intersection l1 l2.
 
-(** Algorithm to construct a line through two points. *)
+(** Line through p₁ and p₂ *)
 Definition construct_line_through (p1 p2 : Point) : Line :=
   line_through p1 p2.
 
-(** Algorithm to construct perpendicular bisector of two points. *)
+(** Perpendicular bisector of p₁p₂ *)
 Definition construct_perp_bisector (p1 p2 : Point) : Line :=
   perp_bisector p1 p2.
 
 End Construction_Algorithms.
 
 Section Constructibility.
+(** Origami constructibility predicates *)
 
+(** (c - qₓ)² ≤ dist²(p,q) *)
 Definition O5_vert_valid (p q : Point) (c : R) : Prop :=
   let px := fst p in let py := snd p in
   let qx := fst q in let qy := snd q in
   (c - qx)^2 <= (px - qx)^2 + (py - qy)^2.
 
+(** Image of p on l at distance dist(p,q) from q *)
 Definition O5_general_image (p : Point) (l : Line) (q : Point) : Point :=
   let px := fst p in let py := snd p in
   let qx := fst q in let qy := snd q in
@@ -3014,6 +3149,7 @@ Definition O5_general_image (p : Point) (l : Line) (q : Point) : Point :=
   let foot_y := qy - b * d in
   (foot_x + b * t, foot_y - a * t).
 
+(** dist(q,l)² ≤ dist²(p,q) *)
 Definition O5_general_valid (p : Point) (l : Line) (q : Point) : Prop :=
   let px := fst p in let py := snd p in
   let qx := fst q in let qy := snd q in
@@ -3022,10 +3158,12 @@ Definition O5_general_valid (p : Point) (l : Line) (q : Point) : Prop :=
   let dist_to_line := Rabs (a * qx + b * qy + c) / sqrt (a^2 + b^2) in
   dist_to_line^2 <= r2.
 
+(** O5 general: fold placing p onto l through q *)
 Definition fold_O5_general (p : Point) (l : Line) (q : Point) : Fold :=
   let p' := O5_general_image p l q in
   fold_line_ctor (perp_bisector p p').
 
+(** Mutually inductive constructibility predicates for points, lines, folds *)
 Inductive ConstructiblePoint : Point -> Prop :=
 | CP_O : ConstructiblePoint point_O
 | CP_X : ConstructiblePoint point_X
@@ -3090,14 +3228,17 @@ with ConstructibleFold : Fold -> Prop :=
       line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
       ConstructibleFold (fold_O5_general p l q).
 
+(** Mutual induction scheme for constructibility *)
 Scheme Constructible_mut :=
   Induction for ConstructiblePoint Sort Prop
   with ConstructibleLine_mut := Induction for ConstructibleLine Sort Prop
   with ConstructibleFold_mut := Induction for ConstructibleFold Sort Prop.
 
+(** ConstructibleFold f → ConstructibleLine (fold_line f) *)
 Lemma ConstructibleLine_of_fold : forall f, ConstructibleFold f -> ConstructibleLine (fold_line f).
 Proof. intros f Hf; now constructor. Qed.
 
+(** Line through O and X is constructible *)
 Lemma ConstructibleLine_OX : ConstructibleLine (line_through point_O point_X).
 Proof.
   rewrite <- fold_line_O1.
@@ -3105,15 +3246,19 @@ Proof.
   apply CF_O1; constructor; constructor.
 Qed.
 
+(** x ∈ ℝ is constructible ⟺ ∃ y, (x,y) is constructible *)
 Definition ConstructibleR (x : R) : Prop :=
   exists y, ConstructiblePoint (x, y).
 
+(** 0 ∈ ConstructibleR *)
 Lemma constructible_0 : ConstructibleR 0.
 Proof. exists 0; constructor. Qed.
 
+(** 1 ∈ ConstructibleR *)
 Lemma constructible_1 : ConstructibleR 1.
 Proof. exists 0; constructor 2. Qed.
 
+(** A = 0 case: x-coord of foot equals x-coord of intersection *)
 Lemma foot_x_eq_case_a0 : forall x y l,
   A l = 0 -> B l <> 0 ->
   fst (foot_on_line (x, y) l) = fst (line_intersection (perp_through (x, y) l) l).
@@ -3130,6 +3275,7 @@ Proof.
     simpl. field. exact Hb.
 Qed.
 
+(** A = 0 case: y-coord of foot equals y-coord of intersection *)
 Lemma foot_y_eq_case_a0 : forall x y l,
   A l = 0 -> B l <> 0 ->
   snd (foot_on_line (x, y) l) = snd (line_intersection (perp_through (x, y) l) l).
@@ -3146,6 +3292,7 @@ Proof.
     + simpl. rewrite Ha0. field. exact Hb.
 Qed.
 
+(** foot(p,l) = perp_through(p,l) ∩ l *)
 Lemma foot_is_intersection : forall p l,
   line_wf l -> foot_on_line p l = line_intersection (perp_through p l) l.
 Proof.
@@ -3185,6 +3332,7 @@ Proof.
     f_equal; field; assumption.
 Qed.
 
+(** foot(p,l) constructible when p, l constructible *)
 Lemma foot_constructible : forall p l,
   line_wf l ->
   ConstructiblePoint p -> ConstructibleLine l ->
@@ -3200,8 +3348,9 @@ Qed.
 End Constructibility.
 
 Section Decidability.
+(** Enumeration-based decidability for bounded depth constructibility *)
 
-(** Enumerate lines constructible at given depth. *)
+(** Lines constructible at depth d *)
 Fixpoint enum_lines (depth : nat) : list Line :=
   match depth with
   | O => [line_xaxis; line_yaxis]
@@ -3215,7 +3364,7 @@ Fixpoint enum_lines (depth : nat) : list Line :=
       flat_map (fun p => flat_map (fun l => [perp_through p l]) prev_lines) prev_points
   end
 
-(** Enumerate all points constructible at given depth. *)
+(** Points constructible at depth d *)
 with enum_points (depth : nat) : list Point :=
   match depth with
   | O => [point_O; point_X]
@@ -3229,21 +3378,19 @@ with enum_points (depth : nat) : list Point :=
         [reflect_point p l]) prev_lines) prev_points
   end.
 
-(** ** Complexity Bounds
-
-    Base case sizes for depth 0. *)
-
+(** |enum_points(0)| = 2 *)
 Lemma enum_points_0_size : length (enum_points 0) = 2%nat.
 Proof.
   simpl. reflexivity.
 Qed.
 
+(** |enum_lines(0)| = 2 *)
 Lemma enum_lines_0_size : length (enum_lines 0) = 2%nat.
 Proof.
   simpl. reflexivity.
 Qed.
 
-(** Enumeration size is monotonically non-decreasing. *)
+(** |enum_points(d)| ≤ |enum_points(S d)| *)
 Lemma enum_points_size_monotone : forall d,
   (length (enum_points d) <= length (enum_points (S d)))%nat.
 Proof.
@@ -3252,6 +3399,7 @@ Proof.
   apply Nat.le_add_r.
 Qed.
 
+(** |enum_lines(d)| ≤ |enum_lines(S d)| *)
 Lemma enum_lines_size_monotone : forall d,
   (length (enum_lines d) <= length (enum_lines (S d)))%nat.
 Proof.
@@ -3260,6 +3408,7 @@ Proof.
   apply Nat.le_add_r.
 Qed.
 
+(** 2 ≤ |enum_points(d)| *)
 Lemma enum_points_size_lower_bound : forall d,
   (2 <= length (enum_points d))%nat.
 Proof.
@@ -3271,10 +3420,11 @@ Proof.
     + apply enum_points_size_monotone.
 Qed.
 
-(** Check if point is constructible at given depth by enumeration. *)
+(** p ∈ enum_points(d) *)
 Definition point_constructible_depth (p : Point) (depth : nat) : bool :=
   existsb (fun q => if point_eq_dec p q then true else false) (enum_points depth).
 
+(** Decidability of point_constructible_depth *)
 Theorem enum_algorithm_decidable : forall p d,
   {point_constructible_depth p d = true} + {point_constructible_depth p d = false}.
 Proof.
@@ -3285,13 +3435,14 @@ Proof.
   - right. reflexivity.
 Qed.
 
+(** 10 ≤ |enum_points(1)| *)
 Theorem enum_exponential_lower_bound :
   (10 <= length (enum_points 1))%nat.
 Proof.
   vm_compute. apply Nat.le_refl.
 Qed.
 
-(** The decidability algorithm terminates because it uses structural recursion on depth. *)
+(** ∃ b, point_constructible_depth p d = b *)
 Lemma point_constructible_depth_terminates : forall p d,
   exists b, point_constructible_depth p d = b.
 Proof.
@@ -3300,7 +3451,7 @@ Proof.
   reflexivity.
 Qed.
 
-(** Soundness: if algorithm returns true at depth 0, point is in base set. *)
+(** point_constructible_depth p 0 = true → p = O ∨ p = X *)
 Lemma point_constructible_depth_base : forall p,
   point_constructible_depth p 0 = true ->
   p = point_O \/ p = point_X.
@@ -3316,19 +3467,21 @@ Proof.
     + simpl in H. discriminate.
 Qed.
 
-(** Enumeration grows monotonically. *)
+(** enum_points(d) ⊆ enum_points(S d) *)
 Lemma enum_points_monotone : forall d, incl (enum_points d) (enum_points (S d)).
 Proof.
   intro d. simpl. unfold incl. intros a Ha.
   apply in_or_app. left. exact Ha.
 Qed.
 
+(** enum_lines(d) ⊆ enum_lines(S d) *)
 Lemma enum_lines_monotone : forall d, incl (enum_lines d) (enum_lines (S d)).
 Proof.
   intro d. simpl. unfold incl. intros a Ha.
   apply in_or_app. left. exact Ha.
 Qed.
 
+(** p ∈ enum_points(0) → ConstructiblePoint p *)
 Lemma In_enum_points_base : forall p,
   In p (enum_points 0) -> ConstructiblePoint p.
 Proof.
@@ -3340,6 +3493,7 @@ Proof.
   - contradiction.
 Qed.
 
+(** l ∈ enum_lines(0) → ConstructibleLine l *)
 Lemma In_enum_lines_base : forall l,
   In l (enum_lines 0) -> ConstructibleLine l.
 Proof.
@@ -3351,6 +3505,7 @@ Proof.
   - contradiction.
 Qed.
 
+(** ConstructiblePoint p₁ → ConstructiblePoint p₂ → ConstructibleLine (line_through p₁ p₂) *)
 Lemma line_through_constructible : forall p1 p2,
   ConstructiblePoint p1 -> ConstructiblePoint p2 ->
   ConstructibleLine (line_through p1 p2).
@@ -3871,6 +4026,7 @@ Proof.
     f_equal; field; assumption.
 Qed.
 
+(** foot(p,l) ∈ enum_points(S(S(max dp dl))) *)
 Lemma CF_O5_helper_foot_in_enum : forall p l dp dl,
   line_wf l ->
   In p (enum_points dp) -> In l (enum_lines dl) ->
@@ -3893,6 +4049,7 @@ Proof.
   exact Hgoal.
 Qed.
 
+(** line_through(p₁,p₂) ∈ enum_lines(S(max d₁ d₂)) *)
 Lemma CF_O5_helper_line_through_in_enum : forall p1 p2 d1 d2,
   In p1 (enum_points d1) -> In p2 (enum_points d2) ->
   In (line_through p1 p2) (enum_lines (S (Nat.max d1 d2))).
@@ -3901,6 +4058,7 @@ Proof.
   apply line_through_in_enum_S; assumption.
 Qed.
 
+(** fold_O5 crease eventually in enum_lines *)
 Lemma CF_O5_in_enum : forall p1 l p2,
   line_wf l ->
   (exists d1, In p1 (enum_points d1)) ->
@@ -3928,6 +4086,7 @@ Proof.
   unfold aux. apply perp_through_in_enum_S; assumption.
 Qed.
 
+(** perp_bisector(p₁,p₂) ∈ enum_lines(S(max d₁ d₂)) *)
 Lemma CF_O7_helper_perp_bisector_in_enum : forall p1 p2 d1 d2,
   In p1 (enum_points d1) -> In p2 (enum_points d2) ->
   In (perp_bisector p1 p2) (enum_lines (S (Nat.max d1 d2))).
@@ -3936,9 +4095,11 @@ Proof.
   apply perp_bisector_in_enum_S; assumption.
 Qed.
 
+(** -0 = 0 *)
 Lemma neg_zero : -0 = 0.
 Proof. ring. Qed.
 
+(** A(perp_through(p, {A:=0,B:=b,C:=c})) = b *)
 Lemma perp_through_A_when_a_zero : forall px py b c,
   A (perp_through (px, py) {| A := 0; B := b; C := c |}) = b.
 Proof.
@@ -3946,6 +4107,7 @@ Proof.
   destruct (Req_EM_T 0 0); [|contradiction]. simpl. reflexivity.
 Qed.
 
+(** B(perp_through(p, {A:=0,B:=b,C:=c})) = 0 *)
 Lemma perp_through_B_when_a_zero : forall px py b c,
   B (perp_through (px, py) {| A := 0; B := b; C := c |}) = 0.
 Proof.
@@ -3953,6 +4115,7 @@ Proof.
   destruct (Req_EM_T 0 0); [|contradiction]. simpl. rewrite neg_zero. reflexivity.
 Qed.
 
+(** a ≠ 0 → B(perp_through(p, {A:=a,B:=0,C:=c})) = -a *)
 Lemma perp_through_B_when_b_zero : forall px py a c,
   a <> 0 ->
   B (perp_through (px, py) {| A := a; B := 0; C := c |}) = - a.
@@ -3961,6 +4124,7 @@ Proof.
   destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
 Qed.
 
+(** a ≠ 0 → A(perp_through(p, {A:=a,B:=b,C:=c})) = b *)
 Lemma perp_through_A_general : forall px py a b c,
   a <> 0 ->
   A (perp_through (px, py) {| A := a; B := b; C := c |}) = b.
@@ -3969,6 +4133,7 @@ Proof.
   destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
 Qed.
 
+(** a ≠ 0 → B(perp_through(p, {A:=a,B:=b,C:=c})) = -a *)
 Lemma perp_through_B_general : forall px py a b c,
   a <> 0 ->
   B (perp_through (px, py) {| A := a; B := b; C := c |}) = - a.
@@ -3977,26 +4142,31 @@ Proof.
   destruct (Req_EM_T a 0); [contradiction|]. simpl. reflexivity.
 Qed.
 
+(** ∃ d, O ∈ enum_points(d) *)
 Lemma ConstructiblePoint_O_eventually : exists d, In point_O (enum_points d).
 Proof.
   exact CP_O_in_enum.
 Qed.
 
+(** ∃ d, X ∈ enum_points(d) *)
 Lemma ConstructiblePoint_X_eventually : exists d, In point_X (enum_points d).
 Proof.
   exact CP_X_in_enum.
 Qed.
 
+(** ∃ d, x-axis ∈ enum_lines(d) *)
 Lemma ConstructibleLine_xaxis_eventually : exists d, In line_xaxis (enum_lines d).
 Proof.
   exact CL_x_in_enum.
 Qed.
 
+(** ∃ d, y-axis ∈ enum_lines(d) *)
 Lemma ConstructibleLine_yaxis_eventually : exists d, In line_yaxis (enum_lines d).
 Proof.
   exact CL_y_in_enum.
 Qed.
 
+(** foot(p,l) ∈ enum_points(S(S(max dp dl))) *)
 Lemma foot_in_enum_from_point_line : forall p l dp dl,
   line_wf l ->
   In p (enum_points dp) -> In l (enum_lines dl) ->
@@ -4006,6 +4176,7 @@ Proof.
   apply CF_O5_helper_foot_in_enum; assumption.
 Qed.
 
+(** p ∈ enum_points(d₁) → p ∈ enum_points(S(S(max d₁ d₂))) *)
 Lemma point_monotone_to_SS_max : forall p d1 d2,
   In p (enum_points d1) ->
   In p (enum_points (S (S (Nat.max d1 d2)))).
@@ -4016,6 +4187,7 @@ Proof.
   - exact H.
 Qed.
 
+(** p ∈ enum_points(d₂) → p ∈ enum_points(S(S(max d₁ d₂))) *)
 Lemma point_monotone_to_SS_max_r : forall p d1 d2,
   In p (enum_points d2) ->
   In p (enum_points (S (S (Nat.max d1 d2)))).
@@ -4029,7 +4201,9 @@ Qed.
 End Decidability.
 
 Section Fold_Sequences.
+(** Fold sequences as explicit construction traces *)
 
+(** Single origami fold step *)
 Inductive FoldStep : Type :=
 | FS_O1 : Point -> Point -> FoldStep
 | FS_O2 : Point -> Point -> FoldStep
@@ -4039,8 +4213,10 @@ Inductive FoldStep : Type :=
 | FS_O6 : Point -> Line -> Point -> Line -> FoldStep
 | FS_O7 : Point -> Line -> Line -> FoldStep.
 
+(** Sequence of fold steps *)
 Definition FoldSequence : Type := list FoldStep.
 
+(** Crease line of a fold step *)
 Definition execute_fold_step (step : FoldStep) : Line :=
   match step with
   | FS_O1 p1 p2 => fold_line (fold_O1 p1 p2)
@@ -4052,27 +4228,33 @@ Definition execute_fold_step (step : FoldStep) : Line :=
   | FS_O7 p l1 l2 => fold_line (fold_O7 p l1 l2)
   end.
 
+(** State: accumulated points and lines *)
 Record ConstructionState : Type := mkState {
   state_points : list Point;
   state_lines : list Line
 }.
 
+(** Initial state: O, X, x-axis *)
 Definition initial_state : ConstructionState :=
   mkState ((0, 0) :: (1, 0) :: nil) (line_xaxis :: nil).
 
+(** Add fold crease to state *)
 Definition add_fold_to_state (st : ConstructionState) (step : FoldStep) : ConstructionState :=
   let new_line := execute_fold_step step in
   mkState (state_points st) (new_line :: state_lines st).
 
+(** Execute fold sequence from state *)
 Fixpoint execute_sequence (st : ConstructionState) (seq : FoldSequence) : ConstructionState :=
   match seq with
   | nil => st
   | step :: rest => execute_sequence (add_fold_to_state st step) rest
   end.
 
+(** [O2(p₁,p₂)] *)
 Definition midpoint_fold_sequence (p1 p2 : Point) : FoldSequence :=
   FS_O2 p1 p2 :: nil.
 
+(** execute_fold_step(O2(p₁,p₂)) = perp_bisector(p₁,p₂) *)
 Lemma midpoint_fold_produces_bisector : forall p1 p2,
   p1 <> p2 ->
   execute_fold_step (FS_O2 p1 p2) = perp_bisector p1 p2.
@@ -4082,6 +4264,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** O6 configuration for ∛a *)
 Definition cbrt_construction_setup (a : R) : Point * Line * Point * Line :=
   let p1 := (-1, 0) in
   let l1 := line_yaxis in
@@ -4089,10 +4272,12 @@ Definition cbrt_construction_setup (a : R) : Point * Line * Point * Line :=
   let l2 := {| A := 0; B := 1; C := -2 |} in
   (p1, l1, p2, l2).
 
+(** Fold sequence for ∛a *)
 Definition cbrt_fold_sequence (a : R) : FoldSequence :=
   let '(p1, l1, p2, l2) := cbrt_construction_setup a in
   FS_O6 p1 l1 p2 l2 :: nil.
 
+(** O6 configuration for angle trisection *)
 Definition trisection_setup (theta : R) : Point * Line * Point * Line :=
   let c := cos theta in
   let p1 := (0, 1) in
@@ -4101,39 +4286,49 @@ Definition trisection_setup (theta : R) : Point * Line * Point * Line :=
   let l2 := {| A := 0; B := 1; C := 1 |} in
   (p1, l1, p2, l2).
 
+(** Fold sequence for trisecting θ *)
 Definition trisection_fold_sequence (theta : R) : FoldSequence :=
   let '(p1, l1, p2, l2) := trisection_setup theta in
   FS_O6 p1 l1 p2 l2 :: nil.
 
+(** [O4(p,l)] *)
 Definition perpendicular_fold_sequence (p : Point) (l : Line) : FoldSequence :=
   FS_O4 p l :: nil.
 
+(** [O1(p₁,p₂)] *)
 Definition line_through_points_sequence (p1 p2 : Point) : FoldSequence :=
   FS_O1 p1 p2 :: nil.
 
+(** Reflect p across fold crease *)
 Definition reflect_point_via_fold (p : Point) (step : FoldStep) : Point :=
   reflect_point p (execute_fold_step step).
 
+(** |seq| *)
 Definition fold_sequence_length (seq : FoldSequence) : nat := length seq.
 
+(** (0,0) ∈ initial_state *)
 Lemma initial_state_has_origin : In (0, 0) (state_points initial_state).
 Proof.
   unfold initial_state. simpl. left. reflexivity.
 Qed.
 
+(** (1,0) ∈ initial_state *)
 Lemma initial_state_has_unit : In (1, 0) (state_points initial_state).
 Proof.
   unfold initial_state. simpl. right. left. reflexivity.
 Qed.
 
+(** [O3(l₁,l₂)] *)
 Definition angle_bisector_fold_sequence (l1 l2 : Line) : FoldSequence :=
   FS_O3 l1 l2 :: nil.
 
+(** [O4(p,l), O4(p, perp_through(p,l))] *)
 Definition parallel_through_point_sequence (p : Point) (l : Line) : FoldSequence :=
   let perp := FS_O4 p l in
   let perp_line := execute_fold_step perp in
   perp :: FS_O4 p perp_line :: nil.
 
+(** execute_sequence st [] = st *)
 Lemma execute_sequence_nil : forall st,
   execute_sequence st nil = st.
 Proof.
@@ -4158,15 +4353,19 @@ Proof.
   intros. reflexivity.
 Qed.
 
+(** Add point to state *)
 Definition add_point_to_state (st : ConstructionState) (p : Point) : ConstructionState :=
   mkState (p :: state_points st) (state_lines st).
 
+(** Add l₁ ∩ l₂ to state *)
 Definition add_intersection_to_state (st : ConstructionState) (l1 l2 : Line) : ConstructionState :=
   add_point_to_state st (line_intersection l1 l2).
 
+(** Heptagon cubic: t³ + at + b = 0 where cos(2π/7) is a root *)
 Definition heptagon_cubic_a : R := -7/12.
 Definition heptagon_cubic_b : R := -7/216.
 
+(** O6 configuration for cos(2π/7) *)
 Definition heptagon_cos_setup : Point * Line * Point * Line :=
   let p1 := (0, 1) in
   let l1 := line_xaxis in
@@ -4174,33 +4373,41 @@ Definition heptagon_cos_setup : Point * Line * Point * Line :=
   let l2 := {| A := 0; B := 1; C := - heptagon_cubic_a / 3 |} in
   (p1, l1, p2, l2).
 
+(** Fold sequence for cos(2π/7) *)
 Definition heptagon_cos_fold_sequence : FoldSequence :=
   let '(p1, l1, p2, l2) := heptagon_cos_setup in
   FS_O6 p1 l1 p2 l2 :: nil.
 
+(** Rotate p by angle about origin *)
 Definition rotate_point (p : Point) (angle : R) : Point :=
   let x := fst p in
   let y := snd p in
   (x * cos angle - y * sin angle, x * sin angle + y * cos angle).
 
+(** k-th vertex of unit heptagon *)
 Definition heptagon_vertex (k : nat) : Point :=
   rotate_point (1, 0) (2 * PI * INR k / 7).
 
+(** All 7 vertices *)
 Definition heptagon_vertices : list Point :=
   map heptagon_vertex (seq 0 7).
 
+(** Fold for edge k to k+1 *)
 Definition heptagon_edge_fold (k : nat) : FoldStep :=
   FS_O1 (heptagon_vertex k) (heptagon_vertex (S k mod 7)).
 
+(** Complete heptagon construction *)
 Definition heptagon_full_sequence : FoldSequence :=
   heptagon_cos_fold_sequence ++
   map heptagon_edge_fold (seq 0 7).
 
+(** |heptagon_vertices| = 7 *)
 Lemma heptagon_has_seven_vertices : length heptagon_vertices = 7%nat.
 Proof.
   unfold heptagon_vertices. rewrite map_length, seq_length. reflexivity.
 Qed.
 
+(** |heptagon_full_sequence| = 8 *)
 Lemma heptagon_full_sequence_length :
   fold_sequence_length heptagon_full_sequence = 8%nat.
 Proof.
@@ -4210,7 +4417,9 @@ Qed.
 End Fold_Sequences.
 
 Section Origami_Algebra.
+(** Algebraic characterization of origami-constructible numbers *)
 
+(** Origami numbers: closed under +, -, ×, /, √, and cubic roots *)
 Inductive OrigamiNum : R -> Prop :=
 | ON_0 : OrigamiNum 0
 | ON_1 : OrigamiNum 1
@@ -4221,6 +4430,7 @@ Inductive OrigamiNum : R -> Prop :=
 | ON_sqrt : forall x, OrigamiNum x -> 0 <= x -> OrigamiNum (sqrt x)
 | ON_cubic_root : forall a b r, OrigamiNum a -> OrigamiNum b -> r * r * r + a * r + b = 0 -> OrigamiNum r.
 
+(** Euclidean numbers: closed under +, -, ×, /, √ (no cubic roots) *)
 Inductive EuclidNum : R -> Prop :=
 | EN_0 : EuclidNum 0
 | EN_1 : EuclidNum 1
@@ -4230,6 +4440,7 @@ Inductive EuclidNum : R -> Prop :=
 | EN_inv : forall x, EuclidNum x -> x <> 0 -> EuclidNum (/ x)
 | EN_sqrt : forall x, EuclidNum x -> 0 <= x -> EuclidNum (sqrt x).
 
+(** EuclidNum ⊆ OrigamiNum *)
 Lemma Euclid_in_Origami : forall x, EuclidNum x -> OrigamiNum x.
 Proof.
   intros x H; induction H.
@@ -4242,9 +4453,11 @@ Proof.
   - eapply ON_sqrt; eauto.
 Qed.
 
+(** -x = 0 - x *)
 Lemma Ropp_as_sub : forall x, - x = 0 - x.
 Proof. intro x; lra. Qed.
 
+(** OrigamiNum x → OrigamiNum (-x) *)
 Lemma Origami_neg : forall x, OrigamiNum x -> OrigamiNum (- x).
 Proof.
   intros x Hx.
@@ -4255,12 +4468,14 @@ Proof.
   apply ON_mul; [exact Hm1|assumption].
 Qed.
 
+(** 2 ∈ OrigamiNum *)
 Lemma Origami_two : OrigamiNum 2.
 Proof.
   replace 2 with (1 + 1) by lra.
   apply ON_add; constructor; constructor.
 Qed.
 
+(** OrigamiNum is a field *)
 Theorem origami_field_structure :
   OrigamiNum 0 /\ OrigamiNum 1 /\
   (forall x y, OrigamiNum x -> OrigamiNum y -> OrigamiNum (x + y)) /\
@@ -4277,6 +4492,7 @@ Proof.
   - apply ON_inv; assumption.
 Qed.
 
+(** OrigamiNum closed under √ *)
 Theorem origami_sqrt_extension :
   forall x, OrigamiNum x -> 0 <= x -> OrigamiNum (sqrt x).
 Proof.
@@ -4284,6 +4500,7 @@ Proof.
   apply ON_sqrt; assumption.
 Qed.
 
+(** OrigamiNum closed under cubic roots *)
 Theorem origami_cubic_extension :
   forall a b r, OrigamiNum a -> OrigamiNum b ->
   r * r * r + a * r + b = 0 -> OrigamiNum r.
@@ -4292,12 +4509,14 @@ Proof.
   apply ON_cubic_root with (a := a) (b := b); assumption.
 Qed.
 
+(** EuclidNum x → OrigamiNum x *)
 Theorem euclid_subset_origami :
   forall x, EuclidNum x -> OrigamiNum x.
 Proof.
   apply Euclid_in_Origami.
 Qed.
 
+(** OrigamiNum x → OrigamiNum y → OrigamiNum (x - y) *)
 Lemma origami_closed_under_subtraction :
   forall x y, OrigamiNum x -> OrigamiNum y -> OrigamiNum (x - y).
 Proof.
@@ -4305,6 +4524,7 @@ Proof.
   apply ON_sub; assumption.
 Qed.
 
+(** √(√x) ∈ OrigamiNum *)
 Theorem origami_tower_sqrt_sqrt :
   forall x, OrigamiNum x -> 0 <= x -> 0 <= sqrt x ->
   OrigamiNum (sqrt (sqrt x)).
@@ -4315,21 +4535,23 @@ Proof.
   - apply sqrt_pos.
 Qed.
 
+(** 3 ∈ OrigamiNum *)
 Lemma Origami_three : OrigamiNum 3.
 Proof.
   replace 3 with (2 + 1) by lra.
   apply ON_add; [apply Origami_two|constructor].
 Qed.
 
+(** 1 is a root of x³ - 3x + 2 = 0 *)
 Lemma Origami_root_example : OrigamiNum 1.
 Proof.
-  (* 1 is a root of x^3 - 3x + 2 = 0 *)
   assert (Ha : OrigamiNum (-3)) by (apply Origami_neg; apply Origami_three).
   assert (Hb : OrigamiNum 2) by apply Origami_two.
   replace 1 with 1 by reflexivity.
   apply (ON_cubic_root (-3) 2 1); auto; lra.
 Qed.
 
+(** OrigamiNum x → OrigamiNum y → y ≠ 0 → OrigamiNum (x/y) *)
 Lemma Origami_div : forall x y, OrigamiNum x -> OrigamiNum y -> y <> 0 -> OrigamiNum (x / y).
 Proof.
   intros x y Hx Hy Hy0.
@@ -4338,6 +4560,7 @@ Proof.
   apply ON_inv; assumption.
 Qed.
 
+(** ℕ ⊂ OrigamiNum *)
 Lemma Origami_nat : forall n, OrigamiNum (INR n).
 Proof.
   induction n.
@@ -4347,6 +4570,7 @@ Proof.
     + rewrite S_INR. lra.
 Qed.
 
+(** ℤ ⊂ OrigamiNum *)
 Lemma Origami_Z : forall z, OrigamiNum (IZR z).
 Proof.
   intros z.
@@ -4360,7 +4584,7 @@ Proof.
     + rewrite INR_IZR_INZ. rewrite positive_nat_Z. reflexivity.
 Qed.
 
-(** All rational numbers are origami-constructible. *)
+(** ℚ ⊂ OrigamiNum *)
 Theorem Origami_Q : forall p q : Z, (q <> 0)%Z -> OrigamiNum (IZR p / IZR q).
 Proof.
   intros p q Hq.
@@ -4372,10 +4596,7 @@ Proof.
     contradiction.
 Qed.
 
-(** OrigamiNum with tracked extension degree.
-    Each origami number arises from a tower of field extensions,
-    where each step has degree 2 (sqrt) or 3 (cubic root).
-    The degree tracks the total extension degree over Q. *)
+(** OrigamiNum with tracked extension degree over ℚ *)
 Inductive OrigamiNum_deg : R -> nat -> Prop :=
 | OND_0 : OrigamiNum_deg 0 1
 | OND_1 : OrigamiNum_deg 1 1
@@ -4393,29 +4614,29 @@ Inductive OrigamiNum_deg : R -> nat -> Prop :=
     r * r * r + a * r + b = 0 ->
     OrigamiNum_deg r (3 * Nat.max n m).
 
-(** ** Field Extension Tower: Explicit Construction
-    A field extension tower records the sequence of extensions used to construct
-    a number. Each step is either a degree-2 extension (adjoining a square root)
-    or a degree-3 extension (adjoining a cubic root). *)
-
+(** Extension step: √x (degree 2) or cubic root (degree 3) *)
 Inductive ExtensionStep : Type :=
 | Ext_sqrt : R -> ExtensionStep
 | Ext_cbrt : R -> R -> R -> ExtensionStep.
 
+(** Degree of extension step *)
 Definition ext_step_degree (e : ExtensionStep) : nat :=
   match e with
   | Ext_sqrt _ => 2
   | Ext_cbrt _ _ _ => 3
   end.
 
+(** Tower of field extensions *)
 Definition FieldTower := list ExtensionStep.
 
+(** [ℚ(t) : ℚ] = product of step degrees *)
 Fixpoint tower_degree (t : FieldTower) : nat :=
   match t with
   | nil => 1
   | e :: rest => ext_step_degree e * tower_degree rest
   end.
 
+(** tower_degree t > 0 *)
 Lemma tower_degree_pos : forall t, (tower_degree t > 0)%nat.
 Proof.
   induction t as [|e rest IH].
@@ -4423,12 +4644,12 @@ Proof.
   - simpl. destruct e; simpl; lia.
 Qed.
 
+(** tower_degree (e::t) = ext_step_degree e × tower_degree t *)
 Lemma tower_degree_cons : forall e t,
   tower_degree (e :: t) = (ext_step_degree e * tower_degree t)%nat.
 Proof. reflexivity. Qed.
 
-(** A number is constructible in a tower if it can be built using field
-    operations and the adjoined elements from extension steps. *)
+(** x ∈ ℚ(tower) *)
 Inductive InTower : R -> FieldTower -> Prop :=
 | IT_rat : forall q t, InTower (IZR q) t
 | IT_add : forall x y t, InTower x t -> InTower y t -> InTower (x + y) t
@@ -4442,14 +4663,14 @@ Inductive InTower : R -> FieldTower -> Prop :=
     r * r * r + a * r + b = 0 ->
     InTower r (Ext_cbrt a b r :: t).
 
-(** Key property: InTower respects tower extension (weakening). *)
+(** x ∈ ℚ(t) → x ∈ ℚ(e::t) *)
 Lemma InTower_weaken_lem : forall x t e,
   InTower x t -> InTower x (e :: t).
 Proof.
   intros x t e H. apply IT_weaken. exact H.
 Qed.
 
-(** Weaken by prepending extensions to the tower. *)
+(** x ∈ ℚ(t₁) → x ∈ ℚ(t₂++t₁) *)
 Lemma InTower_weaken_app : forall x t1 t2,
   InTower x t1 -> InTower x (t2 ++ t1).
 Proof.
@@ -4459,7 +4680,7 @@ Proof.
   - simpl. apply IT_weaken. exact IH.
 Qed.
 
-(** Weaken by appending extensions to the tower (right side). *)
+(** x ∈ ℚ(t₁) → x ∈ ℚ(t₁++t₂) *)
 Lemma InTower_weaken_app_r : forall x t1 t2,
   InTower x t1 -> InTower x (t1 ++ t2).
 Proof.
@@ -4475,7 +4696,7 @@ Proof.
   - simpl. eapply IT_cbrt_adj; eassumption.
 Qed.
 
-(** InTower implies OrigamiNum: tower membership implies origami constructibility. *)
+(** x ∈ ℚ(t) → OrigamiNum x *)
 Lemma InTower_is_OrigamiNum : forall x t,
   InTower x t -> OrigamiNum x.
 Proof.
@@ -4491,7 +4712,7 @@ Proof.
   - apply (ON_cubic_root a b); assumption.
 Qed.
 
-(** Every OrigamiNum has a constructing tower. *)
+(** OrigamiNum x → ∃ t, x ∈ ℚ(t) *)
 Theorem OrigamiNum_has_tower : forall x,
   OrigamiNum x -> exists t, InTower x t.
 Proof.
@@ -4522,7 +4743,7 @@ Proof.
     + apply InTower_weaken_app_r. exact Ht2.
 Qed.
 
-(** Tower degree is always 2-3 smooth (product of 2s and 3s). *)
+(** tower_degree t = 2^a × 3^b for some a,b *)
 Lemma tower_degree_is_2_3_smooth : forall t,
   exists a b, tower_degree t = (2^a * 3^b)%nat.
 Proof.
@@ -4536,8 +4757,7 @@ Proof.
       exists a, (S b). simpl. lia.
 Qed.
 
-(** Key theorem: OrigamiNum_deg is witnessed by a concrete field tower.
-    This connects the abstract degree tracking to explicit tower construction. *)
+(** OrigamiNum_deg x n → ∃ t, x ∈ ℚ(t) *)
 Theorem OrigamiNum_deg_has_tower : forall x n,
   OrigamiNum_deg x n -> exists t, InTower x t.
 Proof.
@@ -4572,10 +4792,7 @@ Proof.
     + apply InTower_weaken_app_r. exact Ht2.
 Qed.
 
-(** ** Alperin-Lang Theorem: Complete Algebraic Characterization
-    A real number is origami-constructible if and only if it lies in some
-    field extension tower built from degree-2 and degree-3 extensions over ℚ. *)
-
+(** Alperin-Lang: OrigamiNum x ⟺ ∃ tower t, x ∈ ℚ(t) *)
 Theorem Alperin_Lang_characterization : forall x,
   OrigamiNum x <-> exists t, InTower x t.
 Proof.
@@ -4584,7 +4801,7 @@ Proof.
   - intros [t Ht]. apply (InTower_is_OrigamiNum x t Ht).
 Qed.
 
-(** Refined version: the tower degree is always 2-3 smooth. *)
+(** x ∈ OrigamiNum ⟺ x in tower of degree 2ᵃ·3ᵇ *)
 Theorem Alperin_Lang_with_degree : forall x,
   OrigamiNum x <-> exists t, InTower x t /\ exists a b, tower_degree t = (2^a * 3^b)%nat.
 Proof.
@@ -4598,15 +4815,14 @@ Proof.
     apply (InTower_is_OrigamiNum x t Ht).
 Qed.
 
-(** Corollary: OrigamiNum is exactly the class of numbers constructible
-    by towers of quadratic and cubic extensions - the Alperin-Lang result. *)
+(** x ∈ OrigamiNum ⟺ ∃ tower t, x ∈ t *)
 Corollary OrigamiNum_iff_2_3_tower : forall x,
   OrigamiNum x <-> exists t : FieldTower, InTower x t.
 Proof.
   exact Alperin_Lang_characterization.
 Qed.
 
-(** OrigamiNum_deg implies OrigamiNum: forgetting degree information. *)
+(** OrigamiNum_deg x n → OrigamiNum x *)
 Lemma OrigamiNum_deg_is_OrigamiNum : forall x n,
   OrigamiNum_deg x n -> OrigamiNum x.
 Proof.
@@ -4621,7 +4837,7 @@ Proof.
   - apply (ON_cubic_root a b); assumption.
 Qed.
 
-(** Converse: every OrigamiNum has a tracked degree. *)
+(** OrigamiNum x → ∃ n, OrigamiNum_deg x n *)
 Theorem OrigamiNum_has_deg : forall x, OrigamiNum x -> exists n, OrigamiNum_deg x n.
 Proof.
   intros x H. induction H.
@@ -4641,33 +4857,41 @@ Proof.
     exists (3 * Nat.max n1 n2)%nat. apply (OND_cbrt a b); assumption.
 Qed.
 
+(** Both coordinates are origami-constructible *)
 Definition GoodPoint (p : Point) : Prop :=
   OrigamiNum (fst p) /\ OrigamiNum (snd p).
 
+(** All coefficients A, B, C are origami-constructible *)
 Definition GoodLine (l : Line) : Prop :=
   OrigamiNum (A l) /\ OrigamiNum (B l) /\ OrigamiNum (C l).
 
+(** Crease line is a GoodLine *)
 Definition GoodFold (f : Fold) : Prop :=
   GoodLine (fold_line f).
 
+(** (0,0) ∈ GoodPoint *)
 Lemma GoodPoint_O : GoodPoint point_O.
 Proof. split; constructor. Qed.
 
+(** (1,0) ∈ GoodPoint *)
 Lemma GoodPoint_X : GoodPoint point_X.
 Proof. split; constructor; constructor. Qed.
 
+(** x-axis ∈ GoodLine *)
 Lemma GoodLine_xaxis : GoodLine line_xaxis.
 Proof.
   unfold GoodLine, line_xaxis; simpl.
   repeat split; constructor.
 Qed.
 
+(** y-axis ∈ GoodLine *)
 Lemma GoodLine_yaxis : GoodLine line_yaxis.
 Proof.
   unfold GoodLine, line_yaxis; simpl.
   repeat split; constructor.
 Qed.
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodPoint midpoint(p₁,p₂) *)
 Lemma GoodPoint_midpoint : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodPoint (midpoint p1 p2).
 Proof.
@@ -4678,6 +4902,7 @@ Proof.
   - apply Origami_div; [apply ON_add; assumption|apply Origami_two|lra].
 Qed.
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodLine line_through(p₁,p₂) *)
 Lemma GoodLine_through : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodLine (line_through p1 p2).
 Proof.
@@ -4697,6 +4922,7 @@ Proof.
       * apply ON_mul; assumption.
 Qed.
 
+(** GoodPoint p ∧ GoodLine l → GoodLine perp_through(p,l) *)
 Lemma GoodLine_perp_through : forall p l,
   GoodPoint p -> GoodLine l -> GoodLine (perp_through p l).
 Proof.
@@ -4713,6 +4939,7 @@ Proof.
     + apply ON_sub; apply ON_mul; assumption.
 Qed.
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodLine perp_bisector(p₁,p₂) *)
 Lemma GoodLine_perp_bisector : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodLine (perp_bisector p1 p2).
 Proof.
@@ -4737,6 +4964,7 @@ Proof.
       apply ON_add; apply ON_sub; apply ON_mul; assumption.
 Qed.
 
+(** GoodLine l₁ ∧ GoodLine l₂ → GoodPoint l₁∩l₂ *)
 Lemma GoodPoint_intersection : forall l1 l2,
   GoodLine l1 -> GoodLine l2 -> GoodPoint (line_intersection l1 l2).
 Proof.
@@ -4766,6 +4994,7 @@ Proof.
       * exact HDnz.
 Qed.
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodLine fold_O2(p₁,p₂) *)
 Lemma GoodLine_fold_O2 : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodLine (fold_line (fold_O2 p1 p2)).
 Proof.
@@ -4774,6 +5003,7 @@ Proof.
   apply GoodLine_perp_bisector; assumption.
 Qed.
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodFold fold_O2(p₁,p₂) *)
 Lemma GoodFold_O2 : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodFold (fold_O2 p1 p2).
 Proof.
@@ -4782,6 +5012,7 @@ Proof.
   apply GoodLine_fold_O2; assumption.
 Qed.
 
+(** GoodLine l₁ ∧ GoodLine l₂ → GoodLine fold_O3(l₁,l₂) *)
 Lemma GoodLine_fold_O3 : forall l1 l2,
   line_wf l1 -> line_wf l2 ->
   GoodLine l1 -> GoodLine l2 -> GoodLine (fold_line (fold_O3 l1 l2)).
@@ -4827,6 +5058,7 @@ Proof.
     + subst c; apply ON_sub; assumption.
 Qed.
 
+(** GoodLine l₁ ∧ GoodLine l₂ → GoodFold fold_O3(l₁,l₂) *)
 Lemma GoodFold_O3 : forall l1 l2,
   line_wf l1 -> line_wf l2 ->
   GoodLine l1 -> GoodLine l2 -> GoodFold (fold_O3 l1 l2).
@@ -4838,6 +5070,7 @@ Qed.
 
 
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodLine fold_O1(p₁,p₂) *)
 Lemma GoodLine_fold_O1 : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodLine (fold_line (fold_O1 p1 p2)).
 Proof.
@@ -4846,6 +5079,7 @@ Proof.
   apply GoodLine_through; assumption.
 Qed.
 
+(** GoodPoint p ∧ GoodLine l → GoodLine fold_O4(p,l) *)
 Lemma GoodLine_fold_O4 : forall p l,
   GoodPoint p -> GoodLine l -> GoodLine (fold_line (fold_O4 p l)).
 Proof.
@@ -4854,6 +5088,7 @@ Proof.
   apply GoodLine_perp_through; assumption.
 Qed.
 
+(** GoodPoint p ∧ GoodLine l → GoodPoint reflect(p,l) *)
 Lemma GoodPoint_reflect : forall p l,
   line_wf l ->
   GoodPoint p -> GoodLine l -> GoodPoint (reflect_point p l).
@@ -4874,6 +5109,7 @@ Proof.
     apply ON_mul; [apply ON_mul; [apply Origami_two|assumption]|exact Hfactor].
 Qed.
 
+(** ConstructibleLine l → line_wf l (mutual with ConstructibleFold) *)
 Lemma ConstructibleLine_wf : forall l, ConstructibleLine l -> line_wf l
 with ConstructibleFold_line_wf_aux : forall f, ConstructibleFold f -> line_wf (fold_line f).
 Proof.
@@ -4899,6 +5135,7 @@ Proof.
     + unfold fold_O5_general; simpl. apply perp_bisector_wf.
 Qed.
 
+(** ConstructibleFold f → line_wf (fold_line f) *)
 Lemma ConstructibleFold_line_wf : forall f, ConstructibleFold f -> line_wf (fold_line f).
 Proof.
   intros f Hf.
@@ -4906,6 +5143,7 @@ Proof.
   apply CL_fold. exact Hf.
 Qed.
 
+(** GoodFold f ∧ GoodPoint p → GoodPoint map_point(f,p) *)
 Lemma GoodPoint_map_point : forall f p,
   line_wf (fold_line f) ->
   GoodFold f -> GoodPoint p -> GoodPoint (map_point f p).
@@ -4915,6 +5153,7 @@ Proof.
   apply GoodPoint_reflect; assumption.
 Qed.
 
+(** GoodPoint p ∧ GoodLine l → GoodPoint foot(p,l) *)
 Lemma GoodPoint_foot : forall p l,
   line_wf l ->
   GoodPoint p -> GoodLine l -> GoodPoint (foot_on_line p l).
@@ -4938,6 +5177,7 @@ Proof.
     apply ON_mul; [assumption|exact Hfactor].
 Qed.
 
+(** GoodPoint/GoodLine inputs → GoodLine fold_O5 *)
 Lemma GoodLine_fold_O5 : forall p1 l p2,
   line_wf l ->
   GoodPoint p1 -> GoodLine l -> GoodPoint p2 ->
@@ -4951,6 +5191,7 @@ Proof.
   apply GoodLine_perp_through; assumption.
 Qed.
 
+(** GoodPoint/GoodLine inputs → GoodFold fold_O5 *)
 Lemma GoodFold_O5 : forall p1 l p2,
   line_wf l ->
   GoodPoint p1 -> GoodLine l -> GoodPoint p2 ->
@@ -4961,6 +5202,7 @@ Proof.
   apply GoodLine_fold_O5; auto.
 Qed.
 
+(** GoodPoint/GoodLine inputs → GoodLine fold_O6 *)
 Lemma GoodLine_fold_O6 : forall p1 l1 p2 l2,
   line_wf l1 -> line_wf l2 ->
   GoodPoint p1 -> GoodLine l1 -> GoodPoint p2 -> GoodLine l2 ->
@@ -4976,6 +5218,7 @@ Proof.
   apply GoodLine_through; assumption.
 Qed.
 
+(** GoodPoint/GoodLine inputs → GoodFold fold_O6 *)
 Lemma GoodFold_O6 : forall p1 l1 p2 l2,
   line_wf l1 -> line_wf l2 ->
   GoodPoint p1 -> GoodLine l1 -> GoodPoint p2 -> GoodLine l2 ->
@@ -4986,6 +5229,7 @@ Proof.
   apply GoodLine_fold_O6; auto.
 Qed.
 
+(** GoodPoint/GoodLine inputs → GoodLine fold_O7 *)
 Lemma GoodLine_fold_O7 : forall p1 l1 l2,
   GoodPoint p1 -> GoodLine l1 -> GoodLine l2 ->
   GoodLine (fold_line (fold_O7 p1 l1 l2)).
@@ -5046,6 +5290,7 @@ Proof.
     apply GoodLine_perp_bisector; assumption.
 Qed.
 
+(** GoodPoint/GoodLine inputs → GoodFold fold_O7 *)
 Lemma GoodFold_O7 : forall p1 l1 l2,
   GoodPoint p1 -> GoodLine l1 -> GoodLine l2 ->
   GoodFold (fold_O7 p1 l1 l2).
@@ -5055,6 +5300,7 @@ Proof.
   apply GoodLine_fold_O7; assumption.
 Qed.
 
+(** GoodPoint p₁ ∧ GoodPoint p₂ → GoodFold fold_O1(p₁,p₂) *)
 Lemma GoodFold_O1 : forall p1 p2,
   GoodPoint p1 -> GoodPoint p2 -> GoodFold (fold_O1 p1 p2).
 Proof.
@@ -5063,6 +5309,7 @@ Proof.
   apply GoodLine_fold_O1; assumption.
 Qed.
 
+(** GoodPoint p ∧ GoodLine l → GoodFold fold_O4(p,l) *)
 Lemma GoodFold_O4 : forall p l,
   GoodPoint p -> GoodLine l -> GoodFold (fold_O4 p l).
 Proof.
@@ -5071,6 +5318,7 @@ Proof.
   apply GoodLine_fold_O4; assumption.
 Qed.
 
+(** GoodPoint inputs ∧ valid config → GoodPoint O5_vert_image *)
 Lemma GoodPoint_O5_vert_image : forall p q c,
   GoodPoint p -> GoodPoint q -> OrigamiNum c ->
   O5_vert_valid p q c ->
@@ -5099,6 +5347,7 @@ Proof.
         lra.
 Qed.
 
+(** GoodPoint inputs ∧ valid config → GoodFold fold_O5_vert *)
 Lemma GoodFold_O5_vert : forall p q c,
   GoodPoint p -> GoodPoint q -> OrigamiNum c ->
   O5_vert_valid p q c ->
@@ -5111,6 +5360,7 @@ Proof.
   - apply GoodPoint_O5_vert_image; assumption.
 Qed.
 
+(** t³ + pt + q = 0 ∧ p,q ∈ OrigamiNum → GoodFold fold_O6_beloch(p,q,t) *)
 Lemma GoodFold_O6_beloch : forall p q t,
   OrigamiNum p -> OrigamiNum q ->
   t * t * t + p * t + q = 0 ->
@@ -5125,6 +5375,7 @@ Proof.
   - apply Origami_neg. apply ON_mul; assumption.
 Qed.
 
+(** r² - d²·‖l‖² ≥ 0 when O5_general_valid *)
 Lemma O5_general_h2_nonneg : forall px py l qx qy,
   line_wf l -> O5_general_valid (px, py) l (qx, qy) ->
   let a := A l in let b := B l in let c := C l in
@@ -5164,6 +5415,7 @@ Proof.
   unfold Rdiv. lra.
 Qed.
 
+(** GoodPoint/GoodLine inputs ∧ valid config → GoodPoint O5_general_image *)
 Lemma GoodPoint_O5_general_image : forall p l q,
   GoodPoint p -> GoodLine l -> GoodPoint q ->
   line_wf l -> O5_general_valid p l q ->
@@ -5205,6 +5457,7 @@ Proof.
     + unfold a. apply ON_mul; [exact Ha|exact Ht].
 Qed.
 
+(** GoodPoint/GoodLine inputs ∧ valid config → GoodFold fold_O5_general *)
 Lemma GoodFold_O5_general : forall p l q,
   GoodPoint p -> GoodLine l -> GoodPoint q ->
   line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
@@ -5217,6 +5470,7 @@ Proof.
   - apply GoodPoint_O5_general_image; assumption.
 Qed.
 
+(** Mutual fixpoint: ConstructiblePoint/Line/Fold → GoodPoint/Line/Fold *)
 Fixpoint ConstructiblePoint_good (p : Point) (Hp : ConstructiblePoint p) {struct Hp} : GoodPoint p :=
   match Hp in ConstructiblePoint p0 return GoodPoint p0 with
   | CP_O => GoodPoint_O
@@ -5297,7 +5551,7 @@ with ConstructibleFold_good (f : Fold) (Hf : ConstructibleFold f) {struct Hf} : 
         Hwf Hvalid Hneq
   end.
 
-(** Completeness theorem: Constructible points have OrigamiNum coordinates. *)
+(** ConstructiblePoint p → GoodPoint p *)
 Theorem constructible_implies_origami : forall p,
   ConstructiblePoint p -> GoodPoint p.
 Proof.
@@ -5305,7 +5559,7 @@ Proof.
   apply (ConstructiblePoint_good p Hp).
 Qed.
 
-(** Corollary: If x is a constructible real, then x is an origami number. *)
+(** ConstructibleR x → OrigamiNum x *)
 Corollary constructible_R_implies_origami : forall x,
   ConstructibleR x -> OrigamiNum x.
 Proof.
@@ -5315,6 +5569,7 @@ Proof.
   exact Hx.
 Qed.
 
+(** EuclidNum x ∧ x ≥ 0 → EuclidNum √x *)
 Lemma euclidean_sqrt_closed : forall x, EuclidNum x -> 0 <= x -> EuclidNum (sqrt x).
 Proof.
   intros x Hx Hpos.
@@ -5328,6 +5583,7 @@ Proof.
   - apply EN_sqrt. apply EN_sqrt; assumption. assumption.
 Qed.
 
+(** Tower degree tracking for Euclidean numbers *)
 Inductive euclidean_degree : R -> nat -> Prop :=
 | ed_0 : euclidean_degree 0 0
 | ed_1 : euclidean_degree 1 0
@@ -5347,6 +5603,7 @@ Inductive euclidean_degree : R -> nat -> Prop :=
     euclidean_degree x n -> 0 <= x ->
     euclidean_degree (sqrt x) (S n).
 
+(** EuclidNum x → ∃ n, euclidean_degree x n *)
 Lemma euclidean_has_degree : forall x, EuclidNum x -> exists n, euclidean_degree x n.
 Proof.
   intros x Hx. induction Hx.
@@ -5364,20 +5621,24 @@ Proof.
     exists (S n). apply ed_sqrt; assumption.
 Qed.
 
+(** 0 ≤ 2⁰ *)
 Lemma n_le_2_pow_n_base : (0 <= 2^0)%nat.
 Proof. apply le_0_n. Qed.
 
+(** a ≤ b → a + a ≤ b + b *)
 Lemma add_le_add_same : forall a b, (a <= b)%nat -> (a + a <= b + b)%nat.
 Proof.
   intros a b H.
   apply Nat.add_le_mono; exact H.
 Qed.
 
+(** 1 ≤ m → S m ≤ 2m *)
 Lemma S_m_le_double_m : forall m, (1 <= m)%nat -> (S m <= m + m)%nat.
 Proof.
   intros m Hm. lia.
 Qed.
 
+(** 1 ≤ 2ⁿ *)
 Lemma one_le_2_pow_n : forall n, (1 <= 2^n)%nat.
 Proof.
   induction n.
@@ -5385,6 +5646,7 @@ Proof.
   - simpl. rewrite Nat.add_0_r. eapply Nat.le_trans. exact IHn. apply Nat.le_add_r.
 Qed.
 
+(** n ≤ 2ⁿ *)
 Lemma n_le_2_pow_n : forall n, (n <= 2^n)%nat.
 Proof.
   induction n.
@@ -5395,11 +5657,13 @@ Proof.
     + apply S_m_le_double_m. apply one_le_2_pow_n.
 Qed.
 
+(** ∀ n, ∃ k, n ≤ 2ᵏ *)
 Lemma power_of_2_covers : forall n : nat, exists k : nat, (n <= 2^k)%nat.
 Proof.
   intro n. exists n. apply n_le_2_pow_n.
 Qed.
 
+(** EuclidNum x → ∃ n with euclidean_degree x n and n ≤ 2ᵏ for some k *)
 Theorem euclidean_field_degree_2n : forall x,
   EuclidNum x -> exists n : nat, euclidean_degree x n /\ exists k : nat, (n <= 2^k)%nat.
 Proof.
@@ -5410,6 +5674,7 @@ Proof.
   - apply power_of_2_covers.
 Qed.
 
+(** p₁/q₁ + p₂/q₂ = (p₁q₂ + p₂q₁)/(q₁q₂) *)
 Lemma rational_sum : forall p1 q1 p2 q2 : Z,
   (q1 <> 0)%Z -> (q2 <> 0)%Z ->
   IZR p1 / IZR q1 + IZR p2 / IZR q2 = IZR (p1 * q2 + p2 * q1) / IZR (q1 * q2).
@@ -5421,6 +5686,7 @@ Proof.
   field. split; assumption.
 Qed.
 
+(** (p₁/q₁)·(p₂/q₂) = (p₁p₂)/(q₁q₂) *)
 Lemma rational_product : forall p1 q1 p2 q2 : Z,
   (q1 <> 0)%Z -> (q2 <> 0)%Z ->
   (IZR p1 / IZR q1) * (IZR p2 / IZR q2) = IZR (p1 * p2) / IZR (q1 * q2).
@@ -5432,6 +5698,7 @@ Proof.
   field. split; assumption.
 Qed.
 
+(** (p/q)⁻¹ = q/p *)
 Lemma rational_inverse : forall p q : Z,
   (p <> 0)%Z -> (q <> 0)%Z ->
   / (IZR p / IZR q) = IZR q / IZR p.
@@ -5442,6 +5709,7 @@ Proof.
   field. split; assumption.
 Qed.
 
+(** ℤ ⊆ EuclidNum *)
 Lemma IZR_euclidean : forall z : Z, EuclidNum (IZR z).
 Proof.
   intro z.
@@ -5455,6 +5723,7 @@ Proof.
     apply EN_sub. assumption. constructor.
 Qed.
 
+(** ℚ ⊆ EuclidNum *)
 Lemma euclidean_contains_rationals : forall p q : Z,
   (q <> 0)%Z -> EuclidNum (IZR p / IZR q).
 Proof.
@@ -5471,19 +5740,21 @@ Qed.
 End Origami_Algebra.
 
 Section Reverse_Completeness.
+(** Partial converse: OrigamiNum base cases are constructible *)
 
-(** Partial converse: base origami numbers are constructible. *)
-
+(** 0 ∈ ConstructibleR *)
 Lemma constructible_from_0 : ConstructibleR 0.
 Proof.
   exists 0. constructor.
 Qed.
 
+(** 1 ∈ ConstructibleR *)
 Lemma constructible_from_1 : ConstructibleR 1.
 Proof.
   exists 0. constructor.
 Qed.
 
+(** OrigamiNum closed under + *)
 Lemma origami_sum : forall x y : R,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum (x + y).
 Proof.
@@ -5491,6 +5762,7 @@ Proof.
   apply ON_add; assumption.
 Qed.
 
+(** OrigamiNum closed under × *)
 Lemma origami_prod : forall x y : R,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum (x * y).
 Proof.
@@ -5498,6 +5770,7 @@ Proof.
   apply ON_mul; assumption.
 Qed.
 
+(** OrigamiNum closed under ⁻¹ *)
 Lemma origami_inv : forall x : R,
   OrigamiNum x -> x <> 0 -> OrigamiNum (/ x).
 Proof.
@@ -5505,6 +5778,7 @@ Proof.
   apply ON_inv; assumption.
 Qed.
 
+(** OrigamiNum closed under √ *)
 Lemma origami_sqrt : forall x : R,
   OrigamiNum x -> 0 <= x -> OrigamiNum (sqrt x).
 Proof.
@@ -5512,7 +5786,7 @@ Proof.
   apply ON_sqrt; assumption.
 Qed.
 
-(** Field closure: OrigamiNum is closed under field operations. *)
+(** OrigamiNum forms a field *)
 
 Theorem origami_field_0 : OrigamiNum 0.
 Proof. constructor. Qed.
@@ -5536,7 +5810,7 @@ Theorem origami_field_inv_closed : forall x,
   OrigamiNum x -> x <> 0 -> OrigamiNum (/ x).
 Proof. apply origami_inv. Qed.
 
-(** Cubic root closure. *)
+(** r³ + ar + b = 0 ∧ a,b ∈ OrigamiNum → r ∈ OrigamiNum *)
 Lemma cubic_root_closure : forall a b r,
   OrigamiNum a -> OrigamiNum b ->
   r * r * r + a * r + b = 0 ->
@@ -5546,7 +5820,7 @@ Proof.
   apply (ON_cubic_root a b r Ha Hb Heq).
 Qed.
 
-(** Helper: Line through two points on x-axis remains constructible. *)
+(** ConstructiblePoint (x₁,0) ∧ ConstructiblePoint (x₂,0) → ConstructibleLine through them *)
 Lemma line_through_x_axis : forall x1 x2,
   ConstructiblePoint (x1, 0) ->
   ConstructiblePoint (x2, 0) ->
@@ -5558,7 +5832,7 @@ Proof.
   apply CF_O1; assumption.
 Qed.
 
-(** Helper: Perpendicular bisector of two x-axis points is constructible. *)
+(** ConstructiblePoint (xᵢ,0) → ConstructibleLine perp_bisector *)
 Lemma perp_bisector_x_axis : forall x1 x2,
   ConstructiblePoint (x1, 0) ->
   ConstructiblePoint (x2, 0) ->
@@ -5570,14 +5844,14 @@ Proof.
   apply CF_O2; assumption.
 Qed.
 
-(** Midpoint formula on x-axis. *)
+(** midpoint((x₁,0),(x₂,0)) = ((x₁+x₂)/2, 0) *)
 Lemma midpoint_x_coords : forall x1 x2,
   midpoint (x1, 0) (x2, 0) = ((x1 + x2) / 2, 0).
 Proof.
   intros. unfold midpoint. simpl. f_equal. lra.
 Qed.
 
-(** Perpendicular bisector of x-axis points intersects x-axis at midpoint. *)
+(** midpoint((x₁,0),(x₂,0)) ∈ perp_bisector((x₁,0),(x₂,0)) *)
 Lemma perp_bisector_inter_x : forall x1 x2,
   on_line (midpoint (x1, 0) (x2, 0)) (perp_bisector (x1, 0) (x2, 0)).
 Proof.
@@ -5588,7 +5862,7 @@ Proof.
   - simpl. unfold Rdiv. nra.
 Qed.
 
-(** Bisector of x-axis and y-axis has A=-1, B=1, C=0. *)
+(** bisector(x-axis, y-axis) = -x + y = 0 *)
 Lemma bisector_xy_coeffs :
   A (bisector line_xaxis line_yaxis) = -1 /\
   B (bisector line_xaxis line_yaxis) = 1 /\
@@ -5610,7 +5884,7 @@ Proof.
     + simpl. split; [|split]; ring.
 Qed.
 
-(** Perpendicular through (1,0) to x-axis has A=1, B=0, C=-1. *)
+(** perp_through((1,0), x-axis) = x - 1 = 0 *)
 Lemma perp_X_xaxis_coeffs :
   A (perp_through point_X line_xaxis) = 1 /\
   B (perp_through point_X line_xaxis) = 0 /\
@@ -5623,7 +5897,7 @@ Proof.
   - exfalso. auto.
 Qed.
 
-(** Intersection of bisector y=x with line x=1 is (1,1). *)
+(** (-x+y=0) ∩ (x-1=0) = (1,1) *)
 Lemma inter_bisector_vert : forall l1 l2,
   A l1 = -1 -> B l1 = 1 -> C l1 = 0 ->
   A l2 = 1 -> B l2 = 0 -> C l2 = -1 ->
@@ -5637,7 +5911,7 @@ Proof.
   simpl. f_equal; unfold Rdiv; nra.
 Qed.
 
-(** Point (1,1) is constructible. *)
+(** (1,1) ∈ ConstructiblePoint *)
 Lemma construct_point_1_1 : ConstructiblePoint (1, 1).
 Proof.
   pose proof bisector_xy_coeffs as [Ha1 [Hb1 Hc1]].
@@ -5649,6 +5923,7 @@ Proof.
   - rewrite <- fold_line_O4. apply CL_fold. apply CF_O4. constructor. apply CL_x.
 Qed.
 
+(** 0 ∈ ConstructibleR ∧ 0 ∈ OrigamiNum *)
 Theorem construct_0_is_origami_num : ConstructibleR 0 /\ OrigamiNum 0.
 Proof.
   split.
@@ -5656,6 +5931,7 @@ Proof.
   - constructor.
 Qed.
 
+(** 1 ∈ ConstructibleR ∧ 1 ∈ OrigamiNum *)
 Theorem construct_1_is_origami_num : ConstructibleR 1 /\ OrigamiNum 1.
 Proof.
   split.
@@ -5663,6 +5939,7 @@ Proof.
   - constructor.
 Qed.
 
+(** (1,1) ∈ ConstructiblePoint ∧ (1,1) ∈ GoodPoint *)
 Theorem construct_pt_1_1_is_good : ConstructiblePoint (1, 1) /\ GoodPoint (1, 1).
 Proof.
   split.
@@ -5670,12 +5947,14 @@ Proof.
   - apply constructible_implies_origami. apply construct_point_1_1.
 Qed.
 
+(** ConstructibleR x → OrigamiNum x *)
 Theorem any_constructible_is_origami : forall x,
   ConstructibleR x -> OrigamiNum x.
 Proof.
   apply constructible_R_implies_origami.
 Qed.
 
+(** x ∈ OrigamiNum ∧ x ≥ 0 → √x ∈ OrigamiNum *)
 Lemma sqrt_of_origami_is_origami : forall x,
   OrigamiNum x -> 0 <= x -> OrigamiNum (sqrt x).
 Proof.
@@ -5683,6 +5962,7 @@ Proof.
   apply ON_sqrt; assumption.
 Qed.
 
+(** x,y ∈ OrigamiNum → x+y ∈ OrigamiNum *)
 Lemma sum_of_origami_is_origami : forall x y,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum (x + y).
 Proof.
@@ -5690,6 +5970,7 @@ Proof.
   apply ON_add; assumption.
 Qed.
 
+(** x,y ∈ OrigamiNum → x·y ∈ OrigamiNum *)
 Lemma product_of_origami_is_origami : forall x y,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum (x * y).
 Proof.
@@ -5697,6 +5978,7 @@ Proof.
   apply ON_mul; assumption.
 Qed.
 
+(** x ∈ OrigamiNum ∧ x ≠ 0 → x⁻¹ ∈ OrigamiNum *)
 Lemma inverse_of_origami_is_origami : forall x,
   OrigamiNum x -> x <> 0 -> OrigamiNum (/ x).
 Proof.
@@ -5704,6 +5986,7 @@ Proof.
   apply ON_inv; assumption.
 Qed.
 
+(** √2 ∈ OrigamiNum *)
 Theorem sqrt_2_is_constructible_origami : OrigamiNum (sqrt 2).
 Proof.
   apply ON_sqrt.
@@ -5711,6 +5994,7 @@ Proof.
   - lra.
 Qed.
 
+(** √3 ∈ OrigamiNum *)
 Theorem sqrt_3_is_origami : OrigamiNum (sqrt 3).
 Proof.
   apply ON_sqrt.
@@ -5718,6 +6002,7 @@ Proof.
   - lra.
 Qed.
 
+(** √5 ∈ OrigamiNum *)
 Theorem sqrt_5_is_origami : OrigamiNum (sqrt 5).
 Proof.
   apply ON_sqrt.
@@ -5726,6 +6011,7 @@ Proof.
   - lra.
 Qed.
 
+(** reflect((0,0), y=x) = (0,0) *)
 Lemma reflect_across_diagonal_1_1 :
   reflect_point (0, 0) (line_through (0, 0) (1, 1)) = (0, 0).
 Proof.
@@ -5733,6 +6019,7 @@ Proof.
   apply line_through_on_line_fst.
 Qed.
 
+(** reflect((1,0), y=x) = (0,1) *)
 Lemma reflect_point_X_across_diagonal :
   reflect_point (1, 0) (line_through (0, 0) (1, 1)) = (0, 1).
 Proof.
@@ -5752,6 +6039,7 @@ Proof.
   f_equal; unfold Rdiv; field.
 Qed.
 
+(** (0,1) ∈ ConstructiblePoint *)
 Lemma construct_point_0_1 : ConstructiblePoint (0, 1).
 Proof.
   replace (0, 1) with (map_point (fold_O1 (0, 0) (1, 1)) (1, 0)).
@@ -5762,29 +6050,33 @@ Proof.
     apply reflect_point_X_across_diagonal.
 Qed.
 
-(** Beloch configuration constructibility: P1 = (0,1) *)
+(** beloch_P1 = (0,1) ∈ ConstructiblePoint *)
 Lemma beloch_P1_constructible : ConstructiblePoint beloch_P1.
 Proof.
   unfold beloch_P1. apply construct_point_0_1.
 Qed.
 
+(** midpoint((x₁,0), (x₂,0)) has y-coordinate 0 *)
 Lemma midpoint_on_x_axis : forall x1 x2,
   snd (midpoint (x1, 0) (x2, 0)) = 0.
 Proof.
   intros. unfold midpoint. simpl. unfold Rdiv. ring.
 Qed.
 
+(** fst(midpoint((x₁,0), (x₂,0))) = (x₁+x₂)/2 *)
 Lemma midpoint_x_coord : forall x1 x2,
   fst (midpoint (x1, 0) (x2, 0)) = (x1 + x2) / 2.
 Proof.
   intros. unfold midpoint. simpl. reflexivity.
 Qed.
 
+(** midpoint((0,0), (2,0)) = (1,0) *)
 Lemma midpoint_0_2 : midpoint (0, 0) (2, 0) = (1, 0).
 Proof.
   unfold midpoint. simpl. f_equal; unfold Rdiv; field.
 Qed.
 
+(** (1,0) ∈ perp_bisector((0,0), (2,0)) *)
 Lemma perp_bisector_of_0_2_passes_through_1_0 :
   on_line (1, 0) (perp_bisector (0, 0) (2, 0)).
 Proof.
@@ -5792,6 +6084,7 @@ Proof.
   destruct (Req_EM_T 0 2); [exfalso; lra|]. simpl. ring.
 Qed.
 
+(** perp_bisector((0,0), (2,0)) is vertical: A=4, B=0 *)
 Lemma perp_bisector_0_2_is_vertical :
   A (perp_bisector (0, 0) (2, 0)) = 2 * 2 /\ B (perp_bisector (0, 0) (2, 0)) = 0.
 Proof.
@@ -5800,6 +6093,7 @@ Proof.
   split; simpl; ring.
 Qed.
 
+(** perp_bisector((0,0), (2,0)) is the line x = 1 *)
 Lemma vertical_line_at_x1 :
   forall x y, A (perp_bisector (0, 0) (2, 0)) * x + B (perp_bisector (0, 0) (2, 0)) * y + C (perp_bisector (0, 0) (2, 0)) = 0 <-> x = 1.
 Proof.
@@ -5813,6 +6107,7 @@ Proof.
   split; intro; lra.
 Qed.
 
+(** Algebraic simplification of reflection x-coordinate *)
 Lemma simplify_reflect_x_coord :
   forall a b c x y,
   a * a + b * b <> 0 ->
@@ -5822,6 +6117,7 @@ Proof.
   intros. unfold Rdiv. field. exact H.
 Qed.
 
+(** reflect((0,0), perp_bisector((1,0),(2,0))) = (3,0) *)
 Lemma reflect_0_across_perp_12 : reflect_point (0, 0) (perp_bisector (1, 0) (2, 0)) = (3, 0).
 Proof.
   unfold reflect_point, perp_bisector. simpl.
@@ -5829,6 +6125,7 @@ Proof.
   f_equal; unfold Rdiv; field_simplify; try lra; ring.
 Qed.
 
+(** reflect((0,0), x=1) = (2,0) *)
 Lemma reflect_0_across_x_eq_1 : reflect_point (0, 0) (perp_bisector (0, 0) (2, 0)) = (2, 0).
 Proof.
   unfold reflect_point, perp_bisector. simpl.
@@ -5836,6 +6133,7 @@ Proof.
   f_equal; unfold Rdiv; field_simplify; try lra; ring.
 Qed.
 
+(** perp_through((1,1), x-axis) ∩ x-axis = (1,0) *)
 Lemma line_perp_at_1_1_intersects_xaxis_at_1_0 :
   line_intersection (perp_through (1, 1) line_xaxis) line_xaxis = (1, 0).
 Proof.
@@ -5854,6 +6152,7 @@ Proof.
     reflexivity.
 Qed.
 
+(** perp_through((1,1), x-axis) ∈ ConstructibleLine *)
 Lemma line_perp_at_1_1_is_constructible :
   ConstructibleLine (perp_through (1, 1) line_xaxis).
 Proof.
@@ -5864,6 +6163,7 @@ Proof.
   - apply CL_x.
 Qed.
 
+(** (1,0) ∈ ConstructiblePoint *)
 Lemma construct_point_1_0 : ConstructiblePoint (1, 0).
 Proof.
   replace (1, 0) with (line_intersection (perp_through (1, 1) line_xaxis) line_xaxis).
@@ -5873,7 +6173,7 @@ Proof.
   - apply line_perp_at_1_1_intersects_xaxis_at_1_0.
 Qed.
 
-(** Arithmetic on x-axis: midpoint construction. *)
+(** x ≠ y → perp_bisector((x,0), (y,0)) is vertical *)
 Lemma perp_bisector_vertical : forall x y,
   x <> y -> A (perp_bisector (x, 0) (y, 0)) <> 0.
 Proof.
@@ -5883,7 +6183,7 @@ Proof.
   simpl. lra.
 Qed.
 
-(** Arithmetic on x-axis: doubling via reflection. *)
+(** reflect((0,0), x=x₀) = (2x₀, 0) *)
 Lemma reflect_origin_across_vertical : forall x,
   reflect_point (0, 0) (perp_through (x, 0) line_xaxis) = (2 * x, 0).
 Proof.
@@ -5892,6 +6192,7 @@ Proof.
   f_equal; field.
 Qed.
 
+(** (x,0) constructible → (2x,0) constructible *)
 Lemma double_xaxis_constructible : forall x,
   ConstructiblePoint (x, 0) ->
   ConstructiblePoint (2 * x, 0).
@@ -5902,12 +6203,14 @@ Proof.
   - unfold map_point, fold_O4, fold_line. apply reflect_origin_across_vertical.
 Qed.
 
+(** reflect((x,0), y-axis) = (-x, 0) *)
 Lemma reflect_across_yaxis : forall x,
   reflect_point (x, 0) line_yaxis = (- x, 0).
 Proof.
   intro x. unfold reflect_point, line_yaxis. simpl. f_equal; field.
 Qed.
 
+(** fold_O4(origin, x-axis) = y-axis *)
 Lemma fold_O4_origin_xaxis_is_yaxis :
   fold_line (fold_O4 point_O line_xaxis) = line_yaxis.
 Proof.
@@ -5915,6 +6218,7 @@ Proof.
   destruct (Req_EM_T 0 0); [|contradiction]. simpl. f_equal; ring.
 Qed.
 
+(** (x,0) constructible → (-x,0) constructible *)
 Lemma neg_xaxis_constructible : forall x,
   ConstructiblePoint (x, 0) -> ConstructiblePoint (- x, 0).
 Proof.
@@ -5924,6 +6228,7 @@ Proof.
   - unfold map_point. rewrite fold_O4_origin_xaxis_is_yaxis. apply reflect_across_yaxis.
 Qed.
 
+(** reflect((x,0), x=a) = (2a-x, 0) *)
 Lemma reflect_xaxis_across_vertical : forall x a,
   reflect_point (x, 0) (perp_through (a, 0) line_xaxis) = (2 * a - x, 0).
 Proof.
@@ -5931,7 +6236,7 @@ Proof.
   destruct (Req_EM_T 0 0); [|contradiction]. simpl. f_equal; field.
 Qed.
 
-(** Reflect across perp_bisector of two x-axis points. *)
+(** reflect((z,0), perp_bisector((x,0),(y,0))) = (x+y-z, 0) *)
 Lemma reflect_across_perp_bisector_xaxis : forall x y z,
   x <> y ->
   reflect_point (z, 0) (perp_bisector (x, 0) (y, 0)) = (x + y - z, 0).
@@ -5942,7 +6247,7 @@ Proof.
   f_equal; field; lra.
 Qed.
 
-(** Addition on x-axis when x ≠ y. *)
+(** x ≠ y ∧ (x,0),(y,0) constructible → (x+y,0) constructible *)
 Lemma add_xaxis_constructible_neq : forall x y,
   x <> y ->
   ConstructiblePoint (x, 0) ->
@@ -5958,7 +6263,7 @@ Proof.
     rewrite reflect_across_perp_bisector_xaxis by assumption. f_equal; ring.
 Qed.
 
-(** Addition on x-axis, general case. *)
+(** (x,0),(y,0) constructible → (x+y,0) constructible *)
 Lemma add_xaxis_constructible : forall x y,
   ConstructiblePoint (x, 0) ->
   ConstructiblePoint (y, 0) ->
@@ -5971,7 +6276,7 @@ Proof.
   - apply add_xaxis_constructible_neq; assumption.
 Qed.
 
-(** Subtraction on x-axis. *)
+(** (x,0),(y,0) constructible → (x-y,0) constructible *)
 Lemma sub_xaxis_constructible : forall x y,
   ConstructiblePoint (x, 0) ->
   ConstructiblePoint (y, 0) ->
@@ -5984,7 +6289,7 @@ Proof.
   - apply neg_xaxis_constructible. exact Hy.
 Qed.
 
-(** Reflection across diagonal y=x swaps coordinates. *)
+(** reflect((x,y), y=x) = (y,x) *)
 Lemma reflect_across_diagonal : forall x y,
   reflect_point (x, y) (line_through (0, 0) (1, 1)) = (y, x).
 Proof.
@@ -5994,13 +6299,13 @@ Proof.
   f_equal; field.
 Qed.
 
-(** Diagonal line is constructible. *)
+(** y = x ∈ ConstructibleLine *)
 Lemma diagonal_line_constructible : ConstructibleLine (line_through (0, 0) (1, 1)).
 Proof.
   rewrite <- fold_line_O1. apply CL_fold. apply CF_O1; [constructor | apply construct_point_1_1].
 Qed.
 
-(** Swapping coordinates preserves constructibility. *)
+(** (x,y) constructible → (y,x) constructible *)
 Lemma swap_coords_constructible : forall x y,
   ConstructiblePoint (x, y) -> ConstructiblePoint (y, x).
 Proof.
@@ -6010,47 +6315,47 @@ Proof.
   - unfold map_point, fold_O1, fold_line. apply reflect_across_diagonal.
 Qed.
 
-(** (0, y) constructible from (y, 0). *)
+(** (y,0) constructible → (0,y) constructible *)
 Lemma yaxis_from_xaxis : forall y,
   ConstructiblePoint (y, 0) -> ConstructiblePoint (0, y).
 Proof.
   intros y H. apply swap_coords_constructible. exact H.
 Qed.
 
-(** Beloch configuration: (0, -1) is constructible *)
+(** (0,-1) ∈ ConstructiblePoint *)
 Lemma construct_point_0_neg1 : ConstructiblePoint (0, -1).
 Proof.
   apply swap_coords_constructible.
   apply neg_xaxis_constructible. constructor.
 Qed.
 
-(** Vertical line through (x, 0) is constructible. *)
+(** (x,0) constructible → line x=x₀ constructible *)
 Lemma vertical_at_constructible : forall x,
   ConstructiblePoint (x, 0) -> ConstructibleLine (perp_through (x, 0) line_xaxis).
 Proof.
   intros x Hx. rewrite <- fold_line_O4. apply CL_fold. apply CF_O4; [exact Hx | apply CL_x].
 Qed.
 
-(** Horizontal line through (0, y) is constructible. *)
+(** (0,y) constructible → line y=y₀ constructible *)
 Lemma horizontal_at_constructible : forall y,
   ConstructiblePoint (0, y) -> ConstructibleLine (perp_through (0, y) line_yaxis).
 Proof.
   intros y Hy. rewrite <- fold_line_O4. apply CL_fold. apply CF_O4; [exact Hy | apply CL_y].
 Qed.
 
-(** Vertical line x=1. *)
+(** perp_through((1,0), x-axis) = {A:=1, B:=0, C:=-1} *)
 Lemma vertical_at_1 : perp_through (1, 0) line_xaxis = {| A := 1; B := 0; C := -1 |}.
 Proof.
   unfold perp_through, line_xaxis. simpl. f_equal; ring.
 Qed.
 
-(** Horizontal line y=c. *)
+(** perp_through((0,y), y-axis) = {A:=0, B:=-1, C:=y} *)
 Lemma horizontal_at_y : forall y, perp_through (0, y) line_yaxis = {| A := 0; B := -1; C := y |}.
 Proof.
   intro y. unfold perp_through, line_yaxis. simpl. f_equal; ring.
 Qed.
 
-(** Intersection of x=1 and y=c. *)
+(** (x=1) ∩ (y=c) = (1,c) *)
 Lemma intersection_vert_horiz : forall y,
   line_intersection (perp_through (1, 0) line_xaxis) (perp_through (0, y) line_yaxis) = (1, y).
 Proof.
@@ -6060,7 +6365,7 @@ Proof.
   - unfold Rdiv. f_equal; field; lra.
 Qed.
 
-(** Point (1, y) is constructible from (y, 0). *)
+(** (y,0) constructible → (1,y) constructible *)
 Lemma point_1_y_constructible : forall y,
   ConstructiblePoint (y, 0) -> ConstructiblePoint (1, y).
 Proof.
@@ -6071,7 +6376,7 @@ Proof.
   - apply horizontal_at_constructible. apply yaxis_from_xaxis. exact Hy.
 Qed.
 
-(** Line through origin and (1, y) is constructible. *)
+(** (y,0) constructible → line through (0,0) and (1,y) constructible *)
 Lemma line_through_origin_1y : forall y,
   ConstructiblePoint (y, 0) -> ConstructibleLine (line_through (0, 0) (1, y)).
 Proof.
@@ -6081,7 +6386,7 @@ Proof.
   - apply point_1_y_constructible. exact Hy.
 Qed.
 
-(** Intersection of line through origin with slope y and vertical at x gives (x, xy). *)
+(** y ≠ 0 → line(origin, (1,y)) ∩ (x=x₀) = (x₀, x₀·y) *)
 Lemma intersection_slope_vertical : forall x y,
   y <> 0 ->
   line_intersection (line_through (0, 0) (1, y)) (perp_through (x, 0) line_xaxis) = (x, x * y).
@@ -6094,7 +6399,7 @@ Proof.
   - unfold Rdiv. f_equal; field; lra.
 Qed.
 
-(** Point (x, xy) is constructible when y ≠ 0. *)
+(** y ≠ 0 ∧ (x,0),(y,0) constructible → (x, x·y) constructible *)
 Lemma point_x_xy_constructible : forall x y,
   y <> 0 ->
   ConstructiblePoint (x, 0) ->
@@ -6108,7 +6413,7 @@ Proof.
   - apply vertical_at_constructible. exact Hx.
 Qed.
 
-(** Horizontal through (a, b) intersects y-axis at (0, b). *)
+(** (y=b) ∩ (y-axis) = (0,b) *)
 Lemma horizontal_yaxis_intersection : forall a b,
   line_intersection (perp_through (a, b) line_yaxis) line_yaxis = (0, b).
 Proof.
@@ -6118,7 +6423,7 @@ Proof.
   - apply injective_projections; unfold fst, snd; field; lra.
 Qed.
 
-(** (0, b) from (a, b). *)
+(** (a,b) constructible → (0,b) constructible *)
 Lemma project_to_yaxis : forall a b,
   ConstructiblePoint (a, b) -> ConstructiblePoint (0, b).
 Proof.
@@ -6129,7 +6434,7 @@ Proof.
   - apply CL_y.
 Qed.
 
-(** (xy, 0) constructible from (x, 0), (y, 0) when y ≠ 0. *)
+(** y ≠ 0 ∧ (x,0),(y,0) constructible → (x·y,0) constructible *)
 Lemma mul_xaxis_constructible_neq : forall x y,
   y <> 0 ->
   ConstructiblePoint (x, 0) ->
@@ -6142,7 +6447,7 @@ Proof.
   apply point_x_xy_constructible; assumption.
 Qed.
 
-(** General multiplication on x-axis. *)
+(** (x,0),(y,0) constructible → (x·y,0) constructible *)
 Lemma mul_xaxis_constructible : forall x y,
   ConstructiblePoint (x, 0) ->
   ConstructiblePoint (y, 0) ->
@@ -6154,14 +6459,7 @@ Proof.
   - apply mul_xaxis_constructible_neq; assumption.
 Qed.
 
-(** Line through (0, 1) and (x, 0) intersects line y=1/x at (1, 1/x) when x ≠ 0.
-    Using similar triangles: the line from (0, 1) to (x, 0) has equation
-    X/x + Y/1 = 1, i.e., X + xY = x.
-    Intersecting with vertical X = 1 gives Y = (x-1)/x = 1 - 1/x.
-    We need a different approach. *)
-
-(** Inverse: line through (1, 1) and (x, 0) intersects y-axis at (0, 1/(1-x)) for x ≠ 1.
-    Using: line through (0, 0) and (1, x) intersected with y=1 gives (1/x, 1). *)
+(** x ≠ 0 → line(origin, (1,x)) ∩ (y=1) = (1/x, 1) *)
 Lemma intersection_origin_slope_horizontal : forall x,
   x <> 0 ->
   line_intersection (line_through (0, 0) (1, x)) (perp_through (0, 1) line_yaxis) = (1/x, 1).
@@ -6174,7 +6472,7 @@ Proof.
   - apply injective_projections; unfold fst, snd; field; lra.
 Qed.
 
-(** (a, 0) from (a, b). *)
+(** (a,b) constructible → (a,0) constructible *)
 Lemma project_to_xaxis : forall a b,
   ConstructiblePoint (a, b) -> ConstructiblePoint (a, 0).
 Proof.
@@ -6184,7 +6482,7 @@ Proof.
   apply swap_coords_constructible. exact Hab.
 Qed.
 
-(** Division on x-axis when y ≠ 0. *)
+(** y ≠ 0 ∧ (x,0),(y,0) constructible → (x/y,0) constructible *)
 Lemma div_xaxis_constructible : forall x y,
   y <> 0 ->
   ConstructiblePoint (x, 0) ->
@@ -6201,7 +6499,7 @@ Proof.
   - apply horizontal_at_constructible. apply construct_point_0_1.
 Qed.
 
-(** Intersection of vertical at x with horizontal at y gives (x, y). *)
+(** (x=x₀) ∩ (y=y₀) = (x₀,y₀) *)
 Lemma intersection_vert_at_horiz_at : forall x y,
   line_intersection (perp_through (x, 0) line_xaxis) (perp_through (0, y) line_yaxis) = (x, y).
 Proof.
@@ -6212,7 +6510,7 @@ Proof.
   - unfold Rdiv. f_equal; field; lra.
 Qed.
 
-(** Construct point (x, y) from (x, 0) and (0, y). *)
+(** (x,0),(0,y) constructible → (x,y) constructible *)
 Lemma point_xy_constructible : forall x y,
   ConstructiblePoint (x, 0) -> ConstructiblePoint (0, y) ->
   ConstructiblePoint (x, y).
@@ -6224,7 +6522,7 @@ Proof.
   - apply horizontal_at_constructible. exact Hy.
 Qed.
 
-(** Beloch configuration: P2 = (q, p) is constructible from (p,0), (q,0) *)
+(** (p,0),(q,0) constructible → beloch_P2(p,q) = (q,p) constructible *)
 Lemma beloch_P2_constructible : forall p q,
   ConstructiblePoint (p, 0) -> ConstructiblePoint (q, 0) ->
   ConstructiblePoint (beloch_P2 p q).
@@ -6236,14 +6534,14 @@ Proof.
   - apply yaxis_from_xaxis. exact Hp.
 Qed.
 
-(** Beloch L2 equals vertical line through (-q, 0) *)
+(** beloch_L2(q) = x = -q *)
 Lemma beloch_L2_eq_perp : forall q,
   beloch_L2 q = perp_through (-q, 0) line_xaxis.
 Proof.
   intro q. unfold beloch_L2, perp_through, line_xaxis. simpl. f_equal; ring.
 Qed.
 
-(** Beloch configuration: L2 is constructible from (q, 0) *)
+(** (q,0) constructible → beloch_L2(q) constructible *)
 Lemma beloch_L2_constructible : forall q,
   ConstructiblePoint (q, 0) -> ConstructibleLine (beloch_L2 q).
 Proof.
@@ -6253,7 +6551,7 @@ Proof.
   apply neg_xaxis_constructible. exact Hq.
 Qed.
 
-(** Lines with proportional coefficients represent same geometric line *)
+(** k ≠ 0 → p ∈ {A,B,C} ⟺ p ∈ {kA,kB,kC} *)
 Lemma on_line_scale : forall p a b c k,
   k <> 0 ->
   on_line p {| A := a; B := b; C := c |} <->
@@ -6262,7 +6560,7 @@ Proof.
   intros [x y] a b c k Hk. unfold on_line. simpl. split; intro H; nra.
 Qed.
 
-(** beloch_L1 is geometrically equivalent to perp_through (0,-1) line_yaxis *)
+(** p ∈ beloch_L1 ⟺ p ∈ perp_through((0,-1), y-axis) *)
 Lemma beloch_L1_equiv_perp : forall p,
   on_line p beloch_L1 <-> on_line p (perp_through (0, -1) line_yaxis).
 Proof.
@@ -6273,15 +6571,7 @@ Proof.
   unfold beloch_L1, on_line. simpl. split; intro H; lra.
 Qed.
 
-(** ================================================================
-    O6 BELOCH FOLD GEOMETRIC JUSTIFICATION
-
-    This theorem establishes that CF_O6_beloch is geometrically justified:
-    given constructible (p,0) and (q,0), the Beloch configuration
-    (P1, L1, P2, L2) is constructible, and the fold line satisfies
-    the O6 constraint when t is a cubic root.
-    ================================================================ *)
-
+(** t³+pt+q=0 → Beloch config constructible and fold satisfies O6 *)
 Theorem O6_beloch_geometric_justification : forall p q t,
   ConstructiblePoint (p, 0) ->
   ConstructiblePoint (q, 0) ->
@@ -6298,6 +6588,7 @@ Proof.
   apply beloch_fold_satisfies_O6. exact Hcubic.
 Qed.
 
+(** (x,0) constructible → (1+x,0) constructible *)
 Lemma construct_1_plus_x : forall x,
   ConstructiblePoint (x, 0) -> ConstructiblePoint (1 + x, 0).
 Proof.
@@ -6306,12 +6597,14 @@ Proof.
   apply add_xaxis_constructible; [exact Hx | constructor].
 Qed.
 
+(** (2,0) ∈ ConstructiblePoint *)
 Lemma construct_2_0 : ConstructiblePoint (2, 0).
 Proof.
   replace 2 with (1 + 1) by ring.
   apply construct_1_plus_x. constructor.
 Qed.
 
+(** x = 2 *)
 Definition line_vert_2 : Line := perp_through (2, 0) line_xaxis.
 
 Lemma line_vert_2_wf : line_wf line_vert_2.
@@ -6328,9 +6621,11 @@ Proof.
   - apply CL_x.
 Qed.
 
+(** O5 constraint: q ∈ crease ∧ reflect(p, crease) ∈ l *)
 Definition satisfies_O5_constraint (f : Fold) (p : Point) (l : Line) (q : Point) : Prop :=
   on_line q (fold_line f) /\ on_line (reflect_point p (fold_line f)) l.
 
+(** (1, √x) ∈ line_through((1+x,0), (1,√x)) *)
 Lemma geometric_mean_fold_line : forall x,
   0 < x ->
   let fold_ln := line_through (1 + x, 0) (1, sqrt x) in
@@ -6341,6 +6636,7 @@ Proof.
   apply line_through_on_line_snd.
 Qed.
 
+(** x > 0 → (1, √x) ≠ (1+x, 0) *)
 Lemma geometric_mean_point_wf : forall x,
   0 < x -> (1, sqrt x) <> (1 + x, 0).
 Proof.
@@ -6357,6 +6653,7 @@ Proof.
   apply line_through_wf.
 Qed.
 
+(** Explicit form of geometric mean construction line *)
 Lemma geometric_mean_line_form : forall x,
   0 < x ->
   line_through (1 + x, 0) (1, sqrt x) =
@@ -6369,6 +6666,7 @@ Proof.
   - f_equal; ring.
 Qed.
 
+(** x > 0 → reflect(origin, geometric_mean_line) = (2, 2√x) *)
 Lemma reflect_origin_geometric_mean : forall x,
   0 < x ->
   reflect_point (0, 0) (line_through (1 + x, 0) (1, sqrt x)) = (2, 2 * sqrt x).
@@ -6397,10 +6695,7 @@ Proof.
   f_equal; lra.
 Qed.
 
-(** Construction of sqrt on x-axis using geometric mean.
-    For x > 0, we use the fact that the line through (1+x, 0) and (1, sqrt x)
-    reflects the origin to (2, 2*sqrt x). We then project to get sqrt x. *)
-
+(** (x,0) constructible → (1+x,0) constructible *)
 Lemma construct_1_plus_x_point : forall x,
   ConstructiblePoint (x, 0) -> ConstructiblePoint (1 + x, 0).
 Proof.
@@ -6410,16 +6705,19 @@ Proof.
   - exact Hx.
 Qed.
 
+(** (-1,0) ∈ ConstructiblePoint *)
 Lemma construct_neg1_0 : ConstructiblePoint (-1, 0).
 Proof.
   apply neg_xaxis_constructible. constructor.
 Qed.
 
+(** (0,1) ∈ ConstructiblePoint *)
 Lemma construct_0_1 : ConstructiblePoint (0, 1).
 Proof.
   exact construct_point_0_1.
 Qed.
 
+(** x ≠ 0 → line_through((0,1), (x,0)) = {A:=1, B:=x, C:=-x} *)
 Lemma line_through_0_1_x_0 : forall x,
   x <> 0 ->
   line_through (0, 1) (x, 0) = {| A := 1; B := x; C := -x |}.
@@ -6430,6 +6728,7 @@ Proof.
   f_equal; ring.
 Qed.
 
+(** (x,0) constructible → line((0,1),(x,0)) constructible *)
 Lemma line_0_1_to_x_0_constructible : forall x,
   ConstructiblePoint (x, 0) ->
   ConstructibleLine (line_through (0, 1) (x, 0)).
@@ -6440,6 +6739,7 @@ Proof.
   - exact Hx.
 Qed.
 
+(** (x,0) constructible → perp_through((1,0), line((0,1),(x,0))) constructible *)
 Lemma perp_at_1_0_to_line_constructible : forall x,
   ConstructiblePoint (x, 0) ->
   ConstructibleLine (perp_through (1, 0) (line_through (0, 1) (x, 0))).
@@ -6450,6 +6750,7 @@ Proof.
   - apply line_0_1_to_x_0_constructible. exact Hx.
 Qed.
 
+(** x ≠ 0 → perp_through((1,0), line((0,1),(x,0))) explicit form *)
 Lemma perp_through_1_0_line_form : forall x,
   x <> 0 ->
   perp_through (1, 0) (line_through (0, 1) (x, 0)) = {| A := x; B := -1; C := -x |}.
@@ -6461,6 +6762,7 @@ Proof.
   f_equal; ring.
 Qed.
 
+(** x ≠ 0 → intersection of line and its perpendicular through (1,0) *)
 Lemma intersection_two_lines_formula : forall x,
   x <> 0 ->
   line_intersection (line_through (0, 1) (x, 0)) (perp_through (1, 0) (line_through (0, 1) (x, 0)))
@@ -6480,16 +6782,13 @@ Proof.
   - unfold Rdiv. field. lra.
 Qed.
 
-(** For the sqrt construction, we need a correct O5 implementation.
-    O5: Given point p, line l, point q, find fold through q that reflects p onto l.
-    The fold is the perpendicular bisector of p and p', where p' is on l
-    at distance dist(q,p) from q. *)
-
+(** y-coord of O5 image: qy + √(dist(p,q)² - (lx-qx)²) *)
 Definition O5_image_y (px py qx qy lx : R) : R :=
   let d := sqrt ((px - qx)^2 + (py - qy)^2) in
   let dx := lx - qx in
   qy + sqrt (d^2 - dx^2).
 
+(** O5 fold for vertical line x = l_vertical_x *)
 Definition fold_O5_correct (p : Point) (l_vertical_x : R) (q : Point) : Line :=
   let qx := fst q in
   let qy := snd q in
@@ -6501,12 +6800,14 @@ Definition fold_O5_correct (p : Point) (l_vertical_x : R) (q : Point) : Line :=
   let p' := (l_vertical_x, p'y) in
   perp_bisector p p'.
 
+(** √4 = 2 *)
 Lemma sqrt_4_eq : sqrt 4 = 2.
 Proof.
   replace 4 with (2 * 2) by ring.
   rewrite sqrt_square; lra.
 Qed.
 
+(** x > 0 → O5_image_y(0,0,1+x,0,2) = 2√x *)
 Lemma sqrt_O5_image_point : forall x,
   0 < x ->
   O5_image_y 0 0 (1 + x) 0 2 = 2 * sqrt x.
@@ -6522,6 +6823,7 @@ Proof.
   ring.
 Qed.
 
+(** x > 0 → O5 fold image y-coordinate = 2√x *)
 Lemma fold_O5_sqrt_image : forall x,
   0 < x ->
   let p'y := 0 + sqrt (sqrt ((0 - (1+x))^2 + (0-0)^2) * (sqrt ((0 - (1+x))^2 + (0-0)^2) * 1) - (2 - (1+x)) * ((2 - (1+x)) * 1)) in
@@ -6540,31 +6842,11 @@ Proof.
   lra.
 Qed.
 
-(** The O5 axiom asserts: given point p, line l, and point q,
-    there exists a fold through q that places p onto l.
-    This is a primitive origami operation. The fold is the perpendicular
-    bisector of p and its image on l (found by circle-line intersection).
-    We formalize this as constructibility of the resulting line. *)
-
-(** Main sqrt construction using geometric mean / O5.
-    The O5 axiom asserts: given p, l, q, there exists a fold through q
-    that places p onto l. This is a PRIMITIVE origami operation.
-
-    The fold is perp_bisector(p, p') where p' is on l at distance dist(q,p) from q.
-    The fold doesn't require computing p' explicitly - the paper "finds" it.
-
-    For our sqrt construction:
-    - p = (0,0), l = line x=2, q = (1+x, 0)
-    - The O5 fold reflects (0,0) to (2, 2*sqrt(x))
-    - This gives us (2, 2*sqrt(x)) constructible from the fold
-
-    We formalize this via CF_O5 asserting the fold is constructible,
-    and the reflected point is constructible via CP_map. *)
-
-(** Correct O5 fold line for the sqrt construction. *)
+(** perp_bisector((0,0), (2, 2√x)) *)
 Definition O5_sqrt_fold_line (x : R) : Line :=
   perp_bisector (0, 0) (2, 2 * sqrt x).
 
+(** x > 0 → (1+x, 0) ∈ O5_sqrt_fold_line(x) *)
 Lemma O5_sqrt_fold_passes_through_1px : forall x,
   0 < x ->
   on_line (1 + x, 0) (O5_sqrt_fold_line x).
@@ -6582,6 +6864,7 @@ Proof.
   ring.
 Qed.
 
+(** x > 0 → reflect(origin, O5_sqrt_fold_line(x)) = (2, 2√x) *)
 Lemma O5_sqrt_fold_reflects_origin : forall x,
   0 < x ->
   reflect_point (0, 0) (O5_sqrt_fold_line x) = (2, 2 * sqrt x).
@@ -6593,14 +6876,7 @@ Proof.
   intro H. injection H as H1 H2. lra.
 Qed.
 
-(** The O5 fold line is constructible via the O5 axiom.
-    We express this using the existing CF_O5 + the fact that
-    fold_O5 and O5_sqrt_fold_line have the same geometric meaning
-    (both are folds through (1+x,0) placing (0,0) onto line x=2). *)
-
-(** O5 axiom: The image (2, 2*sqrt(x)) of (0,0) under the O5 fold through (1+x,0)
-    placing (0,0) onto line x=2 is constructible. This is a primitive origami operation. *)
-
+(** x > 0 → O5 validity condition for sqrt construction *)
 Lemma O5_sqrt_validity : forall x,
   0 < x -> O5_vert_valid (0, 0) (1 + x, 0) 2.
 Proof.
@@ -6613,6 +6889,7 @@ Proof.
   exact H.
 Qed.
 
+(** x > 0 → O5_vert_image(origin, (1+x,0), 2) = (2, 2√x) *)
 Lemma O5_vert_image_eq_sqrt : forall x,
   0 < x ->
   O5_vert_image (0, 0) (1 + x, 0) 2 = (2, 2 * sqrt x).
@@ -6628,6 +6905,7 @@ Proof.
   ring.
 Qed.
 
+(** x > 0 → fold_O5_vert = O5_sqrt_fold_line *)
 Lemma fold_O5_vert_eq_sqrt : forall x,
   0 < x ->
   fold_line (fold_O5_vert (0, 0) (1 + x, 0) 2) = O5_sqrt_fold_line x.
@@ -6638,6 +6916,7 @@ Proof.
   apply O5_vert_image_eq_sqrt. lra.
 Qed.
 
+(** x > 0 ∧ (x,0) constructible → (2, 2√x) constructible *)
 Lemma O5_image_constructible : forall x,
   0 < x ->
   ConstructiblePoint (x, 0) ->
@@ -6659,6 +6938,7 @@ Proof.
   - constructor.
 Qed.
 
+(** x > 0 ∧ (x,0) constructible → (√x,0) constructible *)
 Lemma sqrt_xaxis_constructible_pos : forall x,
   0 < x ->
   ConstructiblePoint (x, 0) ->
@@ -6673,6 +6953,7 @@ Proof.
   apply div_xaxis_constructible; [lra | exact H2sqrtx_0 | exact construct_2_0].
 Qed.
 
+(** x ≥ 0 ∧ (x,0) constructible → (√x,0) constructible *)
 Lemma sqrt_xaxis_constructible : forall x,
   0 <= x ->
   ConstructiblePoint (x, 0) ->
@@ -6684,7 +6965,7 @@ Proof.
   - apply sqrt_xaxis_constructible_pos; [lra | exact Hx].
 Qed.
 
-(** Beloch fold line intersects x-axis at (t, 0) when t ≠ 0 *)
+(** t ≠ 0 → beloch_fold_line(t) ∩ x-axis = (t,0) *)
 Lemma beloch_fold_xaxis_intersection : forall t,
   t <> 0 ->
   line_intersection (beloch_fold_line t) line_xaxis = (t, 0).
@@ -6723,7 +7004,7 @@ Proof.
   - apply CL_x.
 Qed.
 
-(** EuclidNum implies ConstructibleR. *)
+(** EuclidNum x → ConstructibleR x *)
 Theorem EuclidNum_implies_ConstructibleR : forall x,
   EuclidNum x -> ConstructibleR x.
 Proof.
@@ -6752,7 +7033,7 @@ Proof.
     apply (project_to_xaxis x y1). exact H1.
 Qed.
 
-(** OrigamiNum implies ConstructibleR - the full converse. *)
+(** OrigamiNum x → ConstructibleR x *)
 Theorem OrigamiNum_implies_ConstructibleR : forall x,
   OrigamiNum x -> ConstructibleR x.
 Proof.
@@ -6791,13 +7072,13 @@ End Reverse_Completeness.
 
 Section Construction_Examples.
 
-(** Example: Point X = (1, 0) is a base constructible point. *)
+(** (1,0) ∈ ConstructiblePoint *)
 Example point_X_constructible : ConstructiblePoint point_X.
 Proof.
   constructor.
 Qed.
 
-(** Example: Line through O and X is constructible via fold operation O1. *)
+(** line(O,X) ∈ ConstructibleLine *)
 Example line_OX_constructible : ConstructibleLine (line_through point_O point_X).
 Proof.
   rewrite <- fold_line_O1.
@@ -6805,23 +7086,14 @@ Proof.
   apply CF_O1; constructor.
 Qed.
 
-(** Example: The real number 1 is origami-constructible (via point X). *)
+(** 1 ∈ ConstructibleR *)
 Example one_constructible : ConstructibleR 1.
 Proof.
   exists 0.
   constructor.
 Qed.
 
-(** Example: √2 is origami-constructible.
-
-    Construction via Pythagorean theorem:
-    1. Start with O = (0,0) and X = (1,0)
-    2. Construct Y = (0,1) by folding O onto X along the y-axis perpendicular bisector
-    3. Actually, simpler: Y = (1,1) is the reflection of O across the perpendicular bisector
-       of O and (1,0), but we need to be more careful.
-
-    Direct algebraic construction: √2 satisfies x² = 2, so √2 = sqrt(2).
-    Since 2 is origami-constructible and sqrt is closed under OrigamiNum, √2 is too. *)
+(** √2 ∈ OrigamiNum *)
 Example sqrt_2_constructible : OrigamiNum (sqrt 2).
 Proof.
   apply ON_sqrt.
@@ -6830,21 +7102,12 @@ Proof.
     apply Rplus_le_le_0_compat; apply Rle_0_1.
 Qed.
 
-(** Example: Geometric construction of a point with √2 as a coordinate.
-
-    Construction:
-    1. Start with O = (0,0) and X = (1,0) [base points]
-    2. Construct point Y = (0,1) on the y-axis
-    3. Fold O onto (2,0) to get perpendicular bisector at x = 1
-    4. This bisector intersects the line through O at 45° at point (1,1)
-    5. The distance from O to (1,1) is √(1² + 1²) = √2 
-**)
-
-
+(** Intersection of perpendiculars through X to both axes *)
 Definition sqrt_2_point : Point :=
   line_intersection (fold_line (fold_O4 point_X line_xaxis))
                     (fold_line (fold_O4 point_X line_yaxis)).
 
+(** sqrt_2_point ∈ ConstructiblePoint *)
 Example sqrt_2_point_constructible : ConstructiblePoint sqrt_2_point.
 Proof.
   unfold sqrt_2_point.
@@ -6858,7 +7121,7 @@ Proof.
     + constructor.
     + apply CL_y.
 Qed.
-(** Helper: perpendicular through (1,0) to x-axis has coefficients A=1, B=0, C=-1. *)
+(** perp_through(X, x-axis) = (A=1, B=0, C=-1) *)
 Lemma perp_x_at_X :
   A (perp_through point_X line_xaxis) = 1 /\
   B (perp_through point_X line_xaxis) = 0 /\
@@ -6871,7 +7134,7 @@ Proof.
   - exfalso. auto.
 Qed.
 
-(** Helper: perpendicular through (1,0) to y-axis has coefficients A=0, B=-1, C=0. *)
+(** perp_through(X, y-axis) = (A=0, B=-1, C=0) *)
 Lemma perp_y_at_X :
   A (perp_through point_X line_yaxis) = 0 /\
   B (perp_through point_X line_yaxis) = -1 /\
@@ -6884,7 +7147,7 @@ Proof.
   - simpl. repeat split; ring.
 Qed.
 
-(** Micro: / (-1) = -1. *)
+(** /(-1) = -1 *)
 Lemma Rinv_neg1 : / (-1) = -1.
 Proof.
   apply Rmult_eq_reg_l with (-1).
@@ -6892,25 +7155,25 @@ Proof.
   - lra.
 Qed.
 
-(** Micro: 1 * / (-1) = -1. *)
+(** 1 · /(-1) = -1 *)
 Lemma one_div_neg1 : 1 * / (-1) = -1.
 Proof.
   rewrite Rinv_neg1. lra.
 Qed.
 
-(** Micro: (-1) * / (-1) = 1. *)
+(** (-1) · /(-1) = 1 *)
 Lemma neg1_div_neg1 : (-1) * / (-1) = 1.
 Proof.
   rewrite Rinv_neg1. lra.
 Qed.
 
-(** Micro: - / (-1) = 1. *)
+(** -/(-1) = 1 *)
 Lemma neg_div_neg1 : - / (-1) = 1.
 Proof.
   rewrite Rinv_neg1. lra.
 Qed.
 
-(** Micro: (- (-1) * -1 - - 0 * 0) * / (1 * -1 - 0 * 0) = 1. *)
+(** (- (-1) · -1 - - 0 · 0) · / (1 · -1 - 0 · 0) = 1 *)
 Lemma inter_x_coord : (- (-1) * -1 - - 0 * 0) * / (1 * -1 - 0 * 0) = 1.
 Proof.
   assert (H1: - (-1) * -1 - - 0 * 0 = -1) by ring.
@@ -6918,7 +7181,7 @@ Proof.
   rewrite H1, H2. rewrite neg1_div_neg1. reflexivity.
 Qed.
 
-(** Micro: fst of line_intersection with A₁=1, B₁=0, C₁=-1, A₂=0, B₂=-1, C₂=0 is 1. *)
+(** fst(intersection of x=1 and y=0) = 1 *)
 Lemma line_inter_fst_1 : forall l1 l2,
   A l1 = 1 -> B l1 = 0 -> C l1 = -1 ->
   A l2 = 0 -> B l2 = -1 -> C l2 = 0 ->
@@ -6932,14 +7195,14 @@ Proof.
   simpl. apply inter_x_coord.
 Qed.
 
-(** Micro: (1 * - 0 - 0 * - (-1)) * / (1 * -1 - 0 * 0) = 0. *)
+(** (1 · -0 - 0 · -(-1)) · /(1 · -1 - 0 · 0) = 0 *)
 Lemma inter_y_coord : (1 * - 0 - 0 * - (-1)) * / (1 * -1 - 0 * 0) = 0.
 Proof.
   assert (H1: 1 * - 0 - 0 * - (-1) = 0) by ring.
   rewrite H1. ring.
 Qed.
 
-(** Micro: snd of line_intersection with A₁=1, B₁=0, C₁=-1, A₂=0, B₂=-1, C₂=0 is 0. *)
+(** snd(intersection of x=1 and y=0) = 0 *)
 Lemma line_inter_snd_0 : forall l1 l2,
   A l1 = 1 -> B l1 = 0 -> C l1 = -1 ->
   A l2 = 0 -> B l2 = -1 -> C l2 = 0 ->
@@ -6954,7 +7217,7 @@ Proof.
 Qed.
 
 
-(** The coordinates of sqrt_2_point are in OrigamiNum. *)
+(** fst(sqrt_2_point), snd(sqrt_2_point) ∈ OrigamiNum *)
 Lemma sqrt_2_point_good : GoodPoint sqrt_2_point.
 Proof.
   unfold sqrt_2_point.
@@ -6968,14 +7231,11 @@ Proof.
 Qed.
 
 
-(** Example: Construction of 1/2 using perpendicular bisector.
-
-    The perpendicular bisector of O=(0,0) and X=(1,0) intersects
-    the x-axis at (1/2, 0), demonstrating division by 2. *)
-
+(** perp_bisector(O,X) ∩ x-axis *)
 Definition point_half : Point :=
   line_intersection (perp_bisector point_O point_X) line_xaxis.
 
+(** point_half ∈ ConstructiblePoint *)
 Example point_half_constructible : ConstructiblePoint point_half.
 Proof.
   unfold point_half.
@@ -6986,6 +7246,7 @@ Proof.
   - apply CL_x.
 Qed.
 
+(** fst(point_half), snd(point_half) ∈ OrigamiNum *)
 Lemma point_half_good : GoodPoint point_half.
 Proof.
   unfold point_half.
@@ -6994,7 +7255,7 @@ Proof.
   - apply GoodLine_xaxis.
 Qed.
 
-(** Algebraic verification: 1/2 is origami-constructible *)
+(** 1/2 ∈ OrigamiNum *)
 Example half_constructible : OrigamiNum (1/2).
 Proof.
   unfold Rdiv.
@@ -7005,7 +7266,7 @@ Proof.
     + lra.
 Qed.
 
-(** Example: General rationals are constructible. Here we show 3/4. *)
+(** 3/4 ∈ OrigamiNum *)
 Example rational_3_4_constructible : OrigamiNum (3/4).
 Proof.
   unfold Rdiv.
@@ -7017,9 +7278,7 @@ Proof.
     + lra.
 Qed.
 
-(** Example: A specific cubic root is origami-constructible.
-    This demonstrates that origami can solve cubic equations,
-    enabling angle trisection (impossible with compass and straightedge). *)
+(** ∃ r ∈ OrigamiNum with r³ - 3r + 2 = 0 *)
 Example cubic_root_constructible :
   exists r : R, OrigamiNum r /\ r * r * r + (-3) * r + 2 = 0.
 Proof.
@@ -7029,8 +7288,7 @@ Proof.
   - lra.
 Qed.
 
-(** Lemma: Any root of a cubic x³ + ax + b = 0 with origami coefficients
-    is itself an origami number. This is the key to angle trisection. *)
+(** a,b ∈ OrigamiNum ∧ r³ + ar + b = 0 → r ∈ OrigamiNum *)
 Lemma cubic_root_origami : forall a b r,
   OrigamiNum a -> OrigamiNum b ->
   r * r * r + a * r + b = 0 ->
@@ -7040,7 +7298,7 @@ Proof.
   apply (ON_cubic_root a b r Ha Hb Hroot).
 Qed.
 
-(** Concrete O6-cubic bridge: O6 constraints produce cubic roots. *)
+(** O6 solves cubics: a,b ∈ OrigamiNum ∧ r³ + ar + b = 0 → r ∈ OrigamiNum *)
 Theorem O6_geometric_cubic_bridge : forall a b r,
   OrigamiNum a -> OrigamiNum b ->
   r * r * r + a * r + b = 0 ->
@@ -7049,14 +7307,7 @@ Proof.
   apply cubic_root_origami.
 Qed.
 
-(** Theorem: Angle trisection is possible with origami.
-
-    For a 60° angle (corresponding to cos(60°) = 1/2), trisection requires
-    constructing cos(20°), which satisfies the cubic equation:
-    8x³ - 6x - 1 = 0, or equivalently x³ + (-3/4)x + (-1/8) = 0.
-
-    Since origami can construct roots of cubics with rational coefficients,
-    and cos(20°) is such a root, angle trisection is origami-constructible. *)
+(** 8x³ - 6x - 1 = 0 → x ∈ OrigamiNum (angle trisection) *)
 Theorem angle_trisection_possible :
   forall cos_20 : R,
     8 * (cos_20 * cos_20 * cos_20) - 6 * cos_20 - 1 = 0 ->
@@ -7089,11 +7340,7 @@ Proof.
   field.
 Qed.
 
-(** Theorem: Cube duplication (Delian problem) is possible with origami.
-
-    Doubling a unit cube requires constructing ∛2, the real root of x³ - 2 = 0.
-    This is impossible with compass and straightedge but possible with origami
-    since ∛2 satisfies x³ + 0·x + (-2) = 0, a cubic with rational coefficients. *)
+(** x³ = 2 → x ∈ OrigamiNum (cube duplication / Delian problem) *)
 Theorem cube_duplication_possible :
   forall cbrt_2 : R,
     cbrt_2 * cbrt_2 * cbrt_2 = 2 ->
@@ -7110,15 +7357,7 @@ Proof.
     rewrite Hcube. lra.
 Qed.
 
-(** Example: Geometric construction approaching ∛2 using O6.
-
-    To construct ∛2, we need to solve x³ = 2, or x³ + 0x - 2 = 0.
-    O6 can solve this by finding a fold that simultaneously satisfies
-    two tangency constraints.
-
-    For demonstration, we show that the value satisfying this equation
-    is an origami number, assuming such a value exists. *)
-
+(** r³ = 2 → r ∈ OrigamiNum *)
 Lemma cbrt_2_is_origami : forall r : R,
   r * r * r = 2 ->
   OrigamiNum r.
@@ -7128,10 +7367,10 @@ Proof.
   exact Hr.
 Qed.
 
-(** Cube root existence via intermediate value theorem. *)
-
+(** x³ - 2 *)
 Definition cube_minus_2 (x : R) : R := x * x * x - 2.
 
+(** cube_minus_2 ∈ C⁰(ℝ) *)
 Lemma cube_minus_2_continuous : continuity cube_minus_2.
 Proof.
   unfold cube_minus_2.
@@ -7144,6 +7383,7 @@ Proof.
   - apply continuity_const. intro. reflexivity.
 Qed.
 
+(** ∃ r > 0 with r³ = 2 (via IVT) *)
 Theorem cube_root_2_exists : exists r : R, 0 < r /\ r * r * r = 2.
 Proof.
   assert (H0 : cube_minus_2 0 < 0).
@@ -7164,13 +7404,7 @@ Proof.
 Qed.
 
 
-(** Example: Angle trisection construction.
-
-    To trisect a 60° angle, we need to construct cos(20°).
-    The value cos(20°) satisfies: 8x³ - 6x - 1 = 0.
-
-    This lemma confirms that any such value is an origami number. *)
-
+(** 8x³ - 6x - 1 = 0 → x ∈ OrigamiNum *)
 Lemma cos_20_is_origami : forall x : R,
   8 * (x * x * x) - 6 * x - 1 = 0 ->
   OrigamiNum x.
@@ -7180,33 +7414,30 @@ Proof.
   exact Hx.
 Qed.
 
-(** ** Trigonometric Identities for Angle Trisection *)
-
 Section Trigonometric_Identities.
+(** Triple angle formula and trisection cubic *)
 
-(** Triple angle formula: cos(3θ) = 4cos³(θ) - 3cos(θ).
-    This is the fundamental identity connecting angle trisection to cubics. *)
+(** 4c³ - 3c (= cos(3θ) when c = cos(θ)) *)
 Definition triple_angle_poly (c : R) : R := 4 * c^3 - 3 * c.
 
+(** triple_angle_poly c = 4c³ - 3c *)
 Lemma triple_angle_poly_alt : forall c,
   triple_angle_poly c = 4 * c * c * c - 3 * c.
 Proof.
   intro c. unfold triple_angle_poly. ring.
 Qed.
 
-(** The equation cos(3θ) = k becomes: 4c³ - 3c = k where c = cos(θ).
-    To trisect angle α where cos(α) = k, solve: 4c³ - 3c - k = 0. *)
+(** 4c³ - 3c - k *)
 Definition trisection_cubic (k c : R) : R := 4 * c^3 - 3 * c - k.
 
+(** trisection_cubic k c = 0 ⟺ triple_angle_poly c = k *)
 Lemma trisection_cubic_root_iff : forall k c,
   trisection_cubic k c = 0 <-> triple_angle_poly c = k.
 Proof.
   intros k c. unfold trisection_cubic, triple_angle_poly. lra.
 Qed.
 
-(** Convert to depressed cubic form t³ + pt + q = 0.
-    From 4c³ - 3c - k = 0, divide by 4: c³ - (3/4)c - k/4 = 0.
-    This is depressed form with p = -3/4, q = -k/4. *)
+(** 4c³ - 3c - k = 0 ⟺ c³ + (-3/4)c + (-k/4) = 0 *)
 Lemma trisection_to_depressed : forall k c,
   trisection_cubic k c = 0 <->
   c^3 + (-3/4) * c + (-k/4) = 0.
@@ -7214,8 +7445,7 @@ Proof.
   intros k c. unfold trisection_cubic. split; intro H; lra.
 Qed.
 
-(** Key theorem: cos of trisected angle is origami-constructible
-    when the original angle has origami-constructible cosine. *)
+(** k ∈ OrigamiNum ∧ 4c³ - 3c - k = 0 → c ∈ OrigamiNum *)
 Theorem trisected_angle_constructible : forall k c,
   OrigamiNum k ->
   trisection_cubic k c = 0 ->
@@ -7231,16 +7461,14 @@ Proof.
   - replace (c * c * c) with (c^3) by ring. exact Hcubic.
 Qed.
 
-(** Specific case: trisecting 60° gives cos(20°).
-    cos(60°) = 1/2, so we solve 4c³ - 3c - 1/2 = 0, i.e., 8c³ - 6c - 1 = 0. *)
+(** 8c³ - 6c - 1 = 0 ⟺ trisection_cubic(1/2, c) = 0 *)
 Lemma cos_60_trisection : forall c,
   8 * c^3 - 6 * c - 1 = 0 <-> trisection_cubic (1/2) c = 0.
 Proof.
   intro c. unfold trisection_cubic. split; intro H; lra.
 Qed.
 
-(** Pythagorean identity: sin²(θ) + cos²(θ) = 1.
-    Given cos(θ), we can construct sin(θ) = ±√(1 - cos²(θ)). *)
+(** c ∈ OrigamiNum ∧ |c| ≤ 1 → √(1 - c²) ∈ OrigamiNum *)
 Lemma sin_from_cos_constructible : forall c,
   OrigamiNum c ->
   -1 <= c <= 1 ->
@@ -7257,29 +7485,21 @@ Qed.
 
 End Trigonometric_Identities.
 
-(** ** Regular Polygon Constructibility
-
-    The regular heptagon (7-sided polygon) is impossible to construct with
-    compass and straightedge because 7 is not a Fermat prime. However, it
-    IS constructible with origami because cos(2π/7) satisfies a cubic equation
-    with rational coefficients: 8x³ + 4x² - 4x - 1 = 0.
-
-    To use ON_cubic_root (which requires depressed form t³ + at + b = 0),
-    we apply the Tschirnhaus substitution t = c + 1/6, yielding:
-    t³ - (7/12)t - 7/216 = 0 *)
-
+(** 7 ∈ OrigamiNum *)
 Lemma Origami_seven : OrigamiNum 7.
 Proof.
   replace 7 with (3 + (2 + 2)) by lra.
   apply ON_add; [apply Origami_three | apply ON_add; apply Origami_two].
 Qed.
 
+(** 12 ∈ OrigamiNum *)
 Lemma Origami_twelve : OrigamiNum 12.
 Proof.
   replace 12 with (3 * (2 + 2)) by lra.
   apply ON_mul; [apply Origami_three | apply ON_add; apply Origami_two].
 Qed.
 
+(** 216 ∈ OrigamiNum *)
 Lemma Origami_216 : OrigamiNum 216.
 Proof.
   replace 216 with (8 * 27) by lra.
@@ -7292,6 +7512,7 @@ Proof.
     apply ON_mul; apply Origami_three.
 Qed.
 
+(** -7/12, -7/216 ∈ OrigamiNum *)
 Lemma heptagon_depressed_coeffs :
   OrigamiNum (-7/12) /\ OrigamiNum (-7/216).
 Proof.
@@ -7308,6 +7529,7 @@ Proof.
     + lra.
 Qed.
 
+(** 8c³ + 4c² - 4c - 1 = 0 → c ∈ OrigamiNum (regular heptagon) *)
 Theorem heptagon_constructible : forall c : R,
   8 * (c * c * c) + 4 * (c * c) - 4 * c - 1 = 0 ->
   OrigamiNum c.
@@ -7329,11 +7551,7 @@ Proof.
     apply ON_mul; [apply Origami_two | apply Origami_three] | lra].
 Qed.
 
-(** The regular nonagon (9-sided polygon) is also impossible with compass
-    and straightedge but constructible with origami. cos(2π/9) = cos(40°)
-    satisfies: 8x³ - 6x + 1 = 0. This is essentially angle trisection since
-    40° = 120°/3, and the nonagon vertex lies at angle 40° from center. *)
-
+(** 8c³ - 6c + 1 = 0 → c ∈ OrigamiNum (regular nonagon) *)
 Theorem nonagon_constructible : forall c : R,
   8 * (c * c * c) - 6 * c + 1 = 0 ->
   OrigamiNum c.
@@ -7357,11 +7575,7 @@ Proof.
   rewrite Heq. field.
 Qed.
 
-(** General theorem: A regular n-gon is origami-constructible whenever
-    cos(2π/n) satisfies a depressed cubic with origami-number coefficients.
-    This captures why origami can construct polygons impossible with
-    compass and straightedge (heptagon, nonagon, etc.). *)
-
+(** p,q ∈ OrigamiNum ∧ c³ + pc + q = 0 → c ∈ OrigamiNum *)
 Theorem polygon_cubic_constructible : forall (cos_val : R) (p q : R),
   OrigamiNum p -> OrigamiNum q ->
   cos_val * cos_val * cos_val + p * cos_val + q = 0 ->
@@ -7371,16 +7585,13 @@ Proof.
   apply (ON_cubic_root p q cos_val Hp Hq Heq).
 Qed.
 
-(** Tridecagon (13-gon): cos(2π/13) satisfies a degree-6 polynomial over ℚ
-    that factors into cubics. One factor: 8x³ + 4x² - 4x - 1 = 0 (same as heptagon!). *)
-
+(** 8c³ + 4c² - 4c - 1 = 0 → c ∈ OrigamiNum (tridecagon shares heptagon cubic) *)
 Theorem tridecagon_constructible : forall c : R,
   8 * (c * c * c) + 4 * (c * c) - 4 * c - 1 = 0 ->
   OrigamiNum c.
 Proof. exact heptagon_constructible. Qed.
 
-(** 19-gon: cos(2π/19) satisfies a degree-9 polynomial factoring into cubics. *)
-
+(** 8c³ - 6c - 1 = 0 → c ∈ OrigamiNum (enneadecagon / 19-gon) *)
 Theorem enneadecagon_constructible : forall c : R,
   8 * (c * c * c) - 6 * c - 1 = 0 ->
   OrigamiNum c.
@@ -7402,14 +7613,13 @@ Qed.
 End Construction_Examples.
 
 Section Computational_Geometry.
+(** Executable algorithms for geometric operations *)
 
-(** Concrete computations on origami constructions.
-
-    These provide executable algorithms for geometric operations. *)
-
+(** Alias for midpoint *)
 Definition compute_midpoint (p1 p2 : Point) : Point :=
   midpoint p1 p2.
 
+(** midpoint(O,X) = (1/2, 0) *)
 Example compute_half_point : compute_midpoint point_O point_X = (1/2, 0).
 Proof.
   unfold compute_midpoint, midpoint, point_O, point_X.
@@ -7417,9 +7627,11 @@ Proof.
   f_equal; field.
 Qed.
 
+(** Alias for perp_bisector *)
 Definition compute_perpbis (p1 p2 : Point) : Line :=
   perp_bisector p1 p2.
 
+(** sqrt_2_point ∈ ConstructiblePoint *)
 Lemma compute_sqrt2_approx : ConstructiblePoint sqrt_2_point.
 Proof.
   apply sqrt_2_point_constructible.
@@ -7428,21 +7640,9 @@ Qed.
 End Computational_Geometry.
 
 Section Topology_Continuity.
+(** Continuity of origami operations *)
 
-(** This section proves that origami operations are continuous functions.
-    We show that reflection, line intersection, and fold operations
-    preserve continuity, establishing the topological well-foundedness
-    of origami geometry. *)
-
-(** First, we prove that reflection is continuous in the point coordinate.
-
-    For fixed line l, the function reflect_point(_,l) : Point -> Point is
-    continuous. The proof uses that reflection is a composition of continuous
-    functions (addition, multiplication, division by nonzero constant). *)
-
-(**  Reflection preserves distances, so it is (uniformly) continuous.
-     For any ε > 0, we can take δ = ε because reflection is an isometry. *)
-
+(** x = y → √x = √y *)
 Lemma sqrt_equal : forall x y : R, x = y -> sqrt x = sqrt y.
 Proof.
   intros x y H.
@@ -7450,6 +7650,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** dist(p,q) = √(dist²(p,q)) *)
 Lemma dist_via_dist2 : forall p q : Point,
   dist p q = sqrt (dist2 p q).
 Proof.
@@ -7459,6 +7660,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** reflect_point(·,l) is uniformly continuous (isometry: δ = ε) *)
 Lemma reflect_point_continuous_in_point : forall (l : Line) (p0 : Point) (eps : R),
   line_wf l ->
   eps > 0 ->
@@ -7477,8 +7679,7 @@ Proof.
   exact Hdist.
 Qed.
 
-(** Corollary: map_point (folding) is continuous. *)
-
+(** map_point(f,·) is uniformly continuous *)
 Corollary map_point_continuous : forall (f : Fold) (p0 : Point) (eps : R),
   line_wf (fold_line f) ->
   eps > 0 ->
@@ -7495,22 +7696,20 @@ Qed.
 End Topology_Continuity.
 
 Section Algebraic_Characterization.
+(** Origami numbers ⟺ field extensions of degree 2^a · 3^b over ℚ (Alperin-Lang 2000) *)
 
-(** Alperin-Lang (2000): Origami numbers are exactly those constructible
-    by sequences of field extensions of degree 2 or 3 over ℚ. *)
-
-(** Field extension degree for Euclidean: always 2^n. *)
+(** Euclidean field extension degrees: 2ⁿ *)
 Inductive EuclideanDegree : nat -> Prop :=
 | ED_base : EuclideanDegree 1
 | ED_ext : forall n, EuclideanDegree n -> EuclideanDegree (2 * n).
 
-(** Field extension degree for Origami: products of 2s and 3s. *)
+(** Origami field extension degrees: 2^a · 3^b *)
 Inductive OrigamiDegree : nat -> Prop :=
 | OD_base : OrigamiDegree 1
 | OD_ext2 : forall n, OrigamiDegree n -> OrigamiDegree (2 * n)
 | OD_ext3 : forall n, OrigamiDegree n -> OrigamiDegree (3 * n).
 
-(** Every Euclidean degree is an Origami degree. *)
+(** EuclideanDegree n → OrigamiDegree n *)
 Lemma euclidean_degree_is_origami : forall n,
   EuclideanDegree n -> OrigamiDegree n.
 Proof.
@@ -7519,28 +7718,28 @@ Proof.
   - apply OD_ext2. exact IHEuclideanDegree.
 Qed.
 
-(** 3 is an Origami degree but not Euclidean (cube root). *)
+(** OrigamiDegree 3 (cube roots) *)
 Lemma three_is_origami_degree : OrigamiDegree 3.
 Proof.
   change 3%nat with (3 * 1)%nat.
   apply OD_ext3. constructor.
 Qed.
 
-(** 6 = 2 × 3 is Origami degree (heptagon). *)
+(** OrigamiDegree 6 = 2·3 *)
 Lemma six_is_origami_degree : OrigamiDegree 6.
 Proof.
   change 6%nat with (2 * 3)%nat.
   apply OD_ext2. apply three_is_origami_degree.
 Qed.
 
-(** 9 = 3 × 3 is Origami degree (19-gon factors). *)
+(** OrigamiDegree 9 = 3² *)
 Lemma nine_is_origami_degree : OrigamiDegree 9.
 Proof.
   change 9%nat with (3 * 3)%nat.
   apply OD_ext3. apply three_is_origami_degree.
 Qed.
 
-(** Powers of 2 are Origami degrees. *)
+(** OrigamiDegree 2^k *)
 Lemma pow2_is_origami_degree : forall k, OrigamiDegree (2^k).
 Proof.
   induction k.
@@ -7550,38 +7749,43 @@ Proof.
     apply OD_ext2. exact IHk.
 Qed.
 
-(** Heptagon: φ(7) = 6 = 2 × 3, not a power of 2, but Origami-constructible. *)
+(** φ(7) = 6 ∈ OrigamiDegree *)
 Example heptagon_degree : OrigamiDegree 6.
 Proof. exact six_is_origami_degree. Qed.
 
-(** Nonagon: φ(9) = 6 = 2 × 3, same structure as heptagon. *)
+(** φ(9) = 6 ∈ OrigamiDegree *)
 Example nonagon_degree : OrigamiDegree 6.
 Proof. exact six_is_origami_degree. Qed.
 
-(** 2-3 smooth: n = 2^a × 3^b for some a, b ≥ 0. *)
+(** n = 2^a · 3^b for some a,b ≥ 0 *)
 Definition is_2_3_smooth (n : nat) : Prop :=
   exists a b, n = (2^a * 3^b)%nat.
 
+(** is_2_3_smooth 1 *)
 Lemma is_2_3_smooth_1 : is_2_3_smooth 1.
 Proof. exists 0%nat, 0%nat. reflexivity. Qed.
 
+(** is_2_3_smooth 2 = 2¹·3⁰ *)
 Lemma is_2_3_smooth_2 : is_2_3_smooth 2.
 Proof. exists 1%nat, 0%nat. reflexivity. Qed.
 
+(** is_2_3_smooth 3 = 2⁰·3¹ *)
 Lemma is_2_3_smooth_3 : is_2_3_smooth 3.
 Proof. exists 0%nat, 1%nat. reflexivity. Qed.
 
+(** is_2_3_smooth 6 = 2¹·3¹ *)
 Lemma is_2_3_smooth_6 : is_2_3_smooth 6.
 Proof. exists 1%nat, 1%nat. reflexivity. Qed.
 
+(** is_2_3_smooth 12 = 2²·3¹ *)
 Lemma is_2_3_smooth_12 : is_2_3_smooth 12.
 Proof. exists 2%nat, 1%nat. reflexivity. Qed.
 
+(** is_2_3_smooth 18 = 2¹·3² *)
 Lemma is_2_3_smooth_18 : is_2_3_smooth 18.
 Proof. exists 1%nat, 2%nat. reflexivity. Qed.
 
-(** ** Decidable 2-3 Smoothness Check *)
-
+(** Repeatedly divide by 2 until odd *)
 Fixpoint remove_twos_aux (n fuel : nat) : nat :=
   match fuel with
   | O => n
@@ -7592,6 +7796,7 @@ Fixpoint remove_twos_aux (n fuel : nat) : nat :=
 
 Definition remove_twos (n : nat) : nat := remove_twos_aux n n.
 
+(** Repeatedly divide by 3 until not divisible *)
 Fixpoint remove_threes_aux (n fuel : nat) : nat :=
   match fuel with
   | O => n
@@ -7602,6 +7807,7 @@ Fixpoint remove_threes_aux (n fuel : nat) : nat :=
 
 Definition remove_threes (n : nat) : nat := remove_threes_aux n n.
 
+(** 3^(S b) · x = 3 · (3^b · x) *)
 Lemma pow3_S_mul : forall b x : nat, (3 ^ S b * x = 3 * (3 ^ b * x))%nat.
 Proof.
   intros b x.
@@ -7610,12 +7816,14 @@ Proof.
   - simpl. lia.
 Qed.
 
+(** Boolean test for 2-3 smoothness *)
 Definition is_2_3_smooth_b (n : nat) : bool :=
   match n with
   | O => false
   | _ => Nat.eqb (remove_threes (remove_twos n)) 1
   end.
 
+(** n ≥ 1 → ∃ a, n = 2^a · remove_twos_aux(n) ∧ remove_twos_aux(n) is odd *)
 Lemma remove_twos_aux_spec : forall n fuel,
   (n >= 1)%nat -> (fuel >= n)%nat ->
   exists a, (n = 2^a * remove_twos_aux n fuel)%nat /\ Nat.odd (remove_twos_aux n fuel) = true.
@@ -7646,6 +7854,7 @@ Proof.
       rewrite <- Nat.negb_even. rewrite Heven. reflexivity.
 Qed.
 
+(** n ≥ 1 → ∃ a, n = 2^a · remove_twos(n) ∧ remove_twos(n) is odd *)
 Lemma remove_twos_spec : forall n,
   (n >= 1)%nat ->
   exists a, (n = 2^a * remove_twos n)%nat /\ Nat.odd (remove_twos n) = true.
@@ -7654,6 +7863,7 @@ Proof.
   apply remove_twos_aux_spec; lia.
 Qed.
 
+(** k ≥ 1 → ∃ b, k = 3^b · remove_threes_aux(k) ∧ (result mod 3 ≠ 0 ∨ result = 1) *)
 Lemma remove_threes_aux_spec : forall k fuel,
   (k >= 1)%nat -> (fuel >= k)%nat ->
   exists b, (k = 3^b * remove_threes_aux k fuel)%nat /\ (remove_threes_aux k fuel mod 3 <> 0 \/ remove_threes_aux k fuel = 1)%nat.
@@ -7693,6 +7903,7 @@ Proof.
       split; [simpl; lia | left; exact Hmod3].
 Qed.
 
+(** m ≥ 1 → ∃ b, m = 3^b · remove_threes(m) ∧ (result mod 3 ≠ 0 ∨ result = 1) *)
 Lemma remove_threes_spec : forall m,
   (m >= 1)%nat ->
   exists b, (m = 3^b * remove_threes m)%nat /\ (remove_threes m mod 3 <> 0 \/ remove_threes m = 1)%nat.
@@ -7701,6 +7912,7 @@ Proof.
   apply remove_threes_aux_spec; lia.
 Qed.
 
+(** n ≥ 1 → remove_twos(n) ≥ 1 *)
 Lemma remove_twos_pos : forall n, (n >= 1)%nat -> (remove_twos n >= 1)%nat.
 Proof.
   intros n Hn.
@@ -7708,6 +7920,7 @@ Proof.
   destruct (remove_twos n); [simpl in Hodd; discriminate | lia].
 Qed.
 
+(** n odd → remove_twos_aux(n) = n *)
 Lemma remove_twos_aux_odd : forall n fuel,
   (n >= 1)%nat -> Nat.odd n = true -> remove_twos_aux n fuel = n.
 Proof.
@@ -7720,12 +7933,14 @@ Proof.
     rewrite Heven. reflexivity.
 Qed.
 
+(** n odd → remove_twos(n) = n *)
 Lemma remove_twos_odd : forall n,
   (n >= 1)%nat -> Nat.odd n = true -> remove_twos n = n.
 Proof.
   intros n Hn Hodd. unfold remove_twos. apply remove_twos_aux_odd; assumption.
 Qed.
 
+(** 3^b is odd *)
 Lemma pow3_odd : forall b, Nat.odd (3 ^ b) = true.
 Proof.
   induction b.
@@ -7735,11 +7950,13 @@ Proof.
     rewrite IHb. simpl. reflexivity.
 Qed.
 
+(** 3^b ≥ 1 *)
 Lemma pow3_pos : forall b, (3 ^ b >= 1)%nat.
 Proof.
   induction b; simpl; lia.
 Qed.
 
+(** b ≥ 1 → 3^b mod 3 = 0 *)
 Lemma pow3_mod3 : forall b, (b >= 1)%nat -> (3 ^ b mod 3 = 0)%nat.
 Proof.
   intros b Hb. destruct b; [lia|].
@@ -7747,6 +7964,7 @@ Proof.
   now rewrite Nat.Div0.mod_mul.
 Qed.
 
+(** 3^(S b) / 3 = 3^b *)
 Lemma pow3_div3 : forall b, (3 ^ S b / 3 = 3 ^ b)%nat.
 Proof.
   intro b.
@@ -7755,6 +7973,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** remove_threes_aux(3^b) = 1 *)
 Lemma remove_threes_aux_pow3 : forall b fuel,
   (fuel >= 3^b)%nat -> remove_threes_aux (3^b) fuel = 1%nat.
 Proof.
@@ -7775,17 +7994,20 @@ Proof.
       lia.
 Qed.
 
+(** remove_threes(3^b) = 1 *)
 Lemma remove_threes_pow3 : forall b, remove_threes (3^b) = 1%nat.
 Proof.
   intro b. unfold remove_threes.
   apply remove_threes_aux_pow3. lia.
 Qed.
 
+(** 2^a ≥ 1 *)
 Lemma pow2_pos : forall a, (2 ^ a >= 1)%nat.
 Proof.
   induction a; simpl; lia.
 Qed.
 
+(** a ≥ 1 ∧ odd(m) → div2(2^a · m) = 2^(a-1) · m *)
 Lemma pow2_mul_odd_div2 : forall a m,
   (a >= 1)%nat -> Nat.odd m = true ->
   Nat.div2 (2 ^ a * m) = (2 ^ (a - 1) * m)%nat.
@@ -7799,6 +8021,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** a ≥ 1 ∧ odd(m) → even(2^a · m) *)
 Lemma pow2_mul_odd_even : forall a m,
   (a >= 1)%nat -> Nat.odd m = true ->
   Nat.even (2 ^ a * m) = true.
@@ -7809,6 +8032,7 @@ Proof.
   rewrite Nat.even_mul. simpl. reflexivity.
 Qed.
 
+(** odd(m) → remove_twos_aux(2^a · m) = m *)
 Lemma remove_twos_aux_pow2_mul : forall a m fuel,
   Nat.odd m = true -> (m >= 1)%nat -> (fuel >= 2^a * m)%nat ->
   remove_twos_aux (2^a * m) fuel = m.
@@ -7832,6 +8056,7 @@ Proof.
       lia.
 Qed.
 
+(** odd(m) → remove_twos(2^a · m) = m *)
 Lemma remove_twos_pow2_mul : forall a m,
   Nat.odd m = true -> (m >= 1)%nat ->
   remove_twos (2^a * m) = m.
@@ -7841,6 +8066,7 @@ Proof.
   lia.
 Qed.
 
+(** is_2_3_smooth_b n = true → is_2_3_smooth n *)
 Lemma is_2_3_smooth_b_reflects : forall n,
   is_2_3_smooth_b n = true -> is_2_3_smooth n.
 Proof.
@@ -7856,6 +8082,7 @@ Proof.
   rewrite Ha, Hb, H. lia.
 Qed.
 
+(** is_2_3_smooth n → is_2_3_smooth_b n = true *)
 Lemma is_2_3_smooth_b_complete : forall n,
   is_2_3_smooth n -> is_2_3_smooth_b n = true.
 Proof.
@@ -7875,6 +8102,7 @@ Proof.
     + apply pow3_pos.
 Qed.
 
+(** is_2_3_smooth_b n = true ⟺ is_2_3_smooth n *)
 Theorem is_2_3_smooth_b_correct : forall n,
   is_2_3_smooth_b n = true <-> is_2_3_smooth n.
 Proof.
@@ -7883,6 +8111,7 @@ Proof.
   - apply is_2_3_smooth_b_complete.
 Qed.
 
+(** is_2_3_smooth_b n = false ⟺ ¬is_2_3_smooth n *)
 Corollary is_2_3_smooth_b_false : forall n,
   is_2_3_smooth_b n = false <-> ~ is_2_3_smooth n.
 Proof.
@@ -7892,7 +8121,7 @@ Proof.
     exfalso. apply Hns. apply is_2_3_smooth_b_reflects. exact Hb.
 Qed.
 
-(** Decide smoothness by computation. *)
+(** Tactic: decide is_2_3_smooth by computation *)
 Ltac decide_smooth :=
   match goal with
   | |- is_2_3_smooth ?n =>
@@ -7909,7 +8138,6 @@ Ltac decide_smooth :=
     end
   end.
 
-(** Examples using automation. *)
 Example smooth_4 : is_2_3_smooth 4. Proof. decide_smooth. Qed.
 Example smooth_8 : is_2_3_smooth 8. Proof. decide_smooth. Qed.
 Example smooth_9 : is_2_3_smooth 9. Proof. decide_smooth. Qed.
@@ -7925,7 +8153,7 @@ Example not_smooth_10 : ~ is_2_3_smooth 10. Proof. decide_smooth. Qed.
 Example not_smooth_11 : ~ is_2_3_smooth 11. Proof. decide_smooth. Qed.
 Example not_smooth_14 : ~ is_2_3_smooth 14. Proof. decide_smooth. Qed.
 
-(** 2-3 smooth implies OrigamiDegree. *)
+(** is_2_3_smooth n → OrigamiDegree n *)
 Lemma smooth_implies_origami_degree : forall n,
   is_2_3_smooth n -> OrigamiDegree n.
 Proof.
@@ -7941,7 +8169,7 @@ Proof.
     apply OD_ext2. exact IHa.
 Qed.
 
-(** OrigamiDegree implies 2-3 smooth. *)
+(** OrigamiDegree n → is_2_3_smooth n *)
 Lemma origami_degree_implies_smooth : forall n,
   OrigamiDegree n -> is_2_3_smooth n.
 Proof.
@@ -7953,7 +8181,7 @@ Proof.
     exists a, (S b). simpl. rewrite Nat.add_0_r. lia.
 Qed.
 
-(** Equivalence: OrigamiDegree ↔ is_2_3_smooth. *)
+(** OrigamiDegree n ⟺ is_2_3_smooth n *)
 Theorem origami_degree_iff_smooth : forall n,
   OrigamiDegree n <-> is_2_3_smooth n.
 Proof.
@@ -7962,7 +8190,7 @@ Proof.
   - exact (smooth_implies_origami_degree n).
 Qed.
 
-(** Max of OrigamiDegrees is OrigamiDegree. *)
+(** OrigamiDegree n ∧ OrigamiDegree m → OrigamiDegree (max n m) *)
 Lemma OrigamiDegree_max : forall n m,
   OrigamiDegree n -> OrigamiDegree m -> OrigamiDegree (Nat.max n m).
 Proof.
@@ -7970,7 +8198,7 @@ Proof.
   destruct (Nat.max_spec n m) as [[_ Heq] | [_ Heq]]; rewrite Heq; assumption.
 Qed.
 
-(** OrigamiNum_deg degrees are always OrigamiDegree (2^a × 3^b). *)
+(** OrigamiNum_deg x n → OrigamiDegree n *)
 Theorem OrigamiNum_deg_has_OrigamiDegree : forall x n,
   OrigamiNum_deg x n -> OrigamiDegree n.
 Proof.
@@ -7985,7 +8213,7 @@ Proof.
   - apply OD_ext3. apply OrigamiDegree_max; assumption.
 Qed.
 
-(** Combined: OrigamiNum_deg links OrigamiNum to OrigamiDegree. *)
+(** OrigamiNum_deg x n → OrigamiNum x ∧ OrigamiDegree n *)
 Corollary OrigamiNum_has_smooth_degree : forall x n,
   OrigamiNum_deg x n -> OrigamiNum x /\ OrigamiDegree n.
 Proof.
@@ -7994,7 +8222,7 @@ Proof.
   - apply OrigamiNum_deg_has_OrigamiDegree with x. exact H.
 Qed.
 
-(** Main algebraic characterization: every OrigamiNum has 2-3 smooth degree. *)
+(** OrigamiNum x → ∃ n, is_2_3_smooth n *)
 Theorem OrigamiNum_algebraic_characterization : forall x,
   OrigamiNum x -> exists n, is_2_3_smooth n.
 Proof.
@@ -8005,62 +8233,66 @@ Proof.
   apply (OrigamiNum_deg_has_OrigamiDegree x n Hn).
 Qed.
 
-(** n-gon criterion: constructible if φ(n) is 2-3 smooth. *)
+(** n-gon constructible ⟺ ∃ d, is_2_3_smooth d ∧ OrigamiDegree d *)
 Definition ngon_origami_constructible (n : nat) : Prop :=
   exists d, is_2_3_smooth d /\ OrigamiDegree d.
 
+(** 7-gon: φ(7) = 6 = 2·3 *)
 Lemma heptagon_criterion : ngon_origami_constructible 7.
 Proof. exists 6%nat. split; [exact is_2_3_smooth_6 | exact six_is_origami_degree]. Qed.
 
+(** 9-gon: φ(9) = 6 = 2·3 *)
 Lemma nonagon_criterion : ngon_origami_constructible 9.
 Proof. exists 6%nat. split; [exact is_2_3_smooth_6 | exact six_is_origami_degree]. Qed.
 
-(** Euler totient: count of k ≤ n with gcd(k,n) = 1. *)
+(** gcd(a,b) = 1 *)
 Definition coprime (a b : nat) : bool := Nat.gcd a b =? 1.
 
+(** Count of k ∈ [1,k] with gcd(k,n) = 1 *)
 Fixpoint count_coprime (n k : nat) : nat :=
   match k with
   | 0 => 0
   | S k' => (if coprime (S k') n then 1 else 0) + count_coprime n k'
   end.
 
+(** φ(n) = |{k ∈ [1,n] : gcd(k,n) = 1}| *)
 Definition euler_phi (n : nat) : nat := count_coprime n n.
 
-Lemma phi_1 : euler_phi 1 = 1%nat.
-Proof. reflexivity. Qed.
+(** φ(1) = 1 *)
+Lemma phi_1 : euler_phi 1 = 1%nat. Proof. reflexivity. Qed.
 
-Lemma phi_2 : euler_phi 2 = 1%nat.
-Proof. reflexivity. Qed.
+(** φ(2) = 1 *)
+Lemma phi_2 : euler_phi 2 = 1%nat. Proof. reflexivity. Qed.
 
-Lemma phi_3 : euler_phi 3 = 2%nat.
-Proof. reflexivity. Qed.
+(** φ(3) = 2 *)
+Lemma phi_3 : euler_phi 3 = 2%nat. Proof. reflexivity. Qed.
 
-Lemma phi_5 : euler_phi 5 = 4%nat.
-Proof. reflexivity. Qed.
+(** φ(5) = 4 *)
+Lemma phi_5 : euler_phi 5 = 4%nat. Proof. reflexivity. Qed.
 
-Lemma phi_7 : euler_phi 7 = 6%nat.
-Proof. reflexivity. Qed.
+(** φ(7) = 6 *)
+Lemma phi_7 : euler_phi 7 = 6%nat. Proof. reflexivity. Qed.
 
-Lemma phi_9 : euler_phi 9 = 6%nat.
-Proof. reflexivity. Qed.
+(** φ(9) = 6 *)
+Lemma phi_9 : euler_phi 9 = 6%nat. Proof. reflexivity. Qed.
 
-Lemma phi_11 : euler_phi 11 = 10%nat.
-Proof. reflexivity. Qed.
+(** φ(11) = 10 *)
+Lemma phi_11 : euler_phi 11 = 10%nat. Proof. reflexivity. Qed.
 
-Lemma phi_13 : euler_phi 13 = 12%nat.
-Proof. reflexivity. Qed.
+(** φ(13) = 12 *)
+Lemma phi_13 : euler_phi 13 = 12%nat. Proof. reflexivity. Qed.
 
-Lemma phi_17 : euler_phi 17 = 16%nat.
-Proof. reflexivity. Qed.
+(** φ(17) = 16 *)
+Lemma phi_17 : euler_phi 17 = 16%nat. Proof. reflexivity. Qed.
 
-Lemma phi_19 : euler_phi 19 = 18%nat.
-Proof. reflexivity. Qed.
+(** φ(19) = 18 *)
+Lemma phi_19 : euler_phi 19 = 18%nat. Proof. reflexivity. Qed.
 
-(** Primality: p > 1 and only divisors are 1 and p. *)
+(** p > 1 ∧ (d | p → d = 1 ∨ d = p) *)
 Definition is_prime (p : nat) : Prop :=
   (p > 1)%nat /\ forall d, (d > 0)%nat -> (Nat.divide d p -> d = 1%nat \/ d = p).
 
-(** For prime p, gcd(k, p) = 1 iff k is not divisible by p. *)
+(** is_prime p ∧ 0 < k < p → gcd(k,p) = 1 *)
 Lemma coprime_prime_iff : forall p k,
   is_prime p -> (0 < k < p)%nat -> Nat.gcd k p = 1%nat.
 Proof.
@@ -8078,7 +8310,7 @@ Proof.
     + assert (k >= p)%nat by nia. lia.
 Qed.
 
-(** Count of coprimes from 1 to p-1 for prime p equals p-1. *)
+(** is_prime p ∧ k < p → count_coprime p k = k *)
 Lemma count_coprime_prime_aux : forall p k,
   is_prime p -> (k < p)%nat ->
   count_coprime p k = k.
@@ -8093,7 +8325,7 @@ Proof.
     rewrite IHk by lia. reflexivity.
 Qed.
 
-(** φ(p) = p - 1 for prime p. *)
+(** is_prime p → φ(p) = p - 1 *)
 Theorem phi_prime : forall p,
   is_prime p -> euler_phi p = (p - 1)%nat.
 Proof.
@@ -8111,7 +8343,7 @@ Proof.
   - lia.
 Qed.
 
-(** gcd(k, m*n) = 1 iff gcd(k,m) = 1 and gcd(k,n) = 1. *)
+(** gcd(k, m·n) = 1 ⟺ gcd(k,m) = 1 ∧ gcd(k,n) = 1 *)
 Lemma coprime_mul_iff : forall k m n,
   Nat.gcd k (m * n) = 1%nat <-> Nat.gcd k m = 1%nat /\ Nat.gcd k n = 1%nat.
 Proof.
@@ -8151,7 +8383,7 @@ Proof.
     rewrite Hm in Hdgkm. apply Nat.divide_1_r in Hdgkm. exact Hdgkm.
 Qed.
 
-(** coprime k n = true iff Nat.gcd k n = 1. *)
+(** coprime k n = true ⟺ gcd(k,n) = 1 *)
 Lemma coprime_iff_gcd_1 : forall k n,
   coprime k n = true <-> Nat.gcd k n = 1%nat.
 Proof.
@@ -8160,7 +8392,7 @@ Proof.
   - intro H. apply Nat.eqb_eq. exact H.
 Qed.
 
-(** coprime k (m*n) = coprime k m && coprime k n. *)
+(** coprime k (m·n) = coprime k m && coprime k n *)
 Lemma coprime_mul : forall k m n,
   coprime k (m * n) = (coprime k m && coprime k n)%bool.
 Proof.
@@ -8188,7 +8420,7 @@ Proof.
     unfold coprime in Hkmn. rewrite Hboth in Hkmn. simpl in Hkmn. discriminate.
 Qed.
 
-(** Key lemma: gcd(k, n) depends only on k mod n. *)
+(** gcd(k, n) = gcd(k mod n, n) *)
 Lemma gcd_mod : forall k n, (n > 0)%nat -> Nat.gcd k n = Nat.gcd (k mod n) n.
 Proof.
   intros k n Hn.
@@ -8198,25 +8430,26 @@ Proof.
   reflexivity.
 Qed.
 
-(** Computational verification: φ(2·3) = φ(2)·φ(3). *)
+(** φ(6) = φ(2)·φ(3) *)
 Lemma phi_mult_2_3 : euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat.
 Proof. reflexivity. Qed.
 
-(** Computational verification: φ(2·5) = φ(2)·φ(5). *)
+(** φ(10) = φ(2)·φ(5) *)
 Lemma phi_mult_2_5 : euler_phi (2 * 5) = (euler_phi 2 * euler_phi 5)%nat.
 Proof. reflexivity. Qed.
 
-(** Computational verification: φ(3·5) = φ(3)·φ(5). *)
+(** φ(15) = φ(3)·φ(5) *)
 Lemma phi_mult_3_5 : euler_phi (3 * 5) = (euler_phi 3 * euler_phi 5)%nat.
 Proof. reflexivity. Qed.
 
-(** Computational verification: φ(3·7) = φ(3)·φ(7). *)
+(** φ(21) = φ(3)·φ(7) *)
 Lemma phi_mult_3_7 : euler_phi (3 * 7) = (euler_phi 3 * euler_phi 7)%nat.
 Proof. reflexivity. Qed.
 
-(** ** Chinese Remainder Theorem Machinery for φ multiplicativity *)
+Section CRT_Machinery.
+(** Chinese Remainder Theorem machinery for φ multiplicativity *)
 
-(** Key: gcd(k, m) depends only on k mod m *)
+(** gcd(k, m) = gcd(k mod m, m) *)
 Lemma coprime_mod_equiv : forall k m,
   (m > 0)%nat -> Nat.gcd k m = Nat.gcd (k mod m) m.
 Proof.
@@ -8227,10 +8460,10 @@ Proof.
   reflexivity.
 Qed.
 
-(** CRT residue pair: maps k to (k mod m, k mod n) *)
+(** k ↦ (k mod m, k mod n) *)
 Definition crt_pair (m n k : nat) : nat * nat := (k mod m, k mod n).
 
-(** For coprime m, n: k coprime to mn iff coprime to both m and n *)
+(** gcd(k, m·n) = 1 ⟺ gcd(k,m) = 1 ∧ gcd(k,n) = 1 *)
 Lemma coprime_product_iff : forall k m n,
   (m > 0)%nat -> (n > 0)%nat ->
   (Nat.gcd k (m * n) = 1)%nat <-> (Nat.gcd k m = 1 /\ Nat.gcd k n = 1)%nat.
@@ -8239,7 +8472,7 @@ Proof.
   apply coprime_mul_iff.
 Qed.
 
-(** Coprimality with m depends only on residue mod m *)
+(** gcd(k,m) = 1 ⟺ gcd(k mod m, m) = 1 *)
 Lemma coprime_residue : forall k m,
   (m > 0)%nat ->
   (Nat.gcd k m = 1)%nat <-> (Nat.gcd (k mod m) m = 1)%nat.
@@ -8249,7 +8482,7 @@ Proof.
   tauto.
 Qed.
 
-(** Bézout identity: gcd(m,n) = u*m - v*n or v*n - u*m for some u,v *)
+(** ∃ u v, u·m = gcd(m,n) + v·n *)
 Lemma bezout_gcd : forall m n,
   (m > 0)%nat ->
   exists u v, (u * m = Nat.gcd m n + v * n)%nat.
@@ -8260,7 +8493,7 @@ Proof.
   exact Heq.
 Qed.
 
-(** When gcd(m,n) = 1 and m > 0, Bézout gives u*m = 1 + v*n *)
+(** gcd(m,n) = 1 → ∃ u v, u·m = 1 + v·n *)
 Lemma bezout_coprime : forall m n,
   (m > 0)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8273,7 +8506,7 @@ Proof.
   exact Heq.
 Qed.
 
-(** Helper: (a * b * m) mod m = 0 *)
+(** (a·b·m) mod m = 0 *)
 Lemma mod_mul_zero : forall a b m,
   (m > 0)%nat -> ((a * b * m) mod m = 0)%nat.
 Proof.
@@ -8283,7 +8516,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: if u*m = 1 + v*n, then (u*m) mod n = 1 (when n > 1) *)
+(** u·m = 1 + v·n → (u·m) mod n = 1 *)
 Lemma bezout_mod_one : forall u v m n,
   (n > 1)%nat ->
   (u * m = 1 + v * n)%nat ->
@@ -8299,7 +8532,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: if c mod m = 1, then (a * c) mod m = a mod m *)
+(** c mod m = 1 → (a·c) mod m = a mod m *)
 Lemma mul_mod_one : forall a c m,
   (m > 0)%nat ->
   (c mod m = 1)%nat ->
@@ -8313,7 +8546,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: if a mod m = 0, then (a + b) mod m = b mod m *)
+(** a mod m = 0 → (a + b) mod m = b mod m *)
 Lemma add_mod_zero_l : forall a b m,
   (m > 0)%nat ->
   (a mod m = 0)%nat ->
@@ -8327,7 +8560,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: if b mod m = 0, then (a + b) mod m = a mod m *)
+(** b mod m = 0 → (a + b) mod m = a mod m *)
 Lemma add_mod_zero_r : forall a b m,
   (m > 0)%nat ->
   (b mod m = 0)%nat ->
@@ -8338,7 +8571,7 @@ Proof.
   apply add_mod_zero_l; assumption.
 Qed.
 
-(** Helper: (a * k) mod n = a mod n when k mod n = 1 *)
+(** k mod n = 1 → (a·k) mod n = a mod n *)
 Lemma mul_by_one_mod : forall a k n,
   (n > 0)%nat ->
   (k mod n = 1)%nat ->
@@ -8352,7 +8585,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: (a * (u * m)) mod n = a mod n when u*m = 1 + v*n *)
+(** u·m = 1 + v·n → (a·(u·m)) mod n = a mod n *)
 Lemma crt_first_residue : forall a u v m n,
   (n > 1)%nat ->
   (u * m = 1 + v * n)%nat ->
@@ -8364,7 +8597,7 @@ Proof.
   - apply (bezout_mod_one u v m n Hn Heq).
 Qed.
 
-(** Helper: (k * m) mod m = 0 *)
+(** (k·m) mod m = 0 *)
 Lemma mul_mod_self : forall k m,
   (m > 0)%nat ->
   ((k * m) mod m = 0)%nat.
@@ -8374,7 +8607,7 @@ Proof.
   lia.
 Qed.
 
-(** When gcd(m,n)=1, m has multiplicative inverse u mod n with (u*m) mod n = 1 *)
+(** gcd(m,n) = 1 → ∃ u, (u·m) mod n = 1 *)
 Lemma mod_inverse_exists : forall m n,
   (m > 0)%nat -> (n > 1)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8386,7 +8619,7 @@ Proof.
   apply (bezout_mod_one u v m n Hn Heq).
 Qed.
 
-(** Scaling by inverse: (u * b * m) mod n = b mod n when (u*m) mod n = 1 *)
+(** (u·m) mod n = 1 → (u·b·m) mod n = b mod n *)
 Lemma scale_by_inverse : forall u b m n,
   (n > 0)%nat ->
   ((u * m) mod n = 1)%nat ->
@@ -8397,7 +8630,7 @@ Proof.
   apply mul_by_one_mod; assumption.
 Qed.
 
-(** For coprime m, n: can achieve any residue b mod n via m * t *)
+(** gcd(m,n) = 1 ∧ b < n → ∃ t, (m·t) mod n = b *)
 Lemma achieve_residue : forall m n b,
   (m > 0)%nat -> (n > 1)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8413,7 +8646,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: (a + n - b) mod n = (a - b) mod n when a >= b, else (a + n - b) mod n *)
+(** (a + n - b) mod n = (a + (n - b)) mod n *)
 Lemma sub_mod_helper : forall a b n,
   (n > 0)%nat -> (b < n)%nat ->
   ((a + n - b) mod n = (a + (n - b)) mod n)%nat.
@@ -8423,7 +8656,7 @@ Proof.
   lia.
 Qed.
 
-(** Helper: (a + m * t) mod m = a mod m *)
+(** (a + m·t) mod m = a mod m *)
 Lemma add_mul_mod : forall a m t,
   (m > 0)%nat ->
   ((a + m * t) mod m = a mod m)%nat.
@@ -8438,8 +8671,7 @@ Proof.
 Qed.
 
 (** (a + n) mod n = a mod n *)
-Lemma mod_add_self : forall a n,
-  (n > 0)%nat -> ((a + n) mod n = a mod n)%nat.
+Lemma mod_add_self : forall a n, (n > 0)%nat -> ((a + n) mod n = a mod n)%nat.
 Proof.
   intros a n Hn.
   rewrite Nat.add_mod by lia.
@@ -8449,15 +8681,14 @@ Proof.
   lia.
 Qed.
 
-(** When b < n: (b + n - b) = n *)
-Lemma add_sub_cancel : forall b n,
-  (b < n)%nat -> (b + n - b = n)%nat.
+(** b < n → b + n - b = n *)
+Lemma add_sub_cancel : forall b n, (b < n)%nat -> (b + n - b = n)%nat.
 Proof.
   intros b n Hb.
   lia.
 Qed.
 
-(** CRT special case: k = 0 is the unique k < m*n with k mod m = 0 and k mod n = 0 *)
+(** 0 mod m = 0 ∧ 0 mod n = 0 *)
 Lemma crt_zero_zero : forall m n,
   (m > 0)%nat -> (n > 0)%nat ->
   (0 mod m = 0 /\ 0 mod n = 0)%nat.
@@ -8466,7 +8697,7 @@ Proof.
   split; apply Nat.mod_0_l; lia.
 Qed.
 
-(** Helper: k mod (m*n) mod m = k mod m *)
+(** (k mod (m·n)) mod m = k mod m *)
 Lemma mod_mul_mod_l : forall val mod1 mod2,
   (mod1 > 0)%nat -> (mod2 > 0)%nat ->
   ((val mod (mod1 * mod2)) mod mod1 = val mod mod1)%nat.
@@ -8492,7 +8723,7 @@ Proof.
   reflexivity.
 Qed.
 
-(** Helper: k mod (m*n) mod n = k mod n *)
+(** (k mod (m·n)) mod n = k mod n *)
 Lemma mod_mul_mod_r : forall val mod1 mod2,
   (mod1 > 0)%nat -> (mod2 > 0)%nat ->
   ((val mod (mod1 * mod2)) mod mod2 = val mod mod2)%nat.
@@ -8502,7 +8733,7 @@ Proof.
   apply mod_mul_mod_l; lia.
 Qed.
 
-(** Euclidean division: a = m * (a/m) + (a mod m) *)
+(** a = m·(a/m) + (a mod m) *)
 Lemma div_mod_eq : forall a m,
   (m > 0)%nat -> (a = m * (a / m) + a mod m)%nat.
 Proof.
@@ -8511,7 +8742,7 @@ Proof.
   lia.
 Qed.
 
-(** If a mod m = b mod m with a >= b, then m divides (a - b) *)
+(** a mod m = b mod m ∧ a ≥ b → m | (a - b) *)
 Lemma mod_eq_divides : forall a b m,
   (m > 0)%nat -> (a >= b)%nat ->
   (a mod m = b mod m)%nat ->
@@ -8528,7 +8759,7 @@ Proof.
   nia.
 Qed.
 
-(** If both m and n divide d with gcd(m,n)=1, then m*n divides d *)
+(** gcd(m,n) = 1 ∧ m|d ∧ n|d → m·n | d *)
 Lemma coprime_divides_mul : forall m n d,
   (m > 0)%nat -> (n > 0)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8548,7 +8779,7 @@ Proof.
   subst d. rewrite Hq. ring.
 Qed.
 
-(** Small divisor lemma: if m*n divides d and d < m*n then d = 0 *)
+(** m·n | d ∧ d < m·n → d = 0 *)
 Lemma small_multiple_zero : forall m n d,
   (m > 0)%nat -> (n > 0)%nat ->
   Nat.divide (m * n) d -> (d < m * n)%nat -> d = 0%nat.
@@ -8559,8 +8790,7 @@ Proof.
   lia.
 Qed.
 
-(** CRT Injectivity: if k₁ ≡ k₂ (mod m) and k₁ ≡ k₂ (mod n) with gcd(m,n)=1,
-    and both k₁, k₂ < m*n, then k₁ = k₂ *)
+(** gcd(m,n)=1 ∧ k₁,k₂ < m·n ∧ k₁≡k₂ (mod m) ∧ k₁≡k₂ (mod n) → k₁=k₂ *)
 Lemma crt_injectivity : forall m n k1 k2,
   (m > 0)%nat -> (n > 0)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8593,7 +8823,7 @@ Proof.
     lia.
 Qed.
 
-(** Helper: adding n then subtracting r mod n gives offset to reach target b *)
+(** (r + ((t + n - r) mod n)) mod n = t *)
 Lemma mod_add_sub_cancel : forall res_val tgt_val mod_val,
   (mod_val > 0)%nat -> (res_val < mod_val)%nat -> (tgt_val < mod_val)%nat ->
   ((res_val + (tgt_val + mod_val - res_val) mod mod_val) mod mod_val = tgt_val)%nat.
@@ -8630,8 +8860,7 @@ Proof.
     rewrite Hsmall. reflexivity.
 Qed.
 
-(** CRT Existence: for any residues a < m and b < n with gcd(m,n)=1,
-    there exists k < m*n with k mod m = a and k mod n = b *)
+(** gcd(m,n)=1 ∧ a<m ∧ b<n → ∃ k<m·n, k≡a (mod m) ∧ k≡b (mod n) *)
 Lemma crt_existence : forall m n a b,
   (m > 1)%nat -> (n > 1)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8668,7 +8897,7 @@ Proof.
     apply mod_add_sub_cancel; lia.
 Qed.
 
-(** CRT preserves coprimality: gcd(k, m*n) = 1 iff gcd(k mod m, m) = 1 and gcd(k mod n, n) = 1 *)
+(** gcd(k, m·n)=1 ⟺ gcd(k mod m, m)=1 ∧ gcd(k mod n, n)=1 *)
 Lemma crt_coprime_iff : forall m n k,
   (m > 1)%nat -> (n > 1)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8689,35 +8918,39 @@ Proof.
     + rewrite coprime_mod_equiv by lia. exact Hkn.
 Qed.
 
-(** Computational verification of φ multiplicativity for specific values.
-    The general proof would require a full bijection argument via CRT;
-    these computations demonstrate the property holds. *)
-
+(** φ(6) = φ(2)·φ(3) *)
 Lemma euler_phi_2_3 : euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(10) = φ(2)·φ(5) *)
 Lemma euler_phi_2_5 : euler_phi (2 * 5) = (euler_phi 2 * euler_phi 5)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(14) = φ(2)·φ(7) *)
 Lemma euler_phi_2_7 : euler_phi (2 * 7) = (euler_phi 2 * euler_phi 7)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(15) = φ(3)·φ(5) *)
 Lemma euler_phi_3_5 : euler_phi (3 * 5) = (euler_phi 3 * euler_phi 5)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(21) = φ(3)·φ(7) *)
 Lemma euler_phi_3_7 : euler_phi (3 * 7) = (euler_phi 3 * euler_phi 7)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(18) = φ(2)·φ(9) *)
 Lemma euler_phi_2_9 : euler_phi (2 * 9) = (euler_phi 2 * euler_phi 9)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(36) = φ(4)·φ(9) *)
 Lemma euler_phi_4_9 : euler_phi (4 * 9) = (euler_phi 4 * euler_phi 9)%nat.
 Proof. reflexivity. Qed.
 
+(** φ(72) = φ(8)·φ(9) *)
 Lemma euler_phi_8_9 : euler_phi (8 * 9) = (euler_phi 8 * euler_phi 9)%nat.
 Proof. reflexivity. Qed.
 
-(** count_coprime counts elements with coprime property *)
+(** count_coprime n 0 = 0 *)
 Lemma count_coprime_0 : forall n, count_coprime n 0 = 0%nat.
 Proof. reflexivity. Qed.
 
@@ -8725,14 +8958,14 @@ Lemma count_coprime_S : forall n k,
   count_coprime n (S k) = ((if coprime (S k) n then 1 else 0) + count_coprime n k)%nat.
 Proof. reflexivity. Qed.
 
-(** count_coprime n (S k) = count_coprime n k + contribution from S k *)
+(** count_coprime n (S k) = count_coprime n k + (1 if coprime else 0) *)
 Lemma count_coprime_split : forall n k,
   count_coprime n (S k) = (count_coprime n k + if coprime (S k) n then 1 else 0)%nat.
 Proof.
   intros n k. rewrite count_coprime_S. lia.
 Qed.
 
-(** coprime 1 n = true for all n > 0 *)
+(** n > 0 → coprime 1 n = true *)
 Lemma coprime_1_l : forall n, (n > 0)%nat -> coprime 1 n = true.
 Proof.
   intros n Hn.
@@ -8742,7 +8975,7 @@ Proof.
   rewrite Hgcd. reflexivity.
 Qed.
 
-(** gcd n 1 = 1, proved using gcd_comm and gcd_1_l *)
+(** gcd(n, 1) = 1 *)
 Lemma gcd_n_1 : forall n, Nat.gcd n 1 = 1%nat.
 Proof.
   intro n.
@@ -8759,7 +8992,7 @@ Proof.
   reflexivity.
 Qed.
 
-(** count_coprime 1 k = k for all k *)
+(** count_coprime 1 k = k *)
 Lemma count_coprime_1 : forall k, count_coprime 1 k = k.
 Proof.
   intro k.
@@ -8775,7 +9008,7 @@ Qed.
 Lemma euler_phi_1 : euler_phi 1 = 1%nat.
 Proof. reflexivity. Qed.
 
-(** n-gon origami-constructible iff φ(n) is 2-3 smooth. *)
+(** n-gon origami-constructible ⟺ is_2_3_smooth(φ(n)) *)
 Definition ngon_constructible_iff_phi_smooth (n : nat) : Prop :=
   is_2_3_smooth (euler_phi n).
 
@@ -8797,12 +9030,11 @@ Proof. unfold ngon_constructible_iff_phi_smooth. exact is_2_3_smooth_16. Qed.
 Lemma enneadecagon_phi_smooth : ngon_constructible_iff_phi_smooth 19.
 Proof. unfold ngon_constructible_iff_phi_smooth. exact is_2_3_smooth_18. Qed.
 
-(** Decide n-gon constructibility by computation. *)
+(** Tactic: decide n-gon constructibility by computation *)
 Ltac decide_ngon :=
   unfold ngon_constructible_iff_phi_smooth;
   decide_smooth.
 
-(** n-gon constructibility via automation. *)
 Example ngon_7_constructible : ngon_constructible_iff_phi_smooth 7.
 Proof. decide_ngon. Qed.
 
@@ -8833,12 +9065,11 @@ Proof. decide_ngon. Qed.
 Example ngon_29_not_constructible : ~ ngon_constructible_iff_phi_smooth 29.
 Proof. decide_ngon. Qed.
 
-(** n-gon constructible iff φ(n) is 2-3 smooth.
-    cos(2π/n) generates extension of degree φ(n)/2 over ℚ. *)
-
+(** cos(2π/n) ∈ OrigamiNum *)
 Definition ngon_vertex_constructible (n : nat) (cos_val : R) : Prop :=
   OrigamiNum cos_val.
 
+(** n ≥ 3 ∧ cos(2π/n) ∈ OrigamiNum → ∃ d, OrigamiNum_deg(cos, d) ∧ OrigamiDegree(d) *)
 Theorem ngon_constructible_characterization : forall n cos_2pi_n,
   (n >= 3)%nat ->
   ngon_vertex_constructible n cos_2pi_n ->
@@ -8851,6 +9082,7 @@ Proof.
   - apply OrigamiNum_deg_has_OrigamiDegree with cos_val. exact Hd.
 Qed.
 
+(** n ≥ 3 ∧ cos(2π/n) ∈ OrigamiNum → ∃ d, is_2_3_smooth(d) *)
 Corollary ngon_constructible_implies_smooth_degree : forall n cos_2pi_n,
   (n >= 3)%nat ->
   ngon_vertex_constructible n cos_2pi_n ->
@@ -8900,7 +9132,7 @@ Proof.
     contradiction.
 Qed.
 
-(** Sum over k in [1..bound] of f(k) where f returns 0 or 1 *)
+(** |{k ∈ [1,bound] : f(k) = true}| *)
 Fixpoint count_pred (f : nat -> bool) (bound : nat) : nat :=
   match bound with
   | 0 => 0
@@ -8925,7 +9157,7 @@ Proof.
     rewrite IHk. reflexivity.
 Qed.
 
-(** Double sum: count pairs (a,b) in [1..m]×[1..n] satisfying predicates *)
+(** |{(a,b) ∈ [1,m]×[1,n] : f(a) ∧ g(b)}| *)
 Fixpoint count_pairs (f : nat -> bool) (g : nat -> bool) (m n : nat) : nat :=
   match m with
   | 0 => 0
@@ -8939,7 +9171,7 @@ Lemma count_pairs_S : forall f g m n,
   count_pairs f g (S m) n = ((if f (S m) then count_pred g n else 0) + count_pairs f g m n)%nat.
 Proof. reflexivity. Qed.
 
-(** count_pairs equals product of counts *)
+(** count_pairs(f,g,m,n) = count_pred(f,m) · count_pred(g,n) *)
 Lemma count_pairs_eq_mul : forall f g m n,
   count_pairs f g m n = (count_pred f m * count_pred g n)%nat.
 Proof.
@@ -8964,10 +9196,10 @@ Proof.
   reflexivity.
 Qed.
 
-(** CRT bijection maps k < mn to (k mod m, k mod n) *)
+(** k ↦ (k mod m, k mod n) *)
 Definition crt_map (m n k : nat) : nat * nat := (k mod m, k mod n).
 
-(** CRT bijection preserves coprimality *)
+(** coprime(k,mn) → coprime(k mod m, m) ∧ coprime(k mod n, n) *)
 Lemma crt_map_coprime : forall m n k,
   (m > 1)%nat -> (n > 1)%nat ->
   Nat.gcd m n = 1%nat ->
@@ -8982,7 +9214,7 @@ Proof.
   exact Hcop.
 Qed.
 
-(** Computational verification of φ multiplicativity for coprime pairs *)
+(** φ(2·3) = φ(2)·φ(3) *)
 Lemma euler_phi_mult_2_3 : euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat.
 Proof. reflexivity. Qed.
 
@@ -9110,7 +9342,7 @@ Proof.
     destruct (f (S n')) eqn:Hf; destruct (g (S n')) eqn:Hg; simpl; lia.
 Qed.
 
-(** Count over [0..n-1] *)
+(** |{k ∈ [0,n-1] : f(k) = true}| *)
 Fixpoint count_from_0 (f : nat -> bool) (n : nat) : nat :=
   match n with
   | 0 => 0
@@ -9121,7 +9353,7 @@ Lemma count_from_0_S : forall f n,
   count_from_0 f (S n) = (count_from_0 f n + (if f n then 1 else 0))%nat.
 Proof. reflexivity. Qed.
 
-(** Sum over middle range [1..n-1] *)
+(** |{k ∈ [1,n-1] : f(k) = true}| *)
 Fixpoint count_mid (f : nat -> bool) (n : nat) : nat :=
   match n with
   | 0 => 0
@@ -9182,7 +9414,7 @@ Proof.
   rewrite Nat.mod_mul by lia. reflexivity.
 Qed.
 
-(** Count over [0..n-1] × [0..m-1] with factored predicate *)
+(** |{(a,b) ∈ [0,m-1]×[0,n-1] : f(a) ∧ g(b)}| *)
 Fixpoint count_from_0_pairs (f : nat -> bool) (g : nat -> bool) (m n : nat) : nat :=
   match n with
   | 0 => 0
@@ -9200,35 +9432,34 @@ Proof.
 Qed.
 
 Section Impossibility.
+(** Impossibility results and strict extension proofs *)
 
-(** Not 2-3 smooth implies not OrigamiDegree. *)
+(** ¬is_2_3_smooth(n) → ¬OrigamiDegree(n) *)
 Lemma not_smooth_not_origami : forall n,
   ~ is_2_3_smooth n -> ~ OrigamiDegree n.
 Proof.
   intros n Hns Hod. apply Hns. apply origami_degree_implies_smooth. exact Hod.
 Qed.
 
-(** 3 is not a Euclidean degree (not a power of 2). *)
+(** 3 ∉ {2^k : k ∈ ℕ} *)
 Lemma three_not_euclidean_degree : ~ EuclideanDegree 3.
 Proof.
   intro H. inversion H; lia.
 Qed.
 
-(** Degree 3 is origami but not Euclidean: strict extension. *)
+(** OrigamiDegree(3) ∧ ¬EuclideanDegree(3) *)
 Theorem origami_strictly_extends_euclidean_degree :
   OrigamiDegree 3 /\ ~ EuclideanDegree 3.
 Proof.
   split; [exact three_is_origami_degree | exact three_not_euclidean_degree].
 Qed.
 
-(** ** Strict Inclusion: EuclidNum ⊊ OrigamiNum
-    We prove that the cube root of 2 is in OrigamiNum but not in EuclidNum,
-    witnessing the strict inclusion. *)
+(** EuclidNum ⊊ OrigamiNum via ∛2 ∈ OrigamiNum ∖ EuclidNum *)
 
-(** The cube root of 2 exists and is unique positive. *)
+(** ∛2 *)
 Definition cbrt2 : R := cbrt 2.
 
-(** cbrt2 is the unique positive cube root of 2. *)
+(** (∛2)³ = 2 *)
 Lemma cbrt2_cubes_to_2 : cbrt2 * cbrt2 * cbrt2 = 2.
 Proof.
   unfold cbrt2.
@@ -9236,30 +9467,21 @@ Proof.
   unfold cube_func in H. exact H.
 Qed.
 
-(** cbrt2 is positive. *)
+(** ∛2 > 0 *)
 Lemma cbrt2_pos : cbrt2 > 0.
 Proof.
   unfold cbrt2.
   apply cbrt_pos_positive. lra.
 Qed.
 
-(** cbrt2 is an OrigamiNum (via cube_duplication_possible). *)
+(** ∛2 ∈ OrigamiNum *)
 Lemma cbrt2_is_origami : OrigamiNum cbrt2.
 Proof.
   apply cube_duplication_possible.
   exact cbrt2_cubes_to_2.
 Qed.
 
-(** ** Algebraic Degree Infrastructure for EuclidNum
-
-    We prove cbrt2 ∉ EuclidNum by showing:
-    1. Every EuclidNum has a "construction degree" that is a power of 2
-    2. If cbrt2 were EuclidNum, its degree would need to be divisible by 3
-    3. No power of 2 is divisible by 3
-
-    This eliminates the need for an axiom. *)
-
-(** EuclidNum with degree tracking: every construction has an associated degree. *)
+(** EuclidNum with degree tracking: degree is always 2^k *)
 Inductive EuclidNum_deg : R -> nat -> Prop :=
 | END_0 : EuclidNum_deg 0 1
 | END_1 : EuclidNum_deg 1 1
@@ -9279,7 +9501,7 @@ Inductive EuclidNum_deg : R -> nat -> Prop :=
     EuclidNum_deg x dx -> 0 <= x ->
     EuclidNum_deg (sqrt x) (2 * dx).
 
-(** Every EuclidNum has some degree. *)
+(** x ∈ EuclidNum → ∃ d, EuclidNum_deg(x,d) *)
 Lemma EuclidNum_has_deg : forall x, EuclidNum x -> exists d, EuclidNum_deg x d.
 Proof.
   intros x H. induction H.
@@ -9297,7 +9519,7 @@ Proof.
     exists (2 * d)%nat. apply END_sqrt; assumption.
 Qed.
 
-(** EuclidNum_deg implies EuclidNum. *)
+(** EuclidNum_deg(x,d) → x ∈ EuclidNum *)
 Lemma EuclidNum_deg_is_EuclidNum : forall x d, EuclidNum_deg x d -> EuclidNum x.
 Proof.
   intros x d H. induction H.
@@ -9310,20 +9532,21 @@ Proof.
   - apply EN_sqrt; assumption.
 Qed.
 
-(** All EuclidNum_deg have degree >= 1. *)
+(** EuclidNum_deg(x,d) → d ≥ 1 *)
 Lemma EuclidNum_deg_pos : forall x d, EuclidNum_deg x d -> (d >= 1)%nat.
 Proof.
   intros x d H. induction H; lia.
 Qed.
 
-(** A degree is "Euclidean" if it's a power of 2. *)
+(** n ∈ {2^k : k ∈ ℕ} *)
 Inductive EuclideanDeg : nat -> Prop :=
 | ED_1 : EuclideanDeg 1
 | ED_double : forall n, EuclideanDeg n -> EuclideanDeg (2 * n).
 
-(** Alternative: n is a power of 2. *)
+(** ∃ k, n = 2^k *)
 Definition is_power_of_2 (n : nat) : Prop := exists k, n = (2 ^ k)%nat.
 
+(** EuclideanDeg(n) → is_power_of_2(n) *)
 Lemma EuclideanDeg_is_power_of_2 : forall n, EuclideanDeg n -> is_power_of_2 n.
 Proof.
   intros n H. induction H.
@@ -9332,6 +9555,7 @@ Proof.
     exists (S k). simpl. lia.
 Qed.
 
+(** EuclideanDeg(2^k) *)
 Lemma power_of_2_is_EuclideanDeg : forall k, EuclideanDeg (2 ^ k).
 Proof.
   induction k.
@@ -9339,7 +9563,7 @@ Proof.
   - simpl. apply ED_double. exact IHk.
 Qed.
 
-(** Max of Euclidean degrees is Euclidean. *)
+(** EuclideanDeg(m) ∧ EuclideanDeg(n) → EuclideanDeg(max(m,n)) *)
 Lemma EuclideanDeg_max : forall m n,
   EuclideanDeg m -> EuclideanDeg n -> EuclideanDeg (Nat.max m n).
 Proof.
@@ -9352,7 +9576,7 @@ Proof.
   - rewrite Heq. apply power_of_2_is_EuclideanDeg.
 Qed.
 
-(** Product of Euclidean degrees is Euclidean. *)
+(** EuclideanDeg(m) ∧ EuclideanDeg(n) → EuclideanDeg(m·n) *)
 Lemma EuclideanDeg_mul : forall m n,
   EuclideanDeg m -> EuclideanDeg n -> EuclideanDeg (m * n).
 Proof.
@@ -9365,14 +9589,14 @@ Proof.
   - rewrite Nat.pow_add_r. reflexivity.
 Qed.
 
-(** Double of Euclidean degree is Euclidean. *)
+(** EuclideanDeg(n) → EuclideanDeg(2n) *)
 Lemma EuclideanDeg_double : forall n,
   EuclideanDeg n -> EuclideanDeg (2 * n).
 Proof.
   intros n Hn. apply ED_double. exact Hn.
 Qed.
 
-(** Key theorem: All EuclidNum_deg degrees are Euclidean (powers of 2). *)
+(** EuclidNum_deg(x,d) → EuclideanDeg(d) *)
 Theorem EuclidNum_deg_is_EuclideanDeg : forall x d,
   EuclidNum_deg x d -> EuclideanDeg d.
 Proof.
@@ -9386,7 +9610,7 @@ Proof.
   - apply EuclideanDeg_double. exact IHEuclidNum_deg.
 Qed.
 
-(** Corollary: Every EuclidNum has a degree that's a power of 2. *)
+(** x ∈ EuclidNum → ∃ d, EuclidNum_deg(x,d) ∧ is_power_of_2(d) *)
 Corollary EuclidNum_has_power_of_2_deg : forall x,
   EuclidNum x -> exists d, EuclidNum_deg x d /\ is_power_of_2 d.
 Proof.
@@ -9399,15 +9623,13 @@ Proof.
     exact Hd.
 Qed.
 
-(** ** 3 Does Not Divide Any Power of 2 *)
-
-(** 3 does not divide 1. *)
+(** 3 ∤ 1 *)
 Lemma three_not_div_1 : ~ Nat.divide 3 1.
 Proof.
   intro H. destruct H as [k Hk]. lia.
 Qed.
 
-(** If 3 divides 2*n, then 3 divides n (since gcd(3,2)=1). *)
+(** 3 | 2n → 3 | n *)
 Lemma three_div_double : forall n, Nat.divide 3 (2 * n) -> Nat.divide 3 n.
 Proof.
   intros n [k Hk].
@@ -9417,7 +9639,7 @@ Proof.
   - exact H3.
 Qed.
 
-(** 3 does not divide any power of 2. *)
+(** 3 ∤ 2^k *)
 Lemma three_not_div_pow2 : forall k, ~ Nat.divide 3 (2 ^ k).
 Proof.
   induction k.
@@ -9426,7 +9648,7 @@ Proof.
     apply IHk. apply three_div_double. exact Hdiv.
 Qed.
 
-(** 3 does not divide any Euclidean degree. *)
+(** EuclideanDeg(d) → 3 ∤ d *)
 Lemma three_not_div_EuclideanDeg : forall d,
   EuclideanDeg d -> ~ Nat.divide 3 d.
 Proof.
@@ -9435,20 +9657,7 @@ Proof.
   subst. apply three_not_div_pow2.
 Qed.
 
-(** ** Minimal Polynomial Degree for Cube Roots *)
-
-(** Key algebraic fact: if r³ = a where a is rational and r is not rational,
-    then any field containing r must have degree divisible by 3 over Q.
-
-    More precisely: if r satisfies x³ = 2 and r is in a field extension K/Q,
-    then 3 divides [K:Q].
-
-    We formalize this via the following approach:
-    - If cbrt2 were EuclidNum, it would have some EuclidNum_deg d
-    - We show that any such d must have 3 | d (using the cubic constraint)
-    - But d is a power of 2, so 3 ∤ d. Contradiction. *)
-
-(** cbrt2 is irrational (not equal to any ratio p/q). *)
+(** ∛2 ∉ ℚ *)
 Lemma cbrt2_irrational : forall p q : Z, (q > 0)%Z -> cbrt2 <> IZR p / IZR q.
 Proof.
   intros p q Hq Heq.
@@ -9493,7 +9702,7 @@ Proof.
   apply (Hloop (S (Z.to_nat (Z.abs q))) p q); lia.
 Qed.
 
-(** cbrt2 is not 0. *)
+(** ∛2 ≠ 0 *)
 Lemma cbrt2_neq_0 : cbrt2 <> 0.
 Proof.
   intro Heq.
@@ -9501,7 +9710,7 @@ Proof.
   rewrite Heq in H. lra.
 Qed.
 
-(** cbrt2 is not 1. *)
+(** ∛2 ≠ 1 *)
 Lemma cbrt2_neq_1 : cbrt2 <> 1.
 Proof.
   intro Heq.
@@ -9509,21 +9718,7 @@ Proof.
   rewrite Heq in H. lra.
 Qed.
 
-(** ** The Key Theorem: cbrt2 is Not Euclidean-Constructible
-
-    Strategy: We prove by strong induction on the EuclidNum_deg derivation
-    that cbrt2 cannot be constructed. The key insight is that cbrt2 satisfies
-    x³ = 2, but no element of Q(√a₁, √a₂, ..., √aₙ) can satisfy this unless
-    cbrt2 was already constructible with fewer square root operations.
-
-    We use a different approach: track that constructible numbers satisfy
-    polynomials of degree 2^k, but cbrt2's minimal polynomial has degree 3. *)
-
-(** For the proof, we use the fact that if cbrt2 = f(√a) for some Euclidean f and a,
-    then cbrt2 = p + q√a for some Euclidean p, q. Cubing gives constraints that
-    force q = 0 (when √a is not already Euclidean), reducing the problem. *)
-
-(** Auxiliary: squares of rationals are rational (for reduction arguments). *)
+(** x² ∈ ℚ ∧ x ∈ ℚ → √(x²) ∈ ℚ *)
 Lemma sqrt_rational_is_rational : forall x,
   EuclidNum x -> 0 <= x ->
   (exists p q : Z, (q > 0)%Z /\ sqrt x = IZR p / IZR q) ->
@@ -9540,30 +9735,14 @@ Proof.
     apply not_0_IZR. lia.
 Qed.
 
-(** The main theorem: cbrt2 is not Euclidean-constructible.
-
-    Proof outline: Suppose cbrt2 is EuclidNum. Then there exists a derivation
-    EuclidNum_deg cbrt2 d for some d that is a power of 2.
-
-    We prove by induction that this is impossible. The key cases are:
-    - cbrt2 ≠ 0, 1 (base cases fail)
-    - cbrt2 ≠ a + b, a - b, a * b, 1/a for any simpler Euclidean a, b
-      without introducing cube roots
-    - cbrt2 = √a requires a = cbrt2² = (cbrt 2)², but then a would give
-      cbrt2 via √, leading to an infinite descent or contradiction.
-
-    The cleanest approach: cbrt2 satisfies a degree-3 polynomial, but all
-    EuclidNum satisfy polynomials of degree 2^k. Since 3 ∤ 2^k, contradiction. *)
-
-(** We prove cbrt2 ∉ EuclidNum by showing no derivation can produce it.
-    The proof uses the algebraic fact that cbrt2 is not in any quadratic tower. *)
-
+(** (∛4)³ = 4 *)
 Lemma cbrt4_cubes_to_4 : cbrt 4 * cbrt 4 * cbrt 4 = 4.
 Proof.
   assert (H : cube_func (cbrt 4) = 4) by apply cbrt_spec.
   unfold cube_func in H. exact H.
 Qed.
 
+(** (∛2)² = ∛4 *)
 Lemma cbrt2_squared_is_cbrt4 : cbrt2 * cbrt2 = cbrt 4.
 Proof.
   unfold cbrt2.
@@ -9584,6 +9763,7 @@ Proof.
   - left. split; nra.
 Qed.
 
+(** ∛4 ∉ ℚ *)
 Lemma cbrt4_irrational : forall p q : Z, (q > 0)%Z -> cbrt 4 <> IZR p / IZR q.
 Proof.
   assert (Hloop : forall n p' q', (Z.to_nat (Z.abs q') < n)%nat -> (q' > 0)%Z ->
@@ -9632,6 +9812,7 @@ Proof.
   intros x _. exists 0%nat. simpl. constructor.
 Qed.
 
+(** EuclidNum with tower height tracking *)
 Inductive EuclidNum_ht : R -> nat -> Prop :=
 | EHT_0 : EuclidNum_ht 0 0
 | EHT_1 : EuclidNum_ht 1 0
@@ -9651,6 +9832,7 @@ Inductive EuclidNum_ht : R -> nat -> Prop :=
     EuclidNum_ht x hx -> 0 <= x ->
     EuclidNum_ht (sqrt x) (S hx).
 
+(** x ∈ EuclidNum → ∃ h, EuclidNum_ht(x,h) *)
 Lemma EuclidNum_has_ht : forall x, EuclidNum x -> exists h, EuclidNum_ht x h.
 Proof.
   intros x H. induction H.
@@ -9668,6 +9850,7 @@ Proof.
     exists (S h). apply EHT_sqrt; assumption.
 Qed.
 
+(** EuclidNum_ht(x,h) → x ∈ EuclidNum *)
 Lemma EuclidNum_ht_is_EuclidNum : forall x h, EuclidNum_ht x h -> EuclidNum x.
 Proof.
   intros x h H. induction H.
@@ -9680,8 +9863,10 @@ Proof.
   - apply EN_sqrt; assumption.
 Qed.
 
+(** ∛(2^n) *)
 Definition cbrt_pow2 (n : nat) : R := cbrt (2 ^ n).
 
+(** (∛(2^n))³ = 2^n *)
 Lemma cbrt_pow2_cubes : forall n, cbrt_pow2 n * cbrt_pow2 n * cbrt_pow2 n = 2 ^ n.
 Proof.
   intro n. unfold cbrt_pow2.
@@ -9690,6 +9875,7 @@ Proof.
   unfold cube_func in H. exact H.
 Qed.
 
+(** ∛(2^n) > 0 *)
 Lemma cbrt_pow2_pos : forall n, cbrt_pow2 n > 0.
 Proof.
   intro n. unfold cbrt_pow2.
@@ -9697,6 +9883,7 @@ Proof.
   apply pow_lt. lra.
 Qed.
 
+(** (∛(2^n))² = ∛(2^(2n)) *)
 Lemma cbrt_pow2_squared : forall n, cbrt_pow2 n * cbrt_pow2 n = cbrt_pow2 (2 * n).
 Proof.
   intro n. unfold cbrt_pow2.
@@ -9748,6 +9935,7 @@ Proof.
   rewrite Ha'. apply cbrt_pow2_squared.
 Qed.
 
+(** n mod 3 ≠ 0 → (2n) mod 3 ≠ 0 *)
 Lemma double_preserves_mod3 : forall n,
   (n mod 3 <> 0)%nat -> ((2 * n) mod 3 <> 0)%nat.
 Proof.
@@ -9764,6 +9952,7 @@ Proof.
     lia.
 Qed.
 
+(** ∛2 = √x ∧ x ≥ 0 → x = ∛4 *)
 Lemma cbrt2_sqrt_gives_cbrt4 : forall x, cbrt2 = sqrt x -> 0 <= x -> x = cbrt 4.
 Proof.
   intros x Heq Hnn.
@@ -9815,12 +10004,14 @@ Proof.
       * exists (- q1)%Z, (- p1)%Z. split; [lia | rewrite Hp1; rewrite !opp_IZR; field; split; apply not_0_IZR; lia].
 Qed.
 
+(** ∛2 ∉ ℚ *)
 Lemma cbrt2_not_rational : ~ is_rational cbrt2.
 Proof.
   intros [p [q [Hq Heq]]].
   apply (cbrt2_irrational p q Hq). exact Heq.
 Qed.
 
+(** ∛2 not at Euclidean height 0 *)
 Lemma cbrt2_not_EuclidNum_ht_0 : ~ EuclidNum_ht cbrt2 0.
 Proof.
   intro H.
@@ -9829,19 +10020,20 @@ Proof.
   exact H.
 Qed.
 
-(** cbrt(4) is not rational *)
+(** ∛4 ∉ ℚ *)
 Lemma cbrt4_not_rational : ~ is_rational (cbrt 4).
 Proof.
   intros [p [q [Hq Heq]]].
   apply (cbrt4_irrational p q Hq). exact Heq.
 Qed.
 
-(** cbrt(4) is not at height 0 *)
+(** ∛4 not at Euclidean height 0 *)
 Lemma cbrt4_not_EuclidNum_ht_0 : ~ EuclidNum_ht (cbrt 4) 0.
 Proof.
   intro H. apply cbrt4_not_rational. apply EuclidNum_ht_0_rational. exact H.
 Qed.
 
+(** x ∈ ℚ ∧ x+y ∈ ℚ → y ∈ ℚ *)
 Lemma EuclidNum_ht_rational_add : forall x y h,
   is_rational x -> EuclidNum_ht y h -> is_rational (x + y) -> is_rational y.
 Proof.
@@ -9855,6 +10047,7 @@ Proof.
   split; apply not_0_IZR; lia.
 Qed.
 
+(** ℚ closed under + *)
 Lemma rational_add : forall x y,
   is_rational x -> is_rational y -> is_rational (x + y).
 Proof.
@@ -9865,6 +10058,7 @@ Proof.
   split; apply not_0_IZR; lia.
 Qed.
 
+(** (∛4)² = ∛16 *)
 Lemma cbrt4_squared_is_cbrt16 : cbrt 4 * cbrt 4 = cbrt 16.
 Proof.
   assert (H4 : cbrt 4 * cbrt 4 * cbrt 4 = 4) by apply cbrt_spec.
@@ -9879,6 +10073,7 @@ Proof.
   - left. split; nra.
 Qed.
 
+(** ℚ closed under - *)
 Lemma rational_sub : forall x y,
   is_rational x -> is_rational y -> is_rational (x - y).
 Proof.
@@ -9889,6 +10084,7 @@ Proof.
   split; apply not_0_IZR; lia.
 Qed.
 
+(** ℚ closed under × *)
 Lemma rational_mul : forall x y,
   is_rational x -> is_rational y -> is_rational (x * y).
 Proof.
@@ -9899,6 +10095,7 @@ Proof.
   split; apply not_0_IZR; lia.
 Qed.
 
+(** ℚ closed under ⁻¹ for x ≠ 0 *)
 Lemma rational_inv : forall x,
   is_rational x -> x <> 0 -> is_rational (/ x).
 Proof.
@@ -9919,6 +10116,7 @@ Proof.
     rewrite Hc. lra.
 Qed.
 
+(** ℚ is a field: closed under +, -, ×, ÷ *)
 Lemma rational_closed_field_ops : forall x y,
   is_rational x -> is_rational y ->
   is_rational (x + y) /\ is_rational (x - y) /\ is_rational (x * y) /\
@@ -9935,6 +10133,7 @@ Proof.
     + apply rational_inv; assumption.
 Qed.
 
+(** √a = ∛2 ∧ a ≥ 0 → a = ∛4 *)
 Lemma cbrt2_sqrt_implies_cbrt4 : forall a, sqrt a = cbrt2 -> a >= 0 -> a = cbrt 4.
 Proof.
   intros a Heq Ha.
@@ -9945,6 +10144,7 @@ Proof.
   exact cbrt2_squared_is_cbrt4.
 Qed.
 
+(** √a = ∛4 ∧ a ≥ 0 → a = ∛16 *)
 Lemma cbrt4_sqrt_implies_cbrt16 : forall a, sqrt a = cbrt 4 -> a >= 0 -> a = cbrt 16.
 Proof.
   intros a Heq Ha.
@@ -9955,31 +10155,37 @@ Proof.
   exact cbrt4_squared_is_cbrt16.
 Qed.
 
+(** ∛2 ≠ 0 *)
 Lemma cbrt2_ne_0 : cbrt2 <> 0.
 Proof.
   assert (H : cbrt2 > 0) by (apply cbrt_pos_positive; lra). lra.
 Qed.
 
+(** ∛2 ≠ 1 *)
 Lemma cbrt2_ne_1 : cbrt2 <> 1.
 Proof.
   assert (Hcube : cbrt2 * cbrt2 * cbrt2 = 2) by (unfold cbrt2; apply cbrt_spec).
   intro Heq. rewrite Heq in Hcube. lra.
 Qed.
 
+(** ∛4 ≠ 0 *)
 Lemma cbrt4_ne_0 : cbrt 4 <> 0.
 Proof.
   assert (H : cbrt 4 > 0) by (apply cbrt_pos_positive; lra). lra.
 Qed.
 
+(** ∛4 ≠ 1 *)
 Lemma cbrt4_ne_1 : cbrt 4 <> 1.
 Proof.
   assert (Hcube : cbrt 4 * cbrt 4 * cbrt 4 = 4) by apply cbrt_spec.
   intro Heq. rewrite Heq in Hcube. lra.
 Qed.
 
+(** x ∈ ℚ(√r) ⟺ x = p + q√r for p,q ∈ ℚ *)
 Definition in_quadratic_field (x : R) (r : R) : Prop :=
   exists p q : R, is_rational p /\ is_rational q /\ x = p + q * sqrt r.
 
+(** ℚ ⊂ ℚ(√r) *)
 Lemma in_quadratic_field_rational : forall x r,
   is_rational x -> in_quadratic_field x r.
 Proof.
@@ -9990,6 +10196,7 @@ Proof.
   - ring.
 Qed.
 
+(** r ≥ 0 ∧ √r ≠ 0 → r > 0 *)
 Lemma sqrt_pos_from_ne0 : forall r, r >= 0 -> sqrt r <> 0 -> r > 0.
 Proof.
   intros r Hr Hsqrt.
@@ -9999,6 +10206,7 @@ Proof.
   - assert (r < 0) by lra. rewrite sqrt_neg_0 in Hsqrt; lra.
 Qed.
 
+(** (p + q√r)³ = (p³ + 3pq²r) + (3p²q + q³r)√r *)
 Lemma cube_in_quadratic_field : forall p q r,
   r > 0 ->
   (p + q * sqrt r) * (p + q * sqrt r) * (p + q * sqrt r) =
@@ -10012,6 +10220,7 @@ Proof.
   ring.
 Qed.
 
+(** q ≠ 0 ∧ 3p²q + q³r = 0 → r ≤ 0 *)
 Lemma irrational_coeff_zero_implies_r_neg : forall p q r,
   q <> 0 -> 3*p*p*q + q*q*q*r = 0 -> r <= 0.
 Proof.
@@ -10028,6 +10237,7 @@ Proof.
   lra.
 Qed.
 
+(** ∛2 ∉ ℚ(√r) for any rational r ≥ 0 *)
 Lemma cbrt2_not_in_rational_quadratic_field : forall r,
   r >= 0 -> is_rational r -> ~ in_quadratic_field cbrt2 r.
 Proof.
@@ -10078,6 +10288,7 @@ Proof.
       lra.
 Qed.
 
+(** ∛2 ≠ √r for any rational r ≥ 0 *)
 Lemma cbrt2_ne_sqrt_of_rational : forall r,
   is_rational r -> r >= 0 -> cbrt2 <> sqrt r.
 Proof.
@@ -10089,6 +10300,7 @@ Proof.
   rewrite Hcbrt2_sq. exact Hr.
 Qed.
 
+(** ℚ(√r) closed under + *)
 Lemma quadratic_field_add : forall x y r,
   in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x + y) r.
 Proof.
@@ -10099,6 +10311,7 @@ Proof.
   - rewrite Hx, Hy. ring.
 Qed.
 
+(** ℚ(√r) closed under - *)
 Lemma quadratic_field_sub : forall x y r,
   in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x - y) r.
 Proof.
@@ -10109,6 +10322,7 @@ Proof.
   - rewrite Hx, Hy. ring.
 Qed.
 
+(** ℚ(√r) closed under × *)
 Lemma quadratic_field_mul : forall x y r,
   r >= 0 -> is_rational r ->
   in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x * y) r.
@@ -10128,6 +10342,7 @@ Proof.
       rewrite Hsq. ring.
 Qed.
 
+(** (p + q√r)(p - q√r) = p² - q²r *)
 Lemma quadratic_conj_product : forall p q r,
   r >= 0 -> (p + q * sqrt r) * (p - q * sqrt r) = p * p - q * q * r.
 Proof.
@@ -10140,11 +10355,13 @@ Proof.
     rewrite Hsq. ring.
 Qed.
 
+(** EuclidNum height 1 ⟹ x ∈ ℚ(√r) for some rational r ≥ 0 *)
 Lemma EuclidNum_ht_1_in_quadratic_field : forall x,
   EuclidNum_ht x 1 -> exists r, r >= 0 /\ is_rational r /\ in_quadratic_field x r.
 Proof.
 Admitted.
 
+(** ∛2 not at Euclidean height 1 *)
 Lemma cbrt2_not_EuclidNum_ht_1 : ~ EuclidNum_ht cbrt2 1.
 Proof.
   intro H.
@@ -10152,20 +10369,18 @@ Proof.
   exact (cbrt2_not_in_rational_quadratic_field r Hr_ge Hr_rat Hr_quad).
 Qed.
 
-(** Hendecagon (11-gon): φ(10) = 4, φ(11) = 10. Requires degree-5 extension.
-    5 is NOT an Origami degree (not 2^a × 3^b), hence impossible. *)
-
+(** 5 ∉ {2^a × 3^b} *)
 Lemma five_not_origami_degree : ~ OrigamiDegree 5.
 Proof.
   intro H. inversion H; lia.
 Qed.
 
-(** Thus the 11-gon is NOT origami-constructible. *)
+(** 11-gon requires degree 5, which is not origami-constructible *)
 Theorem hendecagon_impossible :
   ~ OrigamiDegree 5.
 Proof. exact five_not_origami_degree. Qed.
 
-(** 10 is not 2-3 smooth (10 = 2 × 5, and 5 ∤ 3^b). *)
+(** 5 ∉ {2^a × 3^b : a,b ∈ ℕ} *)
 Lemma five_not_smooth : ~ is_2_3_smooth 5.
 Proof.
   intro H. destruct H as [a [b Heq]].
@@ -10174,11 +10389,13 @@ Proof.
   destruct a; simpl in Heq; destruct b; simpl in Heq; lia.
 Qed.
 
+(** 5 not smooth via OrigamiDegree characterization *)
 Corollary five_not_smooth_via_degree : ~ is_2_3_smooth 5.
 Proof.
   intro H. apply smooth_implies_origami_degree in H. exact (five_not_origami_degree H).
 Qed.
 
+(** 10 = 2×5 ∉ {2^a × 3^b} *)
 Lemma ten_not_smooth : ~ is_2_3_smooth 10.
 Proof.
   intro H. destruct H as [a [b Heq]].
@@ -10191,19 +10408,20 @@ Proof.
       * simpl in Heq. destruct b; simpl in Heq; lia.
 Qed.
 
+(** 11-gon not origami-constructible: φ(11) = 10 not 2-3 smooth *)
 Theorem hendecagon_not_constructible : ~ ngon_constructible_iff_phi_smooth 11.
 Proof.
   unfold ngon_constructible_iff_phi_smooth.
   rewrite phi_11. exact ten_not_smooth.
 Qed.
 
-(** 23-gon: φ(23) = 22 = 2 × 11. Since 11 ∤ 2^a × 3^b, impossible. *)
-
+(** 11 ∉ {2^a × 3^b} *)
 Lemma eleven_not_origami_degree : ~ OrigamiDegree 11.
 Proof.
   intro H. inversion H; lia.
 Qed.
 
+(** 22 = 2×11 ∉ {2^a × 3^b} *)
 Lemma twentytwo_not_smooth : ~ is_2_3_smooth 22.
 Proof.
   intro H. destruct H as [a [b Heq]].
@@ -10214,24 +10432,18 @@ Proof.
   destruct a; simpl in Heq; destruct b; simpl in Heq; lia.
 Qed.
 
+(** φ(23) = 22 *)
 Lemma phi_23 : euler_phi 23 = 22%nat.
 Proof. reflexivity. Qed.
 
+(** 23-gon not origami-constructible: φ(23) = 22 not 2-3 smooth *)
 Theorem icositrigon_not_constructible : ~ ngon_constructible_iff_phi_smooth 23.
 Proof.
   unfold ngon_constructible_iff_phi_smooth.
   rewrite phi_23. exact twentytwo_not_smooth.
 Qed.
 
-(** Main characterization: n-gon origami-constructible ⟺ φ(n) is 2-3 smooth.
-
-    Forward direction: If φ(n) = 2^a × 3^b, then cos(2π/n) satisfies a polynomial
-    of degree φ(n)/2 over ℚ, which factors into degree-2 and degree-3 extensions,
-    hence is origami-constructible.
-
-    Reverse direction: If cos(2π/n) is origami-constructible, its minimal polynomial
-    has degree dividing some 2^a × 3^b, hence φ(n) must be 2-3 smooth. *)
-
+(** n-gon origami-constructible ⟺ φ(n) is 2-3 smooth *)
 Theorem ngon_iff_phi_smooth : forall n,
   (n >= 3)%nat ->
   (ngon_constructible_iff_phi_smooth n <-> is_2_3_smooth (euler_phi n)).
@@ -10241,6 +10453,7 @@ Proof.
   split; auto.
 Qed.
 
+(** n-gon not origami-constructible ⟺ φ(n) not 2-3 smooth *)
 Corollary ngon_not_constructible_iff_not_smooth : forall n,
   (n >= 3)%nat ->
   (~ ngon_constructible_iff_phi_smooth n <-> ~ is_2_3_smooth (euler_phi n)).
@@ -10254,7 +10467,7 @@ End Impossibility.
 
 Section Famous_Constants.
 
-(** Golden ratio φ = (1 + √5)/2. Direct construction. *)
+(** φ = (1 + √5)/2 ∈ OrigamiNum *)
 Theorem golden_ratio_origami : OrigamiNum ((1 + sqrt 5) / 2).
 Proof.
   apply Origami_div.
@@ -10265,19 +10478,19 @@ Proof.
   - lra.
 Qed.
 
-(** √2 is origami-constructible (diagonal of unit square). *)
+(** √2 ∈ OrigamiNum *)
 Theorem sqrt2_origami : OrigamiNum (sqrt 2).
 Proof.
   apply ON_sqrt; [apply Origami_two | lra].
 Qed.
 
-(** √3 is origami-constructible (height of equilateral triangle). *)
+(** √3 ∈ OrigamiNum *)
 Theorem sqrt3_origami : OrigamiNum (sqrt 3).
 Proof.
   apply ON_sqrt; [apply Origami_three | lra].
 Qed.
 
-(** Plastic constant ρ ≈ 1.3247 satisfies x³ - x - 1 = 0. Origami-only. *)
+(** ρ³ - ρ - 1 = 0 → ρ ∈ OrigamiNum *)
 Theorem plastic_constant_origami : forall rho : R,
   rho * rho * rho - rho - 1 = 0 -> OrigamiNum rho.
 Proof.
@@ -10292,11 +10505,11 @@ End Famous_Constants.
 
 Section Main_Results.
 
-(** Euclidean ⊂ Origami. *)
+(** EuclidNum ⊂ OrigamiNum *)
 Theorem euclidean_subset_of_origami : forall x, EuclidNum x -> OrigamiNum x.
 Proof. exact Euclid_in_Origami. Qed.
 
-(** Classical impossibilities become possible. *)
+(** Angle trisection and cube duplication solvable via origami *)
 Theorem classical_problems_solvable :
   (forall c, 8*(c*c*c) - 6*c - 1 = 0 -> OrigamiNum c) /\
   (forall c, c*c*c = 2 -> OrigamiNum c).
@@ -10306,12 +10519,12 @@ Proof.
   - exact cube_duplication_possible.
 Qed.
 
-(** Heptagon is origami-constructible. *)
+(** 8c³ + 4c² - 4c - 1 = 0 → c ∈ OrigamiNum (heptagon) *)
 Theorem heptagon_is_origami_constructible :
   forall c, 8*(c*c*c) + 4*(c*c) - 4*c - 1 = 0 -> OrigamiNum c.
 Proof. exact heptagon_constructible. Qed.
 
-(** ∛2 witnesses strict extension (degree 3 ∉ {2^n}). *)
+(** ∛2 ∈ OrigamiNum ∧ 3 ∈ OrigamiDegree \ EuclideanDegree *)
 Theorem cbrt2_witnesses_strict_extension :
   (forall r, r*r*r = 2 -> OrigamiNum r) /\
   (OrigamiDegree 3 /\ ~ EuclideanDegree 3).
@@ -10323,6 +10536,7 @@ Qed.
 
 End Main_Results.
 
+(** O5_general_image(p,l,q) ∈ l *)
 Lemma O5_general_image_on_line : forall p l q,
   line_wf l -> on_line (O5_general_image p l q) l.
 Proof.
@@ -10335,9 +10549,11 @@ Proof.
   field. split; assumption.
 Qed.
 
+(** |x|² = x² *)
 Lemma Rabs_sqr_eq : forall x, Rabs x * Rabs x = x * x.
 Proof. intro x. rewrite <- Rabs_mult. rewrite Rabs_pos_eq; [ring | apply Rle_0_sqr]. Qed.
 
+(** O5_general_valid ⟹ h² = r² - d²‖l‖² ≥ 0 *)
 Lemma O5_general_valid_h2_nonneg : forall p l q,
   line_wf l -> O5_general_valid p l q ->
   let a := A l in let b := B l in let c := C l in
@@ -10406,6 +10622,7 @@ Proof.
   lra.
 Qed.
 
+(** (√x/√y)² = x/y *)
 Lemma sqrt_div_sq : forall x y,
   0 <= x -> 0 < y ->
   (sqrt x / sqrt y) * (sqrt x / sqrt y) = x / y.
@@ -10421,6 +10638,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** (-ad + bt)² + (-bd - at)² = ‖l‖²d² + h² *)
 Lemma O5_algebraic_identity : forall a b d t norm2 h2,
   norm2 = a * a + b * b ->
   norm2 > 0 ->
@@ -10435,6 +10653,7 @@ Proof.
   field. lra.
 Qed.
 
+(** O5_general_valid ⟹ r² - d²‖l‖² ≥ 0 (expanded form) *)
 Lemma O5_h2_from_valid : forall px py qx qy l,
   line_wf l ->
   O5_general_valid (px, py) l (qx, qy) ->
@@ -10461,6 +10680,7 @@ Proof.
   exact H.
 Qed.
 
+(** O5 displacement squared equals r² *)
 Lemma O5_dist2_eq : forall px py qx qy l,
   line_wf l -> O5_general_valid (px, py) l (qx, qy) ->
   let a := A l in let b := B l in let cc := C l in
@@ -10487,6 +10707,7 @@ Proof.
   unfold h2, r2. ring.
 Qed.
 
+(** dist(q, O5_general_image(p,l,q)) = dist(q,p) *)
 Lemma O5_general_image_equidistant : forall p l q,
   line_wf l -> O5_general_valid p l q ->
   dist q (O5_general_image p l q) = dist q p.
@@ -10517,6 +10738,7 @@ Proof.
   exact H.
 Qed.
 
+(** p₁ ≠ p₂ ∧ dist(q,p₁) = dist(q,p₂) → q ∈ perp_bisector(p₁,p₂) *)
 Lemma equidistant_on_perp_bisector : forall p1 p2 q,
   p1 <> p2 ->
   dist q p1 = dist q p2 ->
@@ -10555,6 +10777,7 @@ Proof.
     nra.
 Qed.
 
+(** O5 fold passes through pivot q *)
 Lemma O5_fold_through_pivot : forall p l q,
   line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
   on_line q (fold_line (fold_O5_general p l q)).
@@ -10566,7 +10789,7 @@ Proof.
   - symmetry. apply O5_general_image_equidistant; assumption.
 Qed.
 
-(** O5 fold reflects p onto l. *)
+(** reflect(p, O5_fold) = O5_general_image(p,l,q) *)
 Lemma O5_fold_reflects_onto_line : forall p l q,
   line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
   reflect_point p (fold_line (fold_O5_general p l q)) = O5_general_image p l q.
@@ -10576,7 +10799,7 @@ Proof.
   apply perp_bisector_reflection. exact Hneq.
 Qed.
 
-(** Combined O5 specification: fold through q reflects p onto l. *)
+(** q ∈ O5_fold ∧ reflect(p, O5_fold) ∈ l *)
 Theorem O5_general_spec : forall p l q,
   line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
   on_line q (fold_line (fold_O5_general p l q)) /\
@@ -10589,7 +10812,7 @@ Proof.
     apply O5_general_image_on_line. exact Hwf.
 Qed.
 
-(** O5 fold satisfies the O5 constraint. *)
+(** fold_O5_general satisfies O5 constraint *)
 Lemma O5_fold_satisfies_constraint : forall p l q,
   line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
   satisfies_O5_constraint (fold_O5_general p l q) p l q.
@@ -10613,38 +10836,48 @@ Eval compute in (euler_phi 7, euler_phi 9, euler_phi 11).
 
 Eval compute in (fold_line (fold_O7 (1, 1) line_xaxis line_yaxis)).
 
+(** x + y = y + x *)
 Lemma OrigamiNum_add_comm : forall x y,
   OrigamiNum x -> OrigamiNum y -> x + y = y + x.
 Proof. intros. ring. Qed.
 
+(** x × y = y × x *)
 Lemma OrigamiNum_mul_comm : forall x y,
   OrigamiNum x -> OrigamiNum y -> x * y = y * x.
 Proof. intros. ring. Qed.
 
+(** x + (y + z) = (x + y) + z *)
 Lemma OrigamiNum_add_assoc : forall x y z,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum z -> x + (y + z) = (x + y) + z.
 Proof. intros. ring. Qed.
 
+(** x(yz) = (xy)z *)
 Lemma OrigamiNum_mul_assoc : forall x y z,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum z -> x * (y * z) = (x * y) * z.
 Proof. intros. ring. Qed.
 
+(** x(y + z) = xy + xz *)
 Lemma OrigamiNum_distr_l : forall x y z,
   OrigamiNum x -> OrigamiNum y -> OrigamiNum z -> x * (y + z) = x * y + x * z.
 Proof. intros. ring. Qed.
 
+(** 0 + x = x *)
 Lemma OrigamiNum_add_0_l : forall x, OrigamiNum x -> 0 + x = x.
 Proof. intros. ring. Qed.
 
+(** 1 × x = x *)
 Lemma OrigamiNum_mul_1_l : forall x, OrigamiNum x -> 1 * x = x.
 Proof. intros. ring. Qed.
 
+(** x + (-x) = 0 *)
 Lemma OrigamiNum_add_opp_r : forall x, OrigamiNum x -> x + (- x) = 0.
 Proof. intros. ring. Qed.
 
+(** x ≠ 0 → x × x⁻¹ = 1 *)
 Lemma OrigamiNum_mul_inv_r : forall x, OrigamiNum x -> x <> 0 -> x * (/ x) = 1.
 Proof. intros. field. assumption. Qed.
 
+(** ax³ + bx² + cx + d = a(t³ + pt + q) where t = x + b/(3a) *)
 Lemma general_cubic_to_depressed : forall a b c d x,
   a <> 0 ->
   let t := x + b / (3 * a) in
@@ -10657,6 +10890,7 @@ Proof.
   field. lra.
 Qed.
 
+(** Tschirnhaus: ax³+bx²+cx+d = 0 → t³+pt+q = 0 *)
 Corollary tschirnhaus_depressed : forall a b c d x,
   a <> 0 ->
   a * x^3 + b * x^2 + c * x + d = 0 ->
@@ -10674,10 +10908,11 @@ Qed.
 
 Section O5_Solvability.
 
-(** Point-to-line distance: |Ax + By + C| / sqrt(A² + B²) *)
+(** |Ax + By + C| / √(A² + B²) *)
 Definition point_line_dist (p : Point) (l : Line) : R :=
   Rabs (A l * fst p + B l * snd p + C l) / sqrt (A l * A l + B l * B l).
 
+(** point_line_dist ≥ 0 *)
 Lemma point_line_dist_nonneg : forall p l,
   line_wf l -> 0 <= point_line_dist p l.
 Proof.
@@ -10688,7 +10923,7 @@ Proof.
     apply line_norm_pos. exact Hwf.
 Qed.
 
-(** Key lemma: point_line_dist squared *)
+(** (point_line_dist p l)² = (Ax+By+C)² / (A²+B²) *)
 Lemma point_line_dist_sq : forall p l,
   line_wf l ->
   point_line_dist p l * point_line_dist p l =
@@ -10714,25 +10949,27 @@ Proof.
   reflexivity.
 Qed.
 
-(** Helper: dist² between two points *)
+(** dist²((px,py),(qx,qy)) = (px-qx)² + (py-qy)² *)
 Lemma dist2_formula : forall px py qx qy,
   dist2 (px, py) (qx, qy) = (px - qx)^2 + (py - qy)^2.
 Proof.
   intros. unfold dist2, sqr. simpl. ring.
 Qed.
 
+(** dist² ≥ 0 *)
 Lemma dist2_nonneg : forall p q, 0 <= dist2 p q.
 Proof.
   intros [px py] [qx qy]. unfold dist2, sqr. simpl.
   apply Rplus_le_le_0_compat; apply Rle_0_sqr.
 Qed.
 
+(** dist = √dist² *)
 Lemma dist_eq_sqrt_dist2 : forall p q, dist p q = sqrt (dist2 p q).
 Proof.
   intros [px py] [qx qy]. unfold dist, dist2, sqr. simpl. reflexivity.
 Qed.
 
-(** O5_general_valid is exactly point_line_dist q l <= dist p q *)
+(** O5_general_valid ⟺ (point_line_dist q l)² ≤ dist²(p,q) *)
 Lemma O5_valid_unfold : forall p l q,
   O5_general_valid p l q <-> (point_line_dist q l)^2 <= dist2 p q.
 Proof.
@@ -10743,7 +10980,7 @@ Proof.
   reflexivity.
 Qed.
 
-(** For nonnegative x, y: x² ≤ y² ⟺ x ≤ y *)
+(** x,y ≥ 0 → (x² ≤ y² ⟺ x ≤ y) *)
 Lemma sq_le_iff : forall x y, 0 <= x -> 0 <= y -> (x^2 <= y^2 <-> x <= y).
 Proof.
   intros x y Hx Hy. split; intro H.
@@ -10756,7 +10993,7 @@ Proof.
   - apply pow_incr; lra.
 Qed.
 
-(** Main theorem: O5 is solvable iff dist(q, l) ≤ dist(p, q) *)
+(** O5 solvable ⟺ dist(q,l) ≤ dist(p,q) *)
 Theorem O5_valid_iff_dist : forall p l q,
   line_wf l ->
   O5_general_valid p l q <-> point_line_dist q l <= dist p q.
@@ -10778,6 +11015,7 @@ Proof.
     exact H.
 Qed.
 
+(** O5: d > r → no solution; d = r → tangent; d < r → 2 solutions *)
 Lemma O5_solution_count : forall p l q,
   line_wf l ->
   let d := point_line_dist q l in
@@ -10800,14 +11038,15 @@ Qed.
 End O5_Solvability.
 
 Section O6_Multiplicity.
+(** Root structure of depressed cubic t³ + pt + q *)
 
-(** Depressed cubic: t³ + pt + q *)
+(** t³ + pt + q *)
 Definition depressed_cubic (p q t : R) : R := t^3 + p * t + q.
 
-(** A root of the depressed cubic *)
+(** t³ + pt + q = 0 *)
 Definition is_cubic_root (p q t : R) : Prop := depressed_cubic p q t = 0.
 
-(** Theorem statement: cubic has at most 3 real roots *)
+(** ∄ four distinct roots *)
 Definition cubic_at_most_3_roots : Prop :=
   forall p q t1 t2 t3 t4,
     is_cubic_root p q t1 -> is_cubic_root p q t2 ->
@@ -10816,10 +11055,7 @@ Definition cubic_at_most_3_roots : Prop :=
     t2 <> t3 -> t2 <> t4 -> t3 <> t4 ->
     False.
 
-(** Discriminant Δ = -4p³ - 27q² determines root count:
-    - Δ > 0: 3 distinct real roots
-    - Δ = 0: repeated root (1 or 2 distinct)
-    - Δ < 0: 1 real root *)
+(** Δ > 0 ⟹ 3 distinct roots; Δ < 0 ⟹ unique root *)
 Definition discriminant_determines_roots : Prop :=
   forall p q,
     (cubic_discriminant p q > 0 ->
@@ -10828,7 +11064,7 @@ Definition discriminant_determines_roots : Prop :=
     (cubic_discriminant p q < 0 ->
       exists! t, is_cubic_root p q t).
 
-(** Factorization: if r is a root, then t³+pt+q = (t-r)(t²+rt+(r²+p)) *)
+(** t³+pt+q = (t-r)(t²+rt+(r²+p)) when r is a root *)
 Lemma cubic_factor : forall p q r t,
   is_cubic_root p q r ->
   depressed_cubic p q t = (t - r) * (t^2 + r*t + (r^2 + p)).
@@ -10840,7 +11076,7 @@ Proof.
   ring.
 Qed.
 
-(** A quadratic at²+bt+c with a≠0 has at most 2 roots *)
+(** a ≠ 0 ∧ at²+bt+c has 3 roots ⟹ ⊥ *)
 Lemma quadratic_at_most_2_roots : forall a b c t1 t2 t3,
   a <> 0 ->
   a*t1^2 + b*t1 + c = 0 ->
@@ -10868,7 +11104,7 @@ Proof.
   exact (Hn23 Ht23).
 Qed.
 
-(** Main theorem: a cubic has at most 3 roots *)
+(** Proof of cubic_at_most_3_roots *)
 Theorem cubic_at_most_3_roots_proof : cubic_at_most_3_roots.
 Proof.
   unfold cubic_at_most_3_roots.
@@ -10896,10 +11132,10 @@ Proof.
   - exact Hn34.
 Qed.
 
-(** Quadratic discriminant: for t²+bt+c, discriminant is b²-4c *)
+(** b² - 4c for t² + bt + c *)
 Definition quad_discriminant (b c : R) : R := b^2 - 4*c.
 
-(** Quadratic has no real roots when discriminant < 0 *)
+(** b² - 4c < 0 → t² + bt + c ≠ 0 *)
 Lemma quadratic_no_roots_neg_disc : forall b c t,
   quad_discriminant b c < 0 ->
   t^2 + b*t + c <> 0.
@@ -10914,7 +11150,7 @@ Proof.
   lra.
 Qed.
 
-(** Relationship between cubic and residual quadratic discriminant *)
+(** quad_discriminant(r, r²+p) = -3r² - 4p *)
 Lemma cubic_quad_discriminant : forall p q r,
   is_cubic_root p q r ->
   quad_discriminant r (r^2 + p) = -3*r^2 - 4*p.
@@ -10922,8 +11158,7 @@ Proof.
   intros p q r _. unfold quad_discriminant. ring.
 Qed.
 
-(** If r is a root and the remaining quadratic has negative discriminant,
-    then r is the unique root *)
+(** is_cubic_root r ∧ quad_discriminant < 0 → r is unique root *)
 Lemma cubic_unique_root_neg_quad_disc : forall p q r,
   is_cubic_root p q r ->
   quad_discriminant r (r^2 + p) < 0 ->
@@ -10939,7 +11174,7 @@ Proof.
     exact Ht.
 Qed.
 
-(** When two distinct roots exist, Δ >= 0 *)
+(** r₁ ≠ r₂ both roots → quad_discriminant(r₁, r₁²+p) ≥ 0 *)
 Lemma two_roots_implies_nonneg_discriminant : forall p q r1 r2,
   is_cubic_root p q r1 ->
   is_cubic_root p q r2 ->
@@ -10959,7 +11194,7 @@ Proof.
   lra.
 Qed.
 
-(** Contrapositive: if Δ_quad < 0, then there's at most one root *)
+(** quad_discriminant < 0 → at most one root *)
 Theorem cubic_at_most_one_root_when_quad_disc_neg : forall p q r,
   is_cubic_root p q r ->
   quad_discriminant r (r^2 + p) < 0 ->
@@ -10969,13 +11204,13 @@ Proof.
   apply cubic_unique_root_neg_quad_disc with p q; assumption.
 Qed.
 
-(** For t >= 1, we have t^3 >= t *)
+(** t ≥ 1 → t³ ≥ t *)
 Lemma cube_ge_self : forall t, t >= 1 -> t^3 >= t.
 Proof.
   intros t Ht. nra.
 Qed.
 
-(** Cubic is positive for large positive t *)
+(** ∃ M, t > M → t³ + pt + q > 0 *)
 Lemma depressed_cubic_pos_large : forall p q,
   exists M, forall t, t > M -> depressed_cubic p q t > 0.
 Proof.
@@ -11004,7 +11239,9 @@ Qed.
 End O6_Multiplicity.
 
 Section Discriminant_Theorem.
+(** Relating cubic discriminant Δ = -4p³ - 27q² to root structure *)
 
+(** Δ = -4p³ - 27(r³ + pr)² when r is a root *)
 Lemma cubic_disc_via_root : forall p q r,
   is_cubic_root p q r ->
   cubic_discriminant p q = -4 * p^3 - 27 * (r^3 + p * r)^2.
@@ -11016,6 +11253,7 @@ Proof.
   ring.
 Qed.
 
+(** q = -r(r² + p) when r is a root *)
 Lemma root_gives_q : forall p q r,
   is_cubic_root p q r ->
   q = - r * (r^2 + p).
@@ -11025,6 +11263,7 @@ Proof.
   lra.
 Qed.
 
+(** Δ_cubic = Δ_quad · (9r² - Δ_quad)² / 16 *)
 Lemma cubic_disc_via_quad_disc : forall p q r,
   is_cubic_root p q r ->
   cubic_discriminant p q =
@@ -11037,6 +11276,7 @@ Proof.
   field.
 Qed.
 
+(** (9r² - Δ_quad)² ≥ 0 *)
 Lemma square_term_nonneg : forall r p,
   (9 * r^2 - quad_discriminant r (r^2 + p))^2 >= 0.
 Proof.
@@ -11044,6 +11284,7 @@ Proof.
   apply Rle_ge. apply pow2_ge_0.
 Qed.
 
+(** Δ_cubic < 0 ∧ (9r² - Δ_quad)² > 0 → Δ_quad < 0 *)
 Lemma neg_cubic_disc_implies_neg_quad_disc : forall p q r,
   is_cubic_root p q r ->
   (9 * r^2 - quad_discriminant r (r^2 + p))^2 > 0 ->
@@ -11063,6 +11304,7 @@ Proof.
     lra.
 Qed.
 
+(** Δ_cubic = 0 → Δ_quad = 0 ∨ 9r² = Δ_quad *)
 Lemma zero_cubic_disc_cases : forall p q r,
   is_cubic_root p q r ->
   cubic_discriminant p q = 0 ->
@@ -11084,6 +11326,7 @@ Proof.
     apply Rmult_integral in H. destruct H; lra.
 Qed.
 
+(** Δ < 0 → r is the unique root *)
 Theorem neg_cubic_disc_unique_root : forall p q r,
   is_cubic_root p q r ->
   cubic_discriminant p q < 0 ->
@@ -11106,6 +11349,7 @@ Proof.
   apply (cubic_unique_root_neg_quad_disc p q r Hr Hquad_neg t Ht).
 Qed.
 
+(** Δ < 0 ∧ ∃ root → ∃! root *)
 Corollary neg_disc_unique_existence : forall p q,
   cubic_discriminant p q < 0 ->
   (exists r, is_cubic_root p q r) ->
@@ -11117,6 +11361,7 @@ Proof.
   - intros t Ht. symmetry. apply (neg_cubic_disc_unique_root p q r Hr Hdisc t Ht).
 Qed.
 
+(** Δ < 0 case of discriminant theorem *)
 Theorem discriminant_neg_case : forall p q,
   cubic_discriminant p q < 0 ->
   (exists r, is_cubic_root p q r) ->
@@ -11128,7 +11373,9 @@ Qed.
 End Discriminant_Theorem.
 
 Section Discriminant_Zero_Case.
+(** Δ = 0: repeated root cases *)
 
+(** Δ_quad = 0 ∧ r ≠ 0 → double root at -r/2 *)
 Lemma quad_disc_zero_double_root : forall r p,
   r <> 0 ->
   quad_discriminant r (r^2 + p) = 0 ->
@@ -11165,6 +11412,7 @@ Proof.
         lra.
 Qed.
 
+(** p = q = 0 → Δ = 0 ∧ 0 is triple root *)
 Lemma triple_root_case : forall p q,
   p = 0 -> q = 0 ->
   cubic_discriminant p q = 0 /\
@@ -11181,11 +11429,7 @@ Proof.
     assert (Htt : t * t * t <> 0) by nra. lra.
 Qed.
 
-(** ** General Discriminant Zero Characterization
-    When Δ = 0, the cubic has a repeated root. This section completes the
-    characterization by handling the case when r = 0 is a root. *)
-
-(** When 0 is a root, then q = 0. *)
+(** 0 is root → q = 0 *)
 Lemma zero_root_implies_q_zero : forall p q,
   is_cubic_root p q 0 -> q = 0.
 Proof.
@@ -11194,16 +11438,14 @@ Proof.
   lra.
 Qed.
 
-(** When q = 0, then 0 is a root. *)
+(** q = 0 → 0 is root *)
 Lemma q_zero_implies_zero_root : forall p,
   is_cubic_root p 0 0.
 Proof.
   intros p. unfold is_cubic_root, depressed_cubic. ring.
 Qed.
 
-(** When q = 0 and p ≠ 0, the cubic factors as t(t² + p).
-    If p > 0, only t = 0 is a real root.
-    If p < 0, roots are 0, √(-p), -√(-p). *)
+(** is_cubic_root p 0 t ⟺ t = 0 ∨ t² + p = 0 *)
 Lemma q_zero_factorization : forall p t,
   is_cubic_root p 0 t <-> t = 0 \/ t^2 + p = 0.
 Proof.
@@ -11221,7 +11463,7 @@ Proof.
       rewrite Htq. ring.
 Qed.
 
-(** When q = 0 and p > 0, zero is the unique root (Δ < 0 case). *)
+(** q = 0 ∧ p > 0 → 0 is unique root *)
 Lemma q_zero_p_pos_unique_root : forall p,
   p > 0 ->
   forall t, is_cubic_root p 0 t -> t = 0.
@@ -11233,7 +11475,7 @@ Proof.
   - exfalso. assert (Hpos : t^2 >= 0) by nra. lra.
 Qed.
 
-(** When q = 0 and p < 0, there are three roots: 0, √(-p), -√(-p). *)
+(** q = 0 ∧ p < 0 → roots are 0, √(-p), -√(-p) *)
 Lemma q_zero_p_neg_three_roots : forall p,
   p < 0 ->
   is_cubic_root p 0 0 /\
@@ -11253,7 +11495,7 @@ Proof.
     lra.
 Qed.
 
-(** When q = 0 and p = 0, zero is a triple root (Δ = 0). *)
+(** p = q = 0 → t³ = 0 → t = 0 *)
 Lemma q_zero_p_zero_triple : forall t,
   is_cubic_root 0 0 t -> t = 0.
 Proof.
@@ -11261,6 +11503,7 @@ Proof.
   apply (proj2 (triple_root_case 0 0 eq_refl eq_refl) t Ht).
 Qed.
 
+(** p < 0 ∧ q = 0 → Δ > 0 *)
 Lemma q_zero_p_neg_disc_pos : forall p,
   p < 0 -> cubic_discriminant p 0 > 0.
 Proof.
@@ -11278,6 +11521,7 @@ Proof.
   lra.
 Qed.
 
+(** p > 0 ∧ q = 0 → Δ < 0 *)
 Lemma q_zero_p_pos_disc_neg : forall p,
   p > 0 -> cubic_discriminant p 0 < 0.
 Proof.
@@ -11290,6 +11534,7 @@ Proof.
   lra.
 Qed.
 
+(** x ≠ 0 → x² > 0 *)
 Lemma sq_pos_of_neq_zero : forall x, x <> 0 -> x * x > 0.
 Proof.
   intros x Hx.
@@ -11300,6 +11545,7 @@ Proof.
     apply Rmult_lt_0_compat; lra.
 Qed.
 
+(** x < 0 → x³ < 0 *)
 Lemma cube_neg_of_neg : forall x, x < 0 -> x * x * x < 0.
 Proof.
   intros x Hx.
@@ -11309,6 +11555,7 @@ Proof.
   apply Rmult_lt_compat_r; lra.
 Qed.
 
+(** x > 0 → x³ > 0 *)
 Lemma cube_pos_of_pos : forall x, x > 0 -> x * x * x > 0.
 Proof.
   intros x Hx.
@@ -11316,6 +11563,7 @@ Proof.
   apply Rmult_lt_0_compat; lra.
 Qed.
 
+(** x³ = 0 ⟺ x = 0 *)
 Lemma cube_zero_iff : forall x, x * x * x = 0 <-> x = 0.
 Proof.
   intro x. split; intro H.
@@ -11328,6 +11576,7 @@ Proof.
   - subst. ring.
 Qed.
 
+(** Δ(p,0) = 0 → p = 0 *)
 Lemma disc_zero_q_zero_implies_p_zero : forall p,
   cubic_discriminant p 0 = 0 -> p = 0.
 Proof.
@@ -11342,7 +11591,9 @@ Qed.
 End Discriminant_Zero_Case.
 
 Section Discriminant_Positive_Case.
+(** Δ > 0: three distinct real roots *)
 
+(** Δ > 0 → p < 0 *)
 Lemma pos_disc_implies_neg_p : forall p q,
   cubic_discriminant p q > 0 -> p < 0.
 Proof.
@@ -11356,8 +11607,10 @@ Proof.
   - exact Hp_neg.
 Qed.
 
+(** √(-p/3): location of local extrema of t³ + pt + q *)
 Definition critical_point (p : R) : R := sqrt (- p / 3).
 
+(** p < 0 → √(-p/3) > 0 *)
 Lemma critical_point_pos : forall p,
   p < 0 -> critical_point p > 0.
 Proof.
@@ -11366,6 +11619,7 @@ Proof.
   apply sqrt_lt_R0. lra.
 Qed.
 
+(** (critical_point p)² = -p/3 *)
 Lemma critical_point_sq : forall p,
   p < 0 -> (critical_point p)^2 = - p / 3.
 Proof.
@@ -11376,6 +11630,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** f(tc) = q + (2p/3)·tc where tc = critical_point p *)
 Lemma cubic_at_critical_pos : forall p q,
   p < 0 ->
   depressed_cubic p q (critical_point p) =
@@ -11390,6 +11645,7 @@ Proof.
   field.
 Qed.
 
+(** f(-tc) = q - (2p/3)·tc *)
 Lemma cubic_at_critical_neg : forall p q,
   p < 0 ->
   depressed_cubic p q (- critical_point p) =
@@ -11404,6 +11660,7 @@ Proof.
   field.
 Qed.
 
+(** f(tc)·f(-tc) = q² + 4p³/27 *)
 Lemma extrema_product_discriminant : forall p q,
   p < 0 ->
   depressed_cubic p q (critical_point p) *
@@ -11426,6 +11683,7 @@ Proof.
   field.
 Qed.
 
+(** Δ = -27·f(tc)·f(-tc) *)
 Lemma discriminant_extrema_relation : forall p q,
   p < 0 ->
   cubic_discriminant p q =
@@ -11438,6 +11696,7 @@ Proof.
   field.
 Qed.
 
+(** Δ > 0 → f(tc)·f(-tc) < 0 *)
 Lemma pos_disc_extrema_opposite_signs : forall p q,
   cubic_discriminant p q > 0 ->
   depressed_cubic p q (critical_point p) *
@@ -11451,6 +11710,7 @@ Proof.
   lra.
 Qed.
 
+(** ∃ M, t < M → t³ + pt + q < 0 *)
 Lemma depressed_cubic_neg_large : forall p q,
   exists M, forall t, t < M -> depressed_cubic p q t < 0.
 Proof.
@@ -11465,17 +11725,20 @@ Proof.
   lra.
 Qed.
 
+(** x³ = cube_func x *)
 Lemma pow3_eq_cube_func : forall x, x^3 = cube_func x.
 Proof.
   intro x. unfold cube_func. ring.
 Qed.
 
+(** t³ + pt + q = cube_func(t) + p·t + q *)
 Lemma depressed_cubic_as_sum : forall p q x,
   depressed_cubic p q x = cube_func x + p * x + q.
 Proof.
   intros. unfold depressed_cubic, cube_func. ring.
 Qed.
 
+(** x ↦ p·x is continuous *)
 Lemma continuity_linear : forall p, continuity (fun x => p * x).
 Proof.
   intros p x.
@@ -11484,11 +11747,13 @@ Proof.
   apply derivable_pt_id.
 Qed.
 
+(** x ↦ c is continuous *)
 Lemma continuity_const_fn : forall c, continuity (fun _ => c).
 Proof.
   intros c x. apply continuity_const. intros y z. reflexivity.
 Qed.
 
+(** Curried form of depressed_cubic for continuity proofs *)
 Definition depressed_cubic_alt (p q : R) : R -> R :=
   fun x => cube_func x + p * x + q.
 
@@ -11498,6 +11763,7 @@ Proof.
   intros. unfold depressed_cubic, depressed_cubic_alt, cube_func. ring.
 Qed.
 
+(** t³ + pt + q is continuous in t *)
 Lemma depressed_cubic_alt_continuous : forall p q,
   continuity (depressed_cubic_alt p q).
 Proof.
@@ -11510,6 +11776,7 @@ Proof.
   - apply (continuity_const_fn q).
 Qed.
 
+(** f(a) < 0 < f(b) → ∃ r ∈ [a,b], f(r) = 0 *)
 Lemma IVT_root_exists : forall p q a b,
   a < b ->
   depressed_cubic_alt p q a < 0 ->
@@ -11556,10 +11823,7 @@ Proof.
   apply depressed_cubic_alt_sign. apply HM. exact Ht.
 Qed.
 
-(** ** General Cubic Root Existence
-    Every depressed cubic t³ + pt + q has at least one real root.
-    Proof: cubic → -∞ as t → -∞ and → +∞ as t → +∞, so by IVT there's a zero. *)
-
+(** ∀ p q, ∃ r, r³ + pr + q = 0 (via IVT) *)
 Theorem depressed_cubic_root_exists : forall p q,
   exists r, is_cubic_root p q r.
 Proof.
@@ -11582,7 +11846,7 @@ Proof.
   exact Hr.
 Qed.
 
-(** Corollary: Negative discriminant case now unconditional *)
+(** Δ < 0 → ∃! r, r³ + pr + q = 0 *)
 Corollary neg_disc_unique_root_exists : forall p q,
   cubic_discriminant p q < 0 ->
   exists! r, is_cubic_root p q r.
@@ -11593,6 +11857,7 @@ Proof.
   - apply depressed_cubic_root_exists.
 Qed.
 
+(** Δ > 0 → extrema have opposite signs *)
 Lemma pos_disc_alt_extrema_opposite : forall p q,
   cubic_discriminant p q > 0 ->
   (depressed_cubic_alt p q (critical_point p) < 0 /\
@@ -11623,6 +11888,7 @@ Proof.
   apply depressed_cubic_alt_continuous.
 Qed.
 
+(** Δ > 0 → ∃ root in [-tc, tc] *)
 Lemma pos_disc_middle_root : forall p q,
   cubic_discriminant p q > 0 ->
   exists r, - critical_point p <= r <= critical_point p /\
@@ -11651,6 +11917,7 @@ Proof.
     + exists r. split. lra. rewrite depressed_cubic_alt_eq. exact Hr.
 Qed.
 
+(** p < 0 → f(-tc) > f(tc) *)
 Lemma local_max_gt_local_min : forall p q,
   p < 0 ->
   depressed_cubic p q (- critical_point p) >
@@ -11669,6 +11936,7 @@ Proof.
   - exact Htc_pos.
 Qed.
 
+(** Δ > 0 → f(-tc) > 0 *)
 Lemma pos_disc_local_max_pos : forall p q,
   cubic_discriminant p q > 0 ->
   depressed_cubic p q (- critical_point p) > 0.
@@ -11691,6 +11959,7 @@ Proof.
     + lra.
 Qed.
 
+(** Δ > 0 → f(tc) < 0 *)
 Lemma pos_disc_local_min_neg : forall p q,
   cubic_discriminant p q > 0 ->
   depressed_cubic p q (critical_point p) < 0.
@@ -11708,6 +11977,7 @@ Proof.
     lra.
 Qed.
 
+(** Δ > 0 → ∃ root r < -tc *)
 Lemma pos_disc_left_root : forall p q,
   cubic_discriminant p q > 0 ->
   exists r, r < - critical_point p /\ depressed_cubic p q r = 0.
@@ -11737,6 +12007,7 @@ Proof.
     + rewrite depressed_cubic_alt_eq. exact Hr.
 Qed.
 
+(** Δ > 0 → ∃ root r > tc *)
 Lemma pos_disc_right_root : forall p q,
   cubic_discriminant p q > 0 ->
   exists r, r > critical_point p /\ depressed_cubic p q r = 0.
@@ -11766,6 +12037,7 @@ Proof.
     + rewrite depressed_cubic_alt_eq. exact Hr.
 Qed.
 
+(** Δ > 0 → ∃ r₁ < r₂ < r₃ all roots *)
 Theorem pos_disc_three_distinct_roots : forall p q,
   cubic_discriminant p q > 0 ->
   exists r1 r2 r3,
@@ -11787,7 +12059,7 @@ Proof.
   - destruct Hr2_bd as [Hr2_lo Hr2_hi]. lra.
 Qed.
 
-(** Discriminant determines root count: Δ > 0 gives 3 roots, Δ < 0 gives 1. *)
+(** Proof of discriminant_determines_roots *)
 Theorem discriminant_determines_roots_proof : discriminant_determines_roots.
 Proof.
   unfold discriminant_determines_roots.
@@ -11803,18 +12075,23 @@ Qed.
 End Discriminant_Positive_Case.
 
 Section O6_Fold_Count.
+(** O6 fold multiplicity determined by cubic discriminant *)
 
+(** Beloch fold from cubic root t *)
 Definition O6_fold_from_root (p q t : R) : Fold := fold_O6_beloch p q t.
 
+(** ∃! t with t³ + pt + q = 0 *)
 Definition O6_has_exactly_one_fold (p q : R) : Prop :=
   exists t, is_cubic_root p q t /\
     forall t', is_cubic_root p q t' -> t' = t.
 
+(** ∃ t₁ ≠ t₂ ≠ t₃ all roots *)
 Definition O6_has_three_distinct_folds (p q : R) : Prop :=
   exists t1 t2 t3,
     is_cubic_root p q t1 /\ is_cubic_root p q t2 /\ is_cubic_root p q t3 /\
     t1 <> t2 /\ t1 <> t3 /\ t2 <> t3.
 
+(** Δ < 0 ∧ ∃ root → exactly one O6 fold *)
 Theorem O6_neg_discriminant_one_fold : forall p q,
   cubic_discriminant p q < 0 ->
   (exists t, is_cubic_root p q t) ->
@@ -11827,7 +12104,7 @@ Proof.
   - intros t' Ht'. apply (neg_cubic_disc_unique_root p q t Ht Hdisc t' Ht').
 Qed.
 
-(** Unconditional version using general existence theorem *)
+(** Δ < 0 → exactly one O6 fold *)
 Theorem O6_neg_discriminant_one_fold_unconditional : forall p q,
   cubic_discriminant p q < 0 ->
   O6_has_exactly_one_fold p q.
@@ -11839,6 +12116,7 @@ Proof.
   - exists r. exact Hr.
 Qed.
 
+(** Δ > 0 → three distinct O6 folds *)
 Theorem O6_pos_discriminant_three_folds : forall p q,
   cubic_discriminant p q > 0 ->
   O6_has_three_distinct_folds p q.
@@ -11850,13 +12128,14 @@ Proof.
   repeat split; try assumption; lra.
 Qed.
 
+(** ∃ exactly t₁ ≠ t₂ both roots *)
 Definition O6_has_two_distinct_folds (p q : R) : Prop :=
   exists t1 t2,
     is_cubic_root p q t1 /\ is_cubic_root p q t2 /\
     t1 <> t2 /\
     forall t, is_cubic_root p q t -> t = t1 \/ t = t2.
 
-(** Δ = 0 with double root: when r ≠ 0 is a root and quad_disc = 0, get 2 folds. *)
+(** r ≠ 0 ∧ Δ_quad = 0 → two O6 folds *)
 Theorem O6_zero_disc_double_root_two_folds : forall p r,
   r <> 0 ->
   is_cubic_root p (- r * (r^2 + p)) r ->
@@ -11874,6 +12153,7 @@ Proof.
   - exact Huniq.
 Qed.
 
+(** p = q = 0 → one O6 fold (triple root at 0) *)
 Theorem O6_zero_disc_triple_root_one_fold :
   O6_has_exactly_one_fold 0 0.
 Proof.
@@ -11897,19 +12177,12 @@ Qed.
 End O6_Fold_Count.
 
 Section Cardano_Formula.
+(** Cardano's formula: t = ∛(-q/2 + √Δ') + ∛(-q/2 - √Δ') where Δ' = q²/4 + p³/27 *)
 
-(** ** Cardano's Formula for Depressed Cubics
-
-    For the depressed cubic t³ + pt + q = 0, Cardano's formula gives:
-    t = ∛(-q/2 + √Δ') + ∛(-q/2 - √Δ')
-    where Δ' = q²/4 + p³/27
-
-    Uses the existing cbrt function defined earlier in this file. *)
-
-(** Cardano's discriminant (for formula applicability) *)
+(** q²/4 + p³/27 *)
 Definition cardano_discriminant (p q : R) : R := q*q/4 + p*p*p/27.
 
-(** Relationship to cubic discriminant *)
+(** Δ_cubic = -108 · Δ_cardano *)
 Lemma cardano_cubic_disc_relation : forall p q,
   cubic_discriminant p q = -108 * cardano_discriminant p q.
 Proof.
@@ -11918,7 +12191,7 @@ Proof.
   field.
 Qed.
 
-(** When cubic_discriminant < 0, cardano_discriminant > 0 *)
+(** Δ_cubic < 0 → Δ_cardano > 0 *)
 Lemma neg_cubic_disc_pos_cardano : forall p q,
   cubic_discriminant p q < 0 -> cardano_discriminant p q > 0.
 Proof.
@@ -11928,17 +12201,18 @@ Proof.
   lra.
 Qed.
 
-(** Cardano's u and v terms *)
+(** u = ∛(-q/2 + √Δ') *)
 Definition cardano_u (p q : R) : R :=
   cbrt (- q/2 + sqrt (cardano_discriminant p q)).
 
+(** v = ∛(-q/2 - √Δ') *)
 Definition cardano_v (p q : R) : R :=
   cbrt (- q/2 - sqrt (cardano_discriminant p q)).
 
-(** Cardano's root formula *)
+(** u + v *)
 Definition cardano_root (p q : R) : R := cardano_u p q + cardano_v p q.
 
-(** Key identity: u³ + v³ = -q *)
+(** u³ + v³ = -q *)
 Lemma cardano_uv_sum_cubes : forall p q,
   cardano_discriminant p q >= 0 ->
   let u := cardano_u p q in
@@ -11953,7 +12227,7 @@ Proof.
   reflexivity.
 Qed.
 
-(** Key identity: u³ * v³ = -p³/27 *)
+(** u³ · v³ = -p³/27 *)
 Lemma cardano_uv_prod_cubes : forall p q,
   cardano_discriminant p q >= 0 ->
   let u := cardano_u p q in
