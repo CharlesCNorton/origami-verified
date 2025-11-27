@@ -9597,12 +9597,70 @@ Proof.
     lia.
 Qed.
 
-(** Main theorem: EuclidNum is a strict subset of OrigamiNum. *)
-Theorem EuclidNum_strict_subset_OrigamiNum :
-  (forall x, EuclidNum x -> OrigamiNum x) /\
-  (exists x, OrigamiNum x /\ ~ EuclidNum x).
+Lemma cbrt2_sqrt_gives_cbrt4 : forall x, cbrt2 = sqrt x -> 0 <= x -> x = cbrt 4.
 Proof.
-Admitted.
+  intros x Heq Hnn.
+  assert (Hsq : sqrt x * sqrt x = x) by (apply sqrt_sqrt; exact Hnn).
+  rewrite <- Heq in Hsq.
+  rewrite <- Hsq.
+  exact cbrt2_squared_is_cbrt4.
+Qed.
+
+Lemma max_0_l : forall a b, Nat.max a b = 0%nat -> a = 0%nat.
+Proof. intros. destruct a; [reflexivity | simpl in H; destruct b; discriminate]. Qed.
+
+Lemma max_0_r : forall a b, Nat.max a b = 0%nat -> b = 0%nat.
+Proof. intros. destruct b; [reflexivity | destruct a; simpl in H; discriminate]. Qed.
+
+Definition is_rational (x : R) : Prop :=
+  exists p q : Z, (q > 0)%Z /\ x = IZR p / IZR q.
+
+Lemma EuclidNum_ht_0_rational : forall x, EuclidNum_ht x 0 -> is_rational x.
+Proof.
+  intros x H.
+  remember 0%nat as n.
+  induction H; try discriminate.
+  - exists 0%Z, 1%Z. split; [lia | simpl; field].
+  - exists 1%Z, 1%Z. split; [lia | simpl; field].
+  - assert (Hhx : hx = 0%nat) by (apply max_0_l with hy; exact Heqn).
+    assert (Hhy : hy = 0%nat) by (apply max_0_r with hx; exact Heqn).
+    destruct (IHEuclidNum_ht1 Hhx) as [p1 [q1 [Hq1 Hp1]]].
+    destruct (IHEuclidNum_ht2 Hhy) as [p2 [q2 [Hq2 Hp2]]].
+    exists (p1 * q2 + p2 * q1)%Z, (q1 * q2)%Z.
+    split; [lia | rewrite Hp1, Hp2; rewrite plus_IZR, !mult_IZR; field; split; apply not_0_IZR; lia].
+  - assert (Hhx : hx = 0%nat) by (apply max_0_l with hy; exact Heqn).
+    assert (Hhy : hy = 0%nat) by (apply max_0_r with hx; exact Heqn).
+    destruct (IHEuclidNum_ht1 Hhx) as [p1 [q1 [Hq1 Hp1]]].
+    destruct (IHEuclidNum_ht2 Hhy) as [p2 [q2 [Hq2 Hp2]]].
+    exists (p1 * q2 - p2 * q1)%Z, (q1 * q2)%Z.
+    split; [lia | rewrite Hp1, Hp2; rewrite minus_IZR, !mult_IZR; field; split; apply not_0_IZR; lia].
+  - assert (Hhx : hx = 0%nat) by (apply max_0_l with hy; exact Heqn).
+    assert (Hhy : hy = 0%nat) by (apply max_0_r with hx; exact Heqn).
+    destruct (IHEuclidNum_ht1 Hhx) as [p1 [q1 [Hq1 Hp1]]].
+    destruct (IHEuclidNum_ht2 Hhy) as [p2 [q2 [Hq2 Hp2]]].
+    exists (p1 * p2)%Z, (q1 * q2)%Z.
+    split; [lia | rewrite Hp1, Hp2; rewrite !mult_IZR; field; split; apply not_0_IZR; lia].
+  - destruct (IHEuclidNum_ht Heqn) as [p1 [q1 [Hq1 Hp1]]].
+    destruct (Z_lt_le_dec 0 p1) as [Hppos | Hpneg].
+    + exists q1, p1. split; [lia | rewrite Hp1; field; split; apply not_0_IZR; lia].
+    + destruct (Z.eq_dec p1 0) as [Heq | Hneq].
+      * exfalso. apply H0. rewrite Hp1. rewrite Heq. unfold IZR. field. apply not_0_IZR. lia.
+      * exists (- q1)%Z, (- p1)%Z. split; [lia | rewrite Hp1; rewrite !opp_IZR; field; split; apply not_0_IZR; lia].
+Qed.
+
+Lemma cbrt2_not_rational : ~ is_rational cbrt2.
+Proof.
+  intros [p [q [Hq Heq]]].
+  apply (cbrt2_irrational p q Hq). exact Heq.
+Qed.
+
+Lemma cbrt2_not_EuclidNum_ht_0 : ~ EuclidNum_ht cbrt2 0.
+Proof.
+  intro H.
+  apply cbrt2_not_rational.
+  apply EuclidNum_ht_0_rational.
+  exact H.
+Qed.
 
 (** Hendecagon (11-gon): φ(10) = 4, φ(11) = 10. Requires degree-5 extension.
     5 is NOT an Origami degree (not 2^a × 3^b), hence impossible. *)
