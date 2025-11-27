@@ -1,16 +1,5 @@
-(** * Origami Geometry Formalization
-
-    This file provides a complete formalization of origami (paper folding) geometry
-    over the reals, including:
-    - The seven Huzita-Hatori origami axioms (O1-O7)
-    - Geometric primitives (points, lines, folds) in R²
-    - Constructibility predicates defining what can be built via origami operations
-    - Algebraic characterization: origami numbers include all rationals, square roots,
-      and cubic roots (going beyond compass-and-straightedge constructions)
-
-    Author: Charles C Norton
-    Date: November 22, 2025
-*)
+(** Origami Geometry: Huzita-Hatori axioms O1-O7, constructibility, algebraic characterization.
+    Author: Charles C Norton, November 2025 *)
 
 From Coq Require Import Reals.
 Require Import Lra.
@@ -28,15 +17,9 @@ Require Import Coq.Arith.PeanoNat.
 Import ListNotations.
 Open Scope R_scope.
 
-(** ** Geometric Primitives
-
-    Basic definitions for points and lines in R². Lines are represented in
-    implicit form Ax + By + C = 0 with the invariant A ≠ 0 ∨ B ≠ 0.
-*)
-
 Section Geometry_Primitives.
+(** Points in ℝ², lines as {(x,y) : Ax + By + C = 0} with A ≠ 0 ∨ B ≠ 0 *)
 
-(** Points are simply pairs of reals. *)
 Definition Point : Type := R * R.
 
 Record Line : Type := {
@@ -45,11 +28,13 @@ Record Line : Type := {
   C : R
 }.
 
+(** A ≠ 0 ∨ B ≠ 0 *)
 Definition line_wf (l : Line) : Prop := A l <> 0 \/ B l <> 0.
 
 Definition mkLine (a b c : R) (H : a <> 0 \/ b <> 0) : Line :=
   {| A := a; B := b; C := c |}.
 
+(** (A,B,C) ↦ (A,B,C)/√(A²+B²) *)
 Definition normalize_line (l : Line) : Line :=
   let a := A l in
   let b := B l in
@@ -86,6 +71,7 @@ End Geometry_Primitives.
 
 Section Geometric_Predicates.
 
+(** p ∈ l ⟺ Ax + By + C = 0 *)
 Definition on_line (p : Point) (l : Line) : Prop :=
   let '(x, y) := p in A l * x + B l * y + C l = 0.
 
@@ -118,17 +104,19 @@ Qed.
 Definition point_eq (p q : Point) : Prop :=
   fst p = fst q /\ snd p = snd q.
 
+(** l₁ ∥ l₂ ⟺ A₁B₂ = A₂B₁ *)
 Definition line_parallel (l1 l2 : Line) : Prop :=
   A l1 * B l2 = A l2 * B l1.
 
+(** l₁ ⊥ l₂ ⟺ A₁A₂ + B₁B₂ = 0 *)
 Definition line_perp (l1 l2 : Line) : Prop :=
   A l1 * A l2 + B l1 * B l2 = 0.
 
 End Geometric_Predicates.
 
 Section Computable_Predicates.
+(** Decidable predicates for computation *)
 
-(** Decidable version of point equality for computation. *)
 Definition point_eq_dec (p q : Point) : {p = q} + {p <> q}.
 Proof.
   destruct p as [x1 y1], q as [x2 y2].
@@ -139,44 +127,38 @@ Proof.
   - right. intro H. injection H as H1 H2. contradiction.
 Defined.
 
-(** Decidable version of on_line predicate. *)
+(** {p ∈ l} + {p ∉ l} *)
 Definition on_line_dec (p : Point) (l : Line) : {on_line p l} + {~on_line p l}.
-Proof.
-  unfold on_line.
-  destruct p as [x y].
-  apply Req_EM_T.
-Defined.
+Proof. unfold on_line. destruct p as [x y]. apply Req_EM_T. Defined.
 
-(** Decidable version of line_parallel predicate. *)
+(** {l₁ ∥ l₂} + {l₁ ∦ l₂} *)
 Definition line_parallel_dec (l1 l2 : Line) : {line_parallel l1 l2} + {~line_parallel l1 l2}.
-Proof.
-  unfold line_parallel.
-  apply Req_EM_T.
-Defined.
+Proof. unfold line_parallel. apply Req_EM_T. Defined.
 
-(** Decidable version of line_perp predicate. *)
+(** {l₁ ⊥ l₂} + {l₁ ⊥̸ l₂} *)
 Definition line_perp_dec (l1 l2 : Line) : {line_perp l1 l2} + {~line_perp l1 l2}.
-Proof.
-  unfold line_perp.
-  apply Req_EM_T.
-Defined.
+Proof. unfold line_perp. apply Req_EM_T. Defined.
 
 End Computable_Predicates.
 
 Section Metric_Geometry.
 
+(** x² *)
 Definition sqr (x : R) : R := x * x.
 
+(** √((x₁-x₂)² + (y₁-y₂)²) *)
 Definition dist (p q : Point) : R :=
   let '(x1, y1) := p in
   let '(x2, y2) := q in
   sqrt (sqr (x1 - x2) + sqr (y1 - y2)).
 
+(** (x₁-x₂)² + (y₁-y₂)² *)
 Definition dist2 (p q : Point) : R :=
   let '(x1, y1) := p in
   let '(x2, y2) := q in
   sqr (x1 - x2) + sqr (y1 - y2).
 
+(** x ≠ 0 → x² > 0 *)
 Lemma square_pos : forall x : R, x <> 0 -> x * x > 0.
 Proof.
   intros x Hneq.
@@ -187,6 +169,7 @@ Proof.
     + exfalso; nra.
 Qed.
 
+(** a ≠ 0 → a·(c/a) = c *)
 Lemma mul_div_cancel_l : forall a c, a <> 0 -> a * (c / a) = c.
 Proof.
   intros a c Ha.
@@ -196,6 +179,7 @@ Proof.
   rewrite Rinv_l; [ring|exact Ha].
 Qed.
 
+(** Projection onto line ax+by+c=0 satisfies the line equation *)
 Lemma proj_eval :
   forall a b c x y,
     (a <> 0 \/ b <> 0) ->
@@ -219,15 +203,18 @@ Proof.
   field; auto.
 Qed.
 
+(** √(A² + B²) *)
 Definition line_norm (l : Line) : R :=
   sqrt (sqr (A l) + sqr (B l)).
 
+(** |Ax + By + C| / √(A² + B²) *)
 Definition dist_point_line (p : Point) (l : Line) : R :=
   Rabs (let '(x, y) := p in A l * x + B l * y + C l) / line_norm l.
 
 End Metric_Geometry.
 
 Section Fold_Primitives.
+(** Folds as reflection lines, point/line reflection operations *)
 
 Inductive Fold : Type :=
 | fold_line_ctor : Line -> Fold.
@@ -237,8 +224,7 @@ Definition fold_line (f : Fold) : Line :=
   | fold_line_ctor l => l
   end.
 
-(* Reflection of a point across a fold line. *)
-
+(** Reflection of p across l *)
 Definition reflect_point (p : Point) (l : Line) : Point :=
   let '(x, y) := p in
   let a := A l in
@@ -250,8 +236,7 @@ Definition reflect_point (p : Point) (l : Line) : Point :=
   let yr := y - 2 * b * factor in
   (xr, yr).
 
-(* Canonical distinct points chosen on a line for constructions. *)
-
+(** Two distinct points on l for parametrizing the line *)
 Definition base_points (l : Line) : Point * Point :=
   match Req_EM_T (B l) 0 with
   | left Hb =>
@@ -266,8 +251,7 @@ Definition base_points (l : Line) : Point * Point :=
 Definition map_point (f : Fold) (p : Point) : Point :=
   reflect_point p (fold_line f).
 
-(* Line through two points, choosing a vertical fallback if x-coordinates coincide. *)
-
+(** Unique line containing p₁ and p₂ *)
 Definition line_through (p1 p2 : Point) : Line :=
   let '(x1, y1) := p1 in
   let '(x2, y2) := p2 in
@@ -308,12 +292,12 @@ Proof.
   - ring.
 Qed.
 
-(* Reflection of a line across a fold line. *)
-
+(** Reflection of line l across fold f *)
 Definition map_line (f : Fold) (l : Line) : Line :=
   let '(p1, p2) := base_points l in
   line_through (map_point f p1) (map_point f p2).
 
+(** Orthogonal projection of p onto l *)
 Definition foot_on_line (p : Point) (l : Line) : Point :=
   let '(x, y) := p in
   let a := A l in
@@ -323,6 +307,7 @@ Definition foot_on_line (p : Point) (l : Line) : Point :=
   let factor := (a * x + b * y + c) / denom in
   (x - a * factor, y - b * factor).
 
+(** base_points(l) ⊂ l *)
 Lemma base_points_on_line : forall l,
   line_wf l -> on_line (fst (base_points l)) l /\ on_line (snd (base_points l)) l.
 Proof.
@@ -347,6 +332,7 @@ Proof.
   - intro Heq. injection Heq. intros. lra.
 Qed.
 
+(** x-coordinate difference under reflection *)
 Lemma delta_reflect_x :
   forall a b c d x1 x2 y1 y2,
     d <> 0 ->
@@ -358,6 +344,7 @@ Proof.
   field; auto.
 Qed.
 
+(** y-coordinate difference under reflection *)
 Lemma delta_reflect_y :
   forall a b c d x1 x2 y1 y2,
     d <> 0 ->
@@ -369,6 +356,7 @@ Proof.
   field; auto.
 Qed.
 
+(** Reflection preserves squared distance from origin *)
 Lemma reflect_delta_sq :
   forall a b dx dy,
     (a * a + b * b) <> 0 ->
@@ -389,11 +377,13 @@ Proof.
   rewrite Hexp; nra.
 Qed.
 
+(** ((x₁+x₂)/2, (y₁+y₂)/2) *)
 Definition midpoint (p1 p2 : Point) : Point :=
   let '(x1, y1) := p1 in
   let '(x2, y2) := p2 in
   ((x1 + x2) / 2, (y1 + y2) / 2).
 
+(** l₁ ∩ l₂ via Cramer's rule; returns (0,0) if parallel *)
 Definition line_intersection (l1 l2 : Line) : Point :=
   let D := A l1 * B l2 - A l2 * B l1 in
   let Dx := (- C l1) * B l2 - (- C l2) * B l1 in
@@ -413,7 +403,10 @@ Proof.
   - contradiction.
 Qed.
 
+(** y = 0 *)
 Definition line_xaxis : Line := {| A := 0; B := 1; C := 0 |}.
+
+(** x = 0 *)
 Definition line_yaxis : Line := {| A := 1; B := 0; C := 0 |}.
 
 Lemma line_xaxis_wf : line_wf line_xaxis.
@@ -422,9 +415,13 @@ Proof. unfold line_wf, line_xaxis. simpl. right. apply R1_neq_R0. Qed.
 Lemma line_yaxis_wf : line_wf line_yaxis.
 Proof. unfold line_wf, line_yaxis. simpl. left. apply R1_neq_R0. Qed.
 
+(** Origin *)
 Definition point_O : Point := (0, 0).
+
+(** Unit point on x-axis *)
 Definition point_X : Point := (1, 0).
 
+(** line_wf l → A² + B² > 0 *)
 Lemma line_norm_pos : forall l : Line, line_wf l -> A l * A l + B l * B l > 0.
 Proof.
   intros l Hwf.
@@ -442,6 +439,7 @@ Proof.
     lra.
 Qed.
 
+(** line_wf l → ‖l‖ ≠ 0 *)
 Lemma line_norm_nonzero : forall l, line_wf l -> line_norm l <> 0.
 Proof.
   intros l Hwf.
@@ -454,6 +452,7 @@ Proof.
   + apply Rplus_le_le_0_compat; apply Rle_0_sqr.
 Qed.
 
+(** foot(p,l) ∈ l *)
 Lemma foot_on_line_incident : forall p l, line_wf l -> on_line (foot_on_line p l) l.
 Proof.
   intros [x y] l Hwf; unfold foot_on_line, on_line; simpl.
@@ -461,6 +460,7 @@ Proof.
   exact Hwf.
 Qed.
 
+(** p ∈ l → reflect(p,l) = p *)
 Lemma reflect_point_on_line : forall p l, on_line p l -> reflect_point p l = p.
 Proof.
   intros [x y] l H.
@@ -477,6 +477,7 @@ Proof.
   reflexivity.
 Qed.
 
+(** p ∈ fold_line(f) → map_point(f,p) = p *)
 Lemma map_point_fix : forall f p, on_line p (fold_line f) -> map_point f p = p.
 Proof.
   intros f p H.
@@ -484,6 +485,7 @@ Proof.
   apply reflect_point_on_line; exact H.
 Qed.
 
+(** reflect(reflect(p,l),l) = p *)
 Lemma reflect_point_involutive : forall p l, line_wf l -> reflect_point (reflect_point p l) l = p.
 Proof.
   intros [x y] l Hwf; unfold reflect_point; simpl.
@@ -501,12 +503,14 @@ Proof.
   - unfold x1, y1, r, d; field; auto.
 Qed.
 
+(** map_point is an involution *)
 Lemma map_point_involutive : forall f p, line_wf (fold_line f) -> map_point f (map_point f p) = p.
 Proof.
   intros [l] p Hwf; simpl in *.
   apply reflect_point_involutive. exact Hwf.
 Qed.
 
+(** Reflection is an isometry: dist²(p',q') = dist²(p,q) *)
 Lemma reflect_point_isometry_dist2 : forall p q l,
   line_wf l -> dist2 (reflect_point p l) (reflect_point q l) = dist2 p q.
 Proof.
@@ -526,12 +530,13 @@ Qed.
 End Fold_Primitives.
 
 Section Origami_Operations.
+(** Huzita-Hatori origami axioms O1-O7 *)
 
+(** O1: Line through two points *)
 Definition fold_O1 (p1 p2 : Point) : Fold :=
   fold_line_ctor (line_through p1 p2).
 
-(* Origami operation O2: perpendicular bisector mapping p1 to p2. *)
-
+(** Perpendicular bisector of p₁p₂ *)
 Definition perp_bisector (p1 p2 : Point) : Line :=
   let '(x1, y1) := p1 in
   let '(x2, y2) := p2 in
@@ -568,9 +573,11 @@ Proof.
     destruct H as [H2 | Hdx]; [lra | apply Hx; lra].
 Qed.
 
+(** O2: Fold p₁ onto p₂ *)
 Definition fold_O2 (p1 p2 : Point) : Fold :=
   fold_line_ctor (perp_bisector p1 p2).
 
+(** Midpoint of p₁p₂ lies on perpendicular bisector *)
 Lemma perp_bisector_midpoint : forall p1 p2,
   on_line (midpoint p1 p2) (perp_bisector p1 p2).
 Proof.
@@ -589,8 +596,7 @@ Proof. reflexivity. Qed.
 Lemma fold_line_O2 : forall p1 p2, fold_line (fold_O2 p1 p2) = perp_bisector p1 p2.
 Proof. reflexivity. Qed.
 
-(* Origami operation O4: perpendicular to l through p. *)
-
+(** Line through p perpendicular to l *)
 Definition perp_through (p : Point) (l : Line) : Line :=
   let '(x, y) := p in
   let c := A l * y - B l * x in
@@ -606,21 +612,19 @@ Proof.
   - left. exact Hb.
 Qed.
 
+(** O4: Fold through p perpendicular to l *)
 Definition fold_O4 (p : Point) (l : Line) : Fold :=
   fold_line_ctor (perp_through p l).
 
 Lemma fold_line_O4 : forall p l, fold_line (fold_O4 p l) = perp_through p l.
 Proof. reflexivity. Qed.
 
-(* Origami operation O3: fold mapping line l1 onto l2 via an angle bisector. *)
-
-(** Signed distance from a point to a line.
-    This is positive on one side of the line and negative on the other.
-    The magnitude equals the Euclidean distance to the line. *)
+(** (Ax + By + C) / √(A² + B²), positive on one side of l, negative on other *)
 Definition signed_dist (p : Point) (l : Line) : R :=
   let '(x, y) := p in
   (A l * x + B l * y + C l) / line_norm l.
 
+(** signed_dist(p,l) = 0 ⟺ p ∈ l *)
 Lemma signed_dist_zero_iff_on_line : forall p l,
   line_wf l -> (signed_dist p l = 0 <-> on_line p l).
 Proof.
@@ -656,7 +660,7 @@ Proof.
   - field. unfold sqr. lra.
 Qed.
 
-(** Reflection negates the signed distance to the reflection line. *)
+(** signed_dist(reflect(p,l), l) = -signed_dist(p,l) *)
 Lemma signed_dist_reflect : forall p l,
   line_wf l -> signed_dist (reflect_point p l) l = - signed_dist p l.
 Proof.
@@ -681,6 +685,7 @@ Proof.
   field. exact Hsqrt_ne.
 Qed.
 
+(** Angle bisector of l₁ and l₂ (locus where signed distances equal) *)
 Definition bisector (l1 l2 : Line) : Line :=
   let n1 := line_norm l1 in
   let n2 := line_norm l2 in
@@ -707,16 +712,14 @@ Proof.
   - unfold line_wf. simpl. left. exact Han0.
 Qed.
 
+(** O3: Fold l₁ onto l₂ *)
 Definition fold_O3 (l1 l2 : Line) : Fold :=
   fold_line_ctor (bisector l1 l2).
 
 Lemma fold_line_O3 : forall l1 l2, fold_line (fold_O3 l1 l2) = bisector l1 l2.
 Proof. reflexivity. Qed.
 
-(** O3 Correctness: The bisector is the locus of points equidistant from both lines.
-    This is the fundamental characterization of an angle bisector.
-    We prove this for the standard (non-degenerate) case where the bisector
-    is defined by the difference of normalized line equations. *)
+(** p ∈ bisector(l₁,l₂) → signed_dist(p,l₁) = signed_dist(p,l₂) *)
 Theorem bisector_equidistant : forall p l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
@@ -754,8 +757,7 @@ Proof.
     apply Heq. exact Hon.
 Qed.
 
-(** O3 Correctness (converse): Points equidistant from both lines lie on the bisector
-    (when the bisector is in standard form, not degenerate). *)
+(** signed_dist(p,l₁) = signed_dist(p,l₂) → p ∈ bisector(l₁,l₂) *)
 Theorem equidistant_on_bisector : forall p l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
@@ -785,8 +787,7 @@ Proof.
     unfold Rdiv. nra.
 Qed.
 
-(** O3 Property: The bisector passes through the intersection of two non-parallel lines.
-    This is geometrically obvious: the angle bisector emanates from the vertex. *)
+(** l₁ ∩ l₂ ∈ bisector(l₁,l₂) when l₁ ∦ l₂ *)
 Lemma bisector_through_intersection : forall l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 * B l2 - A l2 * B l1 <> 0 ->
@@ -818,8 +819,7 @@ Proof.
     simpl. field. repeat split; assumption.
 Qed.
 
-(** O3 Property: Absolute distances from a point on the bisector to both lines are equal.
-    This is the unsigned version of bisector_equidistant. *)
+(** p ∈ bisector(l₁,l₂) → |signed_dist(p,l₁)| = |signed_dist(p,l₂)| *)
 Lemma bisector_abs_equidistant : forall p l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
@@ -832,7 +832,6 @@ Proof.
   reflexivity.
 Qed.
 
-(** O3 produces a well-formed fold line. *)
 Lemma fold_O3_wf : forall l1 l2,
   line_wf l1 -> line_wf (fold_line (fold_O3 l1 l2)).
 Proof.
@@ -841,8 +840,7 @@ Proof.
   apply bisector_wf. exact Hwf1.
 Qed.
 
-(** O3 Symmetry: bisector l1 l2 and bisector l2 l1 represent the same geometric line.
-    Swapping arguments negates the coefficients but preserves the point set. *)
+(** p ∈ bisector(l₁,l₂) ⟺ p ∈ bisector(l₂,l₁) *)
 Lemma bisector_symmetric : forall p l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
@@ -866,8 +864,7 @@ Proof.
     + unfold on_line. simpl. split; intro H; lra.
 Qed.
 
-(** O3 Parallel Case: When lines have parallel direction vectors (normalized A,B equal),
-    the bisector degenerates to a perpendicular through their "intersection". *)
+(** Parallel lines: bisector degenerates to perpendicular through intersection *)
 Lemma bisector_parallel_case : forall l1 l2,
   line_wf l1 ->
   A l1 / line_norm l1 - A l2 / line_norm l2 = 0 ->
@@ -883,8 +880,7 @@ Proof.
   - contradiction.
 Qed.
 
-(** Second angle bisector: The other bisector perpendicular to the first.
-    Computed by adding (not subtracting) normalized line equations. *)
+(** Second angle bisector (perpendicular to first), via sum of normalized equations *)
 Definition bisector2 (l1 l2 : Line) : Line :=
   let n1 := line_norm l1 in
   let n2 := line_norm l2 in
@@ -893,8 +889,7 @@ Definition bisector2 (l1 l2 : Line) : Line :=
   let c := C l1 / n1 + C l2 / n2 in
   {| A := a; B := b; C := c |}.
 
-(** The two bisectors are perpendicular to each other.
-    The dot product of their normal vectors is zero. *)
+(** bisector(l₁,l₂) ⊥ bisector2(l₁,l₂) *)
 Lemma bisector_bisector2_perp : forall l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 / line_norm l1 - A l2 / line_norm l2 <> 0 \/
@@ -938,8 +933,7 @@ Proof.
     rewrite Hdot, H1, H2. field. split; assumption.
 Qed.
 
-(** O3 Reflection Property: Reflecting the intersection point is a fixed point.
-    The intersection of l1 and l2 lies on the bisector, so reflection fixes it. *)
+(** reflect(l₁∩l₂, bisector) = l₁∩l₂ *)
 Lemma bisector_reflect_intersection_fixed : forall l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 * B l2 - A l2 * B l1 <> 0 ->
@@ -953,23 +947,19 @@ Proof.
   apply bisector_through_intersection; assumption.
 Qed.
 
-(** O3 Angle Property: Definition of angle measure between two lines.
-    We use the dot product of normalized normal vectors as a measure of angle.
-    This equals cos(θ) where θ is the angle between the lines. *)
+(** cos(angle between l₁ and l₂) via dot product of unit normals *)
 Definition line_cos_angle (l1 l2 : Line) : R :=
   (A l1 / line_norm l1) * (A l2 / line_norm l2) +
   (B l1 / line_norm l1) * (B l2 / line_norm l2).
 
-(** Symmetry of line_cos_angle. *)
+(** line_cos_angle(l₁,l₂) = line_cos_angle(l₂,l₁) *)
 Lemma line_cos_angle_sym : forall l1 l2,
   line_cos_angle l1 l2 = line_cos_angle l2 l1.
 Proof.
   intros l1 l2. unfold line_cos_angle. ring.
 Qed.
 
-(** O3 Concrete Example: The perpendicular axes.
-    The x-axis (y=0) and y-axis (x=0) are perpendicular.
-    line_cos_angle returns 0 for perpendicular lines. *)
+(** cos(angle(x-axis, y-axis)) = 0 *)
 Lemma perpendicular_axes_angle :
   line_cos_angle line_xaxis line_yaxis = 0.
 Proof.
@@ -979,7 +969,6 @@ Proof.
   lra.
 Qed.
 
-(** O3 Concrete Example: bisector of perpendicular axes is well-formed. *)
 Lemma bisector_axes_wf :
   line_wf (bisector line_xaxis line_yaxis).
 Proof.
@@ -987,8 +976,7 @@ Proof.
   unfold line_wf, line_xaxis. simpl. right. lra.
 Qed.
 
-(** ** O3 Solvability: O3 is always solvable for well-formed lines.
-    Given any two well-formed lines, we can always construct the bisector fold. *)
+(** ∀ well-formed l₁, ∃ fold with crease = bisector(l₁,l₂) *)
 Theorem O3_always_solvable : forall l1 l2,
   line_wf l1 ->
   exists f, fold_line f = bisector l1 l2 /\ line_wf (fold_line f).
@@ -1000,8 +988,7 @@ Proof.
   - apply fold_O3_wf. exact Hwf1.
 Qed.
 
-(** O3 preserves the intersection point: reflecting the intersection
-    across the bisector leaves it fixed. *)
+(** reflect(l₁∩l₂, bisector(l₁,l₂)) = l₁∩l₂ *)
 Theorem O3_preserves_intersection : forall l1 l2,
   line_wf l1 -> line_wf l2 ->
   A l1 * B l2 - A l2 * B l1 <> 0 ->
@@ -1032,9 +1019,7 @@ Proof.
   apply bisector_through_intersection; assumption.
 Qed.
 
-(** ** O4 Solvability: O4 is always solvable.
-    Given any point and any well-formed line, there exists a fold
-    that is perpendicular to the line and passes through the point. *)
+(** ∀ p, l well-formed, ∃ fold through p perpendicular to l *)
 Theorem O4_always_solvable : forall p l,
   line_wf l ->
   exists f, fold_line f = perp_through p l /\ line_wf (fold_line f).
@@ -1046,7 +1031,7 @@ Proof.
   - rewrite fold_line_O4. apply perp_through_wf. exact Hwf.
 Qed.
 
-(** O4 produces a line perpendicular to the original. *)
+(** fold_O4(p,l) ⊥ l *)
 Theorem O4_perpendicular : forall p l,
   line_wf l ->
   line_perp (fold_line (fold_O4 p l)) l.
@@ -1057,7 +1042,7 @@ Proof.
   ring.
 Qed.
 
-(** O4 produces a line passing through the given point. *)
+(** p ∈ fold_O4(p,l) *)
 Theorem O4_through_point : forall p l,
   on_line p (fold_line (fold_O4 p l)).
 Proof.
@@ -1067,10 +1052,7 @@ Proof.
   ring.
 Qed.
 
-(* Origami operation O5: fold p1 onto l through p2.
-   Note: This is a simplified approximation. For the correct general O5 fold,
-   use fold_O5_general and CF_O5_general defined in the Constructibility section. *)
-
+(** O5: Fold through p₂ placing p₁ onto l *)
 Definition fold_O5 (p1 : Point) (l : Line) (p2 : Point) : Fold :=
   let proj := foot_on_line p1 l in
   let aux_line := line_through p1 proj in
@@ -1079,21 +1061,21 @@ Definition fold_O5 (p1 : Point) (l : Line) (p2 : Point) : Fold :=
 Lemma fold_line_O5 : forall p1 l p2, fold_line (fold_O5 p1 l p2) = perp_through p2 (line_through p1 (foot_on_line p1 l)).
 Proof. reflexivity. Qed.
 
-(** Corrected O5 for vertical lines: fold p onto vertical line x=c through q.
-    The O5 fold places p onto the vertical line, passing through q.
-    The image p' is at (c, qy + sqrt(dist(q,p)^2 - (c-qx)^2)). *)
-
+(** y-coordinate of p reflected onto vertical line x=c through q *)
 Definition O5_vert_image_y (p q : Point) (c : R) : R :=
   let d2 := (fst p - fst q)^2 + (snd p - snd q)^2 in
   let dx2 := (c - fst q)^2 in
   snd q + sqrt (d2 - dx2).
 
+(** (c, O5_vert_image_y p q c) *)
 Definition O5_vert_image (p q : Point) (c : R) : Point :=
   (c, O5_vert_image_y p q c).
 
+(** O5 fold for vertical target line x = c *)
 Definition fold_O5_vert (p q : Point) (c : R) : Fold :=
   fold_line_ctor (perp_bisector p (O5_vert_image p q c)).
 
+(** √(4x) = 2√x *)
 Lemma sqrt_4x_eq : forall x, 0 <= x -> sqrt (4 * x) = 2 * sqrt x.
 Proof.
   intros x Hx.
@@ -1106,6 +1088,7 @@ Proof.
   apply Rmult_le_pos; [lra | apply sqrt_pos].
 Qed.
 
+(** O5_vert_image (0,0) (1+x,0) 2 = (2, 2√x) for x > 0 *)
 Lemma O5_vert_image_sqrt_case : forall x,
   0 < x ->
   O5_vert_image (0, 0) (1 + x, 0) 2 = (2, 2 * sqrt x).
@@ -1121,13 +1104,9 @@ Proof.
   ring.
 Qed.
 
-(** Beloch Fold Construction for Cubic Equations.
-    The Beloch fold (O6) solves depressed cubics t³ + pt + q = 0.
-    Configuration:
-    - P1 = (0, 1), L1: y = -1 (parabola y = x²/4 has focus P1, directrix L1)
-    - P2 = (q, p), L2: x = -q
-    The common tangent (O6 fold) has slope t where t is a cubic root. *)
+(** O6 (Beloch fold) solves t³ + pt + q = 0 via parabola tangent construction *)
 
+(** Focus of reference parabola y = x²/4 *)
 Definition beloch_P1 : Point := (0, 1).
 Definition beloch_L1 : Line := {| A := 0; B := 1; C := 1 |}.
 Definition beloch_P2 (p q : R) : Point := (q, p).
@@ -9998,9 +9977,180 @@ Proof.
   intro Heq. rewrite Heq in Hcube. lra.
 Qed.
 
-Lemma cbrt2_not_EuclidNum_ht_1 : ~ EuclidNum_ht cbrt2 1.
+Definition in_quadratic_field (x : R) (r : R) : Prop :=
+  exists p q : R, is_rational p /\ is_rational q /\ x = p + q * sqrt r.
+
+Lemma in_quadratic_field_rational : forall x r,
+  is_rational x -> in_quadratic_field x r.
+Proof.
+  intros x r Hx.
+  exists x, 0. repeat split.
+  - exact Hx.
+  - exists 0%Z, 1%Z. split; [lia | simpl; field].
+  - ring.
+Qed.
+
+Lemma sqrt_pos_from_ne0 : forall r, r >= 0 -> sqrt r <> 0 -> r > 0.
+Proof.
+  intros r Hr Hsqrt.
+  destruct (Rle_or_lt r 0) as [Hrle | Hrgt]; [|exact Hrgt].
+  destruct (Req_dec r 0) as [Hr0 | Hrne0].
+  - rewrite Hr0 in Hsqrt. rewrite sqrt_0 in Hsqrt. lra.
+  - assert (r < 0) by lra. rewrite sqrt_neg_0 in Hsqrt; lra.
+Qed.
+
+Lemma cube_in_quadratic_field : forall p q r,
+  r > 0 ->
+  (p + q * sqrt r) * (p + q * sqrt r) * (p + q * sqrt r) =
+  (p*p*p + 3*p*q*q*r) + (3*p*p*q + q*q*q*r) * sqrt r.
+Proof.
+  intros p q r Hr.
+  set (s := sqrt r).
+  assert (Hsqrt_sq : s * s = r) by (unfold s; apply sqrt_sqrt; lra).
+  replace (p*p*p + 3*p*q*q*r) with (p*p*p + 3*p*q*q*(s*s)) by (rewrite Hsqrt_sq; ring).
+  replace (q*q*q*r) with (q*q*q*(s*s)) by (rewrite Hsqrt_sq; ring).
+  ring.
+Qed.
+
+Lemma irrational_coeff_zero_implies_r_neg : forall p q r,
+  q <> 0 -> 3*p*p*q + q*q*q*r = 0 -> r <= 0.
+Proof.
+  intros p q r Hq Heq.
+  assert (Hfactor : q * (3*p*p + q*q*r) = 0) by lra.
+  apply Rmult_integral in Hfactor.
+  destruct Hfactor as [Hqz | Hinner]; [lra|].
+  assert (Hqq_pos : q * q > 0) by nra.
+  assert (Hinner2 : q*q*r = - 3*p*p) by lra.
+  assert (Hr : r * (q * q) = - 3 * p * p) by lra.
+  destruct (Rle_or_lt r 0) as [Hle|Hgt]; [exact Hle|].
+  assert (Hlhs_pos : r * (q * q) > 0) by nra.
+  assert (Hrhs_neg : - 3 * p * p <= 0) by nra.
+  lra.
+Qed.
+
+Lemma cbrt2_not_in_rational_quadratic_field : forall r,
+  r >= 0 -> is_rational r -> ~ in_quadratic_field cbrt2 r.
+Proof.
+  intros r Hr Hr_rat [p [q [Hp [Hq Heq]]]].
+  assert (Hcbrt2_pos : cbrt2 > 0) by (apply cbrt_pos_positive; lra).
+  assert (Hcube : cbrt2 * cbrt2 * cbrt2 = 2) by (unfold cbrt2; apply cbrt_spec).
+  destruct (Req_dec q 0) as [Hq0 | Hqne0].
+  - rewrite Hq0 in Heq. rewrite Rmult_0_l, Rplus_0_r in Heq.
+    apply cbrt2_not_rational. rewrite Heq. exact Hp.
+  - destruct (Req_dec (sqrt r) 0) as [Hsqrt0 | Hsqrtne0].
+    + rewrite Hsqrt0 in Heq. rewrite Rmult_0_r, Rplus_0_r in Heq.
+      apply cbrt2_not_rational. rewrite Heq. exact Hp.
+    + assert (Hr_pos : r > 0) by (apply sqrt_pos_from_ne0; assumption).
+      assert (Hcube_expand : (p + q * sqrt r) * (p + q * sqrt r) * (p + q * sqrt r) = 2).
+      { rewrite <- Heq. exact Hcube. }
+      rewrite cube_in_quadratic_field in Hcube_expand by exact Hr_pos.
+      set (A := p*p*p + 3*p*q*q*r) in Hcube_expand.
+      set (B := 3*p*p*q + q*q*q*r) in Hcube_expand.
+      assert (Hirrational_coeff : B = 0).
+      { destruct (Req_dec B 0) as [Hz | Hnz]; [exact Hz|].
+        exfalso.
+        assert (Hsqrt_expr : sqrt r = (2 - A) / B).
+        { unfold Rdiv. apply Rmult_eq_reg_r with B; [|exact Hnz].
+          rewrite Rmult_assoc. rewrite Rinv_l by exact Hnz.
+          rewrite Rmult_1_r. lra. }
+        assert (Hppp : is_rational (p*p*p)) by (apply rational_mul; [apply rational_mul|]; assumption).
+        assert (H3 : is_rational 3) by (exists 3%Z, 1%Z; split; [lia|simpl;field]).
+        assert (H3pqqr : is_rational (3*p*q*q*r)).
+        { apply rational_mul. apply rational_mul. apply rational_mul. apply rational_mul.
+          exact H3. exact Hp. exact Hq. exact Hq. exact Hr_rat. }
+        assert (HA : is_rational A) by (unfold A; apply rational_add; assumption).
+        assert (H3ppq : is_rational (3*p*p*q)).
+        { apply rational_mul. apply rational_mul. apply rational_mul.
+          exact H3. exact Hp. exact Hp. exact Hq. }
+        assert (Hqqqr : is_rational (q*q*q*r)).
+        { apply rational_mul. apply rational_mul. apply rational_mul.
+          exact Hq. exact Hq. exact Hq. exact Hr_rat. }
+        assert (HB : is_rational B) by (unfold B; apply rational_add; assumption).
+        assert (Hsqrt_rat : is_rational (sqrt r)).
+        { rewrite Hsqrt_expr.
+          apply rational_mul.
+          - apply rational_sub. exists 2%Z, 1%Z; split; [lia|simpl;field]. exact HA.
+          - apply rational_inv; assumption. }
+        apply cbrt2_not_rational.
+        rewrite Heq. apply rational_add; [exact Hp|apply rational_mul; [exact Hq|exact Hsqrt_rat]]. }
+      unfold B in Hirrational_coeff.
+      assert (Hr_neg : r <= 0) by (apply irrational_coeff_zero_implies_r_neg with p q; assumption).
+      lra.
+Qed.
+
+Lemma cbrt2_ne_sqrt_of_rational : forall r,
+  is_rational r -> r >= 0 -> cbrt2 <> sqrt r.
+Proof.
+  intros r Hr Hr_ge Heq.
+  apply cbrt4_not_rational.
+  rewrite <- cbrt2_squared_is_cbrt4.
+  assert (Hcbrt2_sq : cbrt2 * cbrt2 = r).
+  { rewrite Heq. apply sqrt_sqrt. lra. }
+  rewrite Hcbrt2_sq. exact Hr.
+Qed.
+
+Lemma quadratic_field_add : forall x y r,
+  in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x + y) r.
+Proof.
+  intros x y r [px [qx [Hpx [Hqx Hx]]]] [py [qy [Hpy [Hqy Hy]]]].
+  exists (px + py), (qx + qy). repeat split.
+  - apply rational_add; assumption.
+  - apply rational_add; assumption.
+  - rewrite Hx, Hy. ring.
+Qed.
+
+Lemma quadratic_field_sub : forall x y r,
+  in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x - y) r.
+Proof.
+  intros x y r [px [qx [Hpx [Hqx Hx]]]] [py [qy [Hpy [Hqy Hy]]]].
+  exists (px - py), (qx - qy). repeat split.
+  - apply rational_sub; assumption.
+  - apply rational_sub; assumption.
+  - rewrite Hx, Hy. ring.
+Qed.
+
+Lemma quadratic_field_mul : forall x y r,
+  r >= 0 -> is_rational r ->
+  in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x * y) r.
+Proof.
+  intros x y r Hr Hr_rat [px [qx [Hpx [Hqx Hx]]]] [py [qy [Hpy [Hqy Hy]]]].
+  exists (px * py + qx * qy * r), (px * qy + qx * py). repeat split.
+  - apply rational_add. apply rational_mul; assumption.
+    apply rational_mul. apply rational_mul; assumption. assumption.
+  - apply rational_add; apply rational_mul; assumption.
+  - rewrite Hx, Hy.
+    destruct (Rle_or_lt r 0) as [Hrle | Hrgt].
+    + assert (Hr0 : r = 0) by lra. rewrite Hr0. rewrite sqrt_0. ring.
+    + set (s := sqrt r).
+      assert (Hsq : s * s = r) by (unfold s; apply sqrt_sqrt; lra).
+      replace ((px + qx * s) * (py + qy * s)) with
+        (px * py + qx * qy * (s * s) + (px * qy + qx * py) * s) by ring.
+      rewrite Hsq. ring.
+Qed.
+
+Lemma quadratic_conj_product : forall p q r,
+  r >= 0 -> (p + q * sqrt r) * (p - q * sqrt r) = p * p - q * q * r.
+Proof.
+  intros p q r Hr.
+  destruct (Req_dec r 0) as [Hr0 | Hrne0].
+  - rewrite Hr0. rewrite sqrt_0. ring.
+  - set (s := sqrt r).
+    assert (Hsq : s * s = r) by (unfold s; apply sqrt_sqrt; lra).
+    replace ((p + q * s) * (p - q * s)) with (p * p - q * q * (s * s)) by ring.
+    rewrite Hsq. ring.
+Qed.
+
+Lemma EuclidNum_ht_1_in_quadratic_field : forall x,
+  EuclidNum_ht x 1 -> exists r, r >= 0 /\ is_rational r /\ in_quadratic_field x r.
 Proof.
 Admitted.
+
+Lemma cbrt2_not_EuclidNum_ht_1 : ~ EuclidNum_ht cbrt2 1.
+Proof.
+  intro H.
+  destruct (EuclidNum_ht_1_in_quadratic_field cbrt2 H) as [r [Hr_ge [Hr_rat Hr_quad]]].
+  exact (cbrt2_not_in_rational_quadratic_field r Hr_ge Hr_rat Hr_quad).
+Qed.
 
 (** Hendecagon (11-gon): φ(10) = 4, φ(11) = 10. Requires degree-5 extension.
     5 is NOT an Origami degree (not 2^a × 3^b), hence impossible. *)
