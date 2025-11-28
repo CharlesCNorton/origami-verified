@@ -1,5 +1,20 @@
-(** Origami Geometry: Huzita-Hatori axioms O1-O7, constructibility, algebraic characterization.
-    Author: Charles C Norton, November 2025 *)
+(******************************************************************************)
+(*                                                                            *)
+(*       Origami Constructibility: Cubic Extensions of Euclidean Geometry     *)
+(*                                                                            *)
+(*     A formal proof that single-fold origami strictly extends compass-      *)
+(*     and-straightedge constructibility, solving cubic equations via the     *)
+(*     Beloch fold (O6), with complete characterization of n-gon              *)
+(*     constructibility through Euler totient 2-3-smoothness.                 *)
+(*                                                                            *)
+(*     "I have discovered such wonderful things that I was amazed...          *)
+(*      out of nothing I have created a strange new universe."                *)
+(*     - János Bolyai to his father, November 3, 1823                         *)
+(*                                                                            *)
+(*     Author: Charles C. Norton                                              *)
+(*     Date: November 28, 2025                                                *)
+(*                                                                            *)
+(******************************************************************************)
 
 From Coq Require Import Reals.
 Require Import Lra.
