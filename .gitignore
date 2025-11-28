@@ -1,0 +1,28 @@
+# Coq build artifacts
+*.vo
+*.vok
+*.vos
+*.glob
+*.aux
+.*.aux
+.lia.cache
+.nia.cache
+.nra.cache
+
+# OCaml build artifacts
+*.cmi
+*.cmo
+*.cmx
+*.o
+*.exe
+_build/
+
+# Dune
+dune-project
+*.opam
+
+# Other
+nul
+bin/
+lib/
+test/

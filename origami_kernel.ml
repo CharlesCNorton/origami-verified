@@ -10,6 +10,10 @@ let rec app l m =
 
 let rec add = (+)
 
+(** val sub : int -> int -> int **)
+
+let rec sub = (fun n m -> max 0 (n-m))
+
 module Nat =
  struct
   (** val sub : int -> int -> int **)
@@ -187,9 +191,103 @@ let classify_by_degree d =
       n)
     d
 
-let () =
-  Printf.printf "euler_phi(7)=%d\n" (euler_phi 7);
-  Printf.printf "euler_phi(11)=%d\n" (euler_phi 11);
-  Printf.printf "is_2_3_smooth(6)=%b\n" (is_2_3_smooth_b 6);
-  Printf.printf "is_2_3_smooth(10)=%b\n" (is_2_3_smooth_b 10);
-  print_endline "Extraction verified."
+(** val ngon_constructible : int -> bool **)
+
+let ngon_constructible n =
+  is_2_3_smooth_b (euler_phi n)
+
+(** val ngon_tool_required : int -> constructLevel **)
+
+let ngon_tool_required n =
+  let phi = euler_phi n in
+  if is_power_of_2_b phi
+  then Compass
+  else if is_2_3_smooth_b phi then Origami1 else Origami2
+
+(** val list_constructible_in_range : int -> int -> int list **)
+
+let list_constructible_in_range lo hi =
+  list_smooth_aux (sub hi lo) lo
+
+(** val list_non_constructible_in_range : int -> int -> int list **)
+
+let list_non_constructible_in_range lo hi =
+  list_non_smooth_aux (sub hi lo) lo
+
+(** val count_constructible_in_range : int -> int -> int **)
+
+let count_constructible_in_range lo hi =
+  count_smooth_aux (sub hi lo) lo
+
+(** val heptagon_cubic_p_num : int **)
+
+let heptagon_cubic_p_num =
+  (~-) ((fun p->1+2*p) ((fun p->1+2*p) 1))
+
+(** val heptagon_cubic_p_den : int **)
+
+let heptagon_cubic_p_den =
+  ((fun p->2*p) ((fun p->2*p) ((fun p->1+2*p) 1)))
+
+(** val heptagon_cubic_q_num : int **)
+
+let heptagon_cubic_q_num =
+  (~-) ((fun p->1+2*p) ((fun p->1+2*p) 1))
+
+(** val heptagon_cubic_q_den : int **)
+
+let heptagon_cubic_q_den =
+  ((fun p->2*p) ((fun p->2*p) ((fun p->2*p) ((fun p->1+2*p) ((fun p->1+2*p)
+    ((fun p->2*p) ((fun p->1+2*p) 1)))))))
+
+(** val delian_cubic_p : int **)
+
+let delian_cubic_p =
+  0
+
+(** val delian_cubic_q : int **)
+
+let delian_cubic_q =
+  (~-) ((fun p->2*p) 1)
+
+(** val map_with_phi : int list -> (int * int) list **)
+
+let rec map_with_phi = function
+| [] -> []
+| n::rest -> (n,(euler_phi n))::(map_with_phi rest)
+
+(** val classify_range_aux :
+    int -> int -> ((int * int) * constructLevel) list **)
+
+let rec classify_range_aux fuel lo =
+  (fun fO fS n -> if n=0 then fO () else fS (n-1))
+    (fun _ -> [])
+    (fun f ->
+    ((lo,(euler_phi lo)),(ngon_tool_required lo))::(classify_range_aux f
+                                                     (succ lo)))
+    fuel
+
+(** val classify_range : int -> int -> ((int * int) * constructLevel) list **)
+
+let classify_range lo hi =
+  classify_range_aux (sub hi lo) lo
+
+(** val ngon_report : int -> ((int * int) * constructLevel) * bool **)
+
+let ngon_report n =
+  ((n,(euler_phi n)),(ngon_tool_required n)),(ngon_constructible n)
+
+(** val batch_report_aux :
+    int -> int -> (((int * int) * constructLevel) * bool) list **)
+
+let rec batch_report_aux fuel lo =
+  (fun fO fS n -> if n=0 then fO () else fS (n-1))
+    (fun _ -> [])
+    (fun f -> (ngon_report lo)::(batch_report_aux f (succ lo)))
+    fuel
+
+(** val batch_report :
+    int -> int -> (((int * int) * constructLevel) * bool) list **)
+
+let batch_report lo hi =
+  batch_report_aux (sub hi lo) lo

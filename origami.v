@@ -13635,8 +13635,66 @@ End Algebraic_Classifier.
     OCAML EXTRACTION
     ═══════════════════════════════════════════════════════════════════════════ *)
 
+Section Extractable_API.
+
+Definition ngon_constructible (n : nat) : bool :=
+  is_2_3_smooth_b (euler_phi n).
+
+Definition ngon_tool_required (n : nat) : ConstructLevel :=
+  let phi := euler_phi n in
+  if is_power_of_2_b phi then Compass
+  else if is_2_3_smooth_b phi then Origami1
+  else Origami2.
+
+Definition list_constructible_in_range (lo hi : nat) : list nat :=
+  list_smooth_aux (hi - lo) lo.
+
+Definition list_non_constructible_in_range (lo hi : nat) : list nat :=
+  list_non_smooth_aux (hi - lo) lo.
+
+Definition count_constructible_in_range (lo hi : nat) : nat :=
+  count_smooth_aux (hi - lo) lo.
+
+Definition heptagon_cubic_p_num : Z := (-7)%Z.
+Definition heptagon_cubic_p_den : Z := 12%Z.
+Definition heptagon_cubic_q_num : Z := (-7)%Z.
+Definition heptagon_cubic_q_den : Z := 216%Z.
+
+Definition delian_cubic_p : Z := 0%Z.
+Definition delian_cubic_q : Z := (-2)%Z.
+
+Fixpoint map_with_phi (ns : list nat) : list (nat * nat) :=
+  match ns with
+  | nil => nil
+  | n :: rest => (n, euler_phi n) :: map_with_phi rest
+  end.
+
+Fixpoint classify_range_aux (fuel lo : nat) : list (nat * nat * ConstructLevel) :=
+  match fuel with
+  | O => nil
+  | S f => (lo, euler_phi lo, ngon_tool_required lo) :: classify_range_aux f (S lo)
+  end.
+
+Definition classify_range (lo hi : nat) : list (nat * nat * ConstructLevel) :=
+  classify_range_aux (hi - lo) lo.
+
+Definition ngon_report (n : nat) : nat * nat * ConstructLevel * bool :=
+  (n, euler_phi n, ngon_tool_required n, ngon_constructible n).
+
+Fixpoint batch_report_aux (fuel lo : nat) : list (nat * nat * ConstructLevel * bool) :=
+  match fuel with
+  | O => nil
+  | S f => ngon_report lo :: batch_report_aux f (S lo)
+  end.
+
+Definition batch_report (lo hi : nat) : list (nat * nat * ConstructLevel * bool) :=
+  batch_report_aux (hi - lo) lo.
+
+End Extractable_API.
+
 Require Import ExtrOcamlBasic.
 Require Import ExtrOcamlNatInt.
+Require Import ExtrOcamlZInt.
 
 Extraction Language OCaml.
 
@@ -13661,10 +13719,23 @@ Extract Constant orb => "(||)".
 Extraction "origami_kernel"
   euler_phi
   is_2_3_smooth_b
+  is_power_of_2_b
   remove_twos
   remove_threes
+  ngon_constructible
+  ngon_tool_required
   classify_by_degree
   ConstructLevel
-  count_smooth_aux
-  list_smooth_aux
-  list_non_smooth_aux.
+  count_constructible_in_range
+  list_constructible_in_range
+  list_non_constructible_in_range
+  classify_range
+  batch_report
+  ngon_report
+  map_with_phi
+  heptagon_cubic_p_num
+  heptagon_cubic_p_den
+  heptagon_cubic_q_num
+  heptagon_cubic_q_den
+  delian_cubic_p
+  delian_cubic_q.
