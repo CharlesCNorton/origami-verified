@@ -1,25 +1,11 @@
-(* Runtime support for Coq extracted code *)
 module Uint63 = struct
   type t = int
   let of_int x = x
-  let to_int x = x
 end
 
 module Float64 = struct
   type t = float
   let of_float x = x
-  let add = (+.)
-  let sub = (-.)
-  let mul = ( *.)
-  let div = (/.)
-  let opp x = -. x
-  let abs = abs_float
-  let sqrt = sqrt
-  let eq a b = a = b
-  let eqb a b = a = b
-  let ltb a b = a < b
-  let leb a b = a <= b
-  let of_uint63 (i : int) = Float.of_int i
 end
 
 
@@ -151,50 +137,47 @@ let rec seq start len =
     (fun len0 -> start::(seq (succ start) len0))
     len
 
-
+(* type int - using OCaml native int *)
 
 (** val lsl0 : int -> int -> int **)
 
-let lsl0 x y = x lsl y (*
-  *)
+let lsl0 = (lsl)
 
 (** val lor0 : int -> int -> int **)
 
-let lor0 x y = x lor y (*
-  *)
+let lor0 = (lor)
 
 (** val sub0 : int -> int -> int **)
 
-let sub0 x y = x - y (*
-  *)
+let sub0 = (-)
 
 (** val opp : Float64.t -> Float64.t **)
 
-let opp = Float64.opp
+let opp = (~-.)
 
 (** val eqb0 : Float64.t -> Float64.t -> bool **)
 
-let eqb0 = Float64.eq
+let eqb0 = (=)
 
 (** val mul : Float64.t -> Float64.t -> Float64.t **)
 
-let mul = Float64.mul
+let mul = ( *.)
 
 (** val add0 : Float64.t -> Float64.t -> Float64.t **)
 
-let add0 = Float64.add
+let add0 = (+.)
 
 (** val sub1 : Float64.t -> Float64.t -> Float64.t **)
 
-let sub1 = Float64.sub
+let sub1 = (-.)
 
 (** val div0 : Float64.t -> Float64.t -> Float64.t **)
 
-let div0 = Float64.div
+let div0 = (/.)
 
 (** val of_uint63 : int -> Float64.t **)
 
-let of_uint63 = Float64.of_uint63
+let of_uint63 = Float.of_int
 
 (** val size : int **)
 

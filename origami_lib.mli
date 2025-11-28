@@ -1,25 +1,11 @@
-(* Runtime support for Coq extracted code *)
 module Uint63 : sig
   type t = int
   val of_int : int -> t
-  val to_int : t -> int
 end
 
 module Float64 : sig
   type t = float
   val of_float : float -> t
-  val add : t -> t -> t
-  val sub : t -> t -> t
-  val mul : t -> t -> t
-  val div : t -> t -> t
-  val opp : t -> t
-  val abs : t -> t
-  val sqrt : t -> t
-  val eq : t -> t -> bool
-  val eqb : t -> t -> bool
-  val ltb : t -> t -> bool
-  val leb : t -> t -> bool
-  val of_uint63 : int -> t
 end
 
 
@@ -68,7 +54,7 @@ val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list
 
 val seq : int -> int -> int list
 
-
+(* type int - using OCaml native int *)
 
 val lsl0 : int -> int -> int
 

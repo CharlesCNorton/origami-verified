@@ -13811,6 +13811,21 @@ Require Import ExtrOcamlBasic.
 Require Import ExtrOcamlNatInt.
 Require Import ExtrOcamlZInt.
 Require Import ExtrOCamlFloats.
+Require Import Uint63.
+
+(* Uint63 extraction - map to OCaml int operations *)
+Extract Constant Uint63.lsl => "(lsl)".
+Extract Constant Uint63.lor => "(lor)".
+Extract Constant Uint63.sub => "(-)".
+
+(* Float64 extraction - map to OCaml float operations *)
+Extract Constant PrimFloat.of_uint63 => "Float.of_int".
+Extract Constant PrimFloat.add => "(+.)".
+Extract Constant PrimFloat.sub => "(-.)".
+Extract Constant PrimFloat.mul => "( *.)".
+Extract Constant PrimFloat.div => "(/.)".
+Extract Constant PrimFloat.opp => "(~-.)".
+Extract Constant PrimFloat.eqb => "(=)".
 
 Extraction Language OCaml.
 
