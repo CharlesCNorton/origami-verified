@@ -1,6 +1,6 @@
-(** origami.ml — IO layer for certified kernel
-    Build: cat origami_kernel.ml origami.ml > origami_run.ml
-    Run:   ocaml origami_run.ml *)
+(** origami_main.ml — Entry point for certified library
+    Build: cat origami_lib.ml origami_main.ml | ocaml
+    Or:    ocamlc -c origami_lib.mli origami_lib.ml && ocamlc origami_lib.cmo origami_main.ml -o origami *)
 
 let tool_to_string = function
   | Rational -> "RATIONAL"
@@ -16,7 +16,7 @@ let print_report ((((n, phi), tool), constr) : ((int * int) * constructLevel) * 
 let () =
   print_endline "════════════════════════════════════════════════════════════════";
   print_endline "  ORIGAMI CONSTRUCTIBILITY — Coq-Verified Kernel";
-  print_endline "  Source: origami.v (13,742 lines, fully machine-checked)";
+  print_endline "  Source: origami_proofs.v (13,742 lines, fully machine-checked)";
   print_endline "════════════════════════════════════════════════════════════════";
   print_newline ();
 

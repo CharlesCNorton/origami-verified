@@ -13716,7 +13716,7 @@ Extract Constant negb => "not".
 Extract Constant andb => "(&&)".
 Extract Constant orb => "(||)".
 
-Extraction "origami_kernel"
+Extraction "origami_lib"
   euler_phi
   is_2_3_smooth_b
   is_power_of_2_b
