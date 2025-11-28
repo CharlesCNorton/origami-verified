@@ -13716,6 +13716,123 @@ Extract Constant negb => "not".
 Extract Constant andb => "(&&)".
 Extract Constant orb => "(||)".
 
+
+(* ═══════════════════════════════════════════════════════════════════════════
+   COMPUTABLE FLOAT GEOMETRY
+   Uses primitive floats for actual numeric computation.
+   ═══════════════════════════════════════════════════════════════════════════ *)
+
+Module FloatGeom.
+Require Import Floats.
+Open Scope float_scope.
+
+Definition float_pi : float := 3.14159265358979323846.
+
+Definition float_point : Type := float * float.
+Definition float_line : Type := float * float * float.
+
+Definition fpx (p : float_point) : float := fst p.
+Definition fpy (p : float_point) : float := snd p.
+
+Definition fla (l : float_line) : float := fst (fst l).
+Definition flb (l : float_line) : float := snd (fst l).
+Definition flc (l : float_line) : float := snd l.
+
+Definition float_dist2 (p1 p2 : float_point) : float :=
+  let dx := (fpx p1 - fpx p2)%float in
+  let dy := (fpy p1 - fpy p2)%float in
+  (dx * dx + dy * dy)%float.
+
+Definition float_midpoint (p1 p2 : float_point) : float_point :=
+  (((fpx p1 + fpx p2) / 2)%float, ((fpy p1 + fpy p2) / 2)%float).
+
+Definition float_line_through (p1 p2 : float_point) : float_line :=
+  let x1 := fpx p1 in let y1 := fpy p1 in
+  let x2 := fpx p2 in let y2 := fpy p2 in
+  let a := (y2 - y1)%float in
+  let b := (x1 - x2)%float in
+  let c := (- (a * x1 + b * y1))%float in
+  ((a, b), c).
+
+Definition float_reflect (p : float_point) (l : float_line) : float_point :=
+  let x := fpx p in let y := fpy p in
+  let a := fla l in let b := flb l in let c := flc l in
+  let norm2 := (a * a + b * b)%float in
+  let k := (2 * (a * x + b * y + c) / norm2)%float in
+  ((x - k * a)%float, (y - k * b)%float).
+
+Definition float_perp_bisector (p1 p2 : float_point) : float_line :=
+  let mx := fst (float_midpoint p1 p2) in
+  let my := snd (float_midpoint p1 p2) in
+  let dx := (fpx p2 - fpx p1)%float in
+  let dy := (fpy p2 - fpy p1)%float in
+  ((dx, dy), (- (dx * mx + dy * my))%float).
+
+Definition float_line_intersection (l1 l2 : float_line) : option float_point :=
+  let a1 := fla l1 in let b1 := flb l1 in let c1 := flc l1 in
+  let a2 := fla l2 in let b2 := flb l2 in let c2 := flc l2 in
+  let det := (a1 * b2 - a2 * b1)%float in
+  if PrimFloat.eqb det 0%float then None
+  else Some (((b1 * c2 - b2 * c1) / det)%float, ((a2 * c1 - a1 * c2) / det)%float).
+
+Definition float_fold_O1 (p1 p2 : float_point) : float_line :=
+  float_line_through p1 p2.
+
+Definition float_fold_O2 (p1 p2 : float_point) : float_line :=
+  float_perp_bisector p1 p2.
+
+Definition float_beloch_crease (t : float) : float_line :=
+  ((t, (-1)%float), (- (t * t))%float).
+
+Definition float_depressed_cubic (p q t : float) : float :=
+  (t * t * t + p * t + q)%float.
+
+Definition float_cubic_discriminant (p q : float) : float :=
+  (- 4 * p * p * p - 27 * q * q)%float.
+
+Definition float_cardano_discriminant (p q : float) : float :=
+  (q * q / 4 + p * p * p / 27)%float.
+
+Definition float_heptagon_p : float := (-7 / 12)%float.
+Definition float_heptagon_q : float := (-7 / 216)%float.
+Definition float_delian_p : float := 0%float.
+Definition float_delian_q : float := (-2)%float.
+
+Definition float_ngon_angle (n : nat) : float :=
+  (2 * float_pi / PrimFloat.of_uint63 (Uint63.of_Z (Z.of_nat n)))%float.
+
+End FloatGeom.
+
+(* ═══════════════════════════════════════════════════════════════════════════
+   COMPREHENSIVE EXTRACTION
+   ═══════════════════════════════════════════════════════════════════════════ *)
+
+Require Import ExtrOcamlBasic.
+Require Import ExtrOcamlNatInt.
+Require Import ExtrOcamlZInt.
+Require Import ExtrOCamlFloats.
+
+Extraction Language OCaml.
+
+Extract Inductive bool => "bool" [ "true" "false" ].
+Extract Inductive list => "list" [ "[]" "(::)" ].
+Extract Inductive prod => "( * )" [ "(,)" ].
+Extract Inductive option => "option" [ "Some" "None" ].
+Extract Inductive nat => "int" [ "0" "succ" ]
+  "(fun fO fS n -> if n=0 then fO () else fS (n-1))".
+
+Extract Constant plus => "(+)".
+Extract Constant mult => "( * )".
+Extract Constant minus => "(fun n m -> max 0 (n-m))".
+Extract Constant Nat.div => "(/)".
+Extract Constant Nat.modulo => "(mod)".
+Extract Constant Nat.eqb => "(=)".
+Extract Constant Nat.leb => "(<=)".
+Extract Constant Nat.ltb => "(<)".
+Extract Constant negb => "not".
+Extract Constant andb => "(&&)".
+Extract Constant orb => "(||)".
+
 Extraction "origami_lib"
   euler_phi
   is_2_3_smooth_b
@@ -13738,4 +13855,48 @@ Extraction "origami_lib"
   heptagon_cubic_q_num
   heptagon_cubic_q_den
   delian_cubic_p
-  delian_cubic_q.
+  delian_cubic_q
+  coprime
+  count_coprime
+  crt_pair
+  count_smooth_in_range
+  density_numerator
+  density_denominator
+  list_smooth_in_range
+  list_non_smooth_in_range
+  constructible_3_to_50
+  constructible_3_to_100
+  first_non_constructible
+  sqrt2_degree
+  cbrt2_degree
+  cos_2pi_7_degree
+  cos_2pi_11_degree
+  cos_2pi_17_degree
+  minpoly_2cos_degree
+  algebraic_degree_cos_2pi_11
+  classification_summary
+  FloatGeom.float_pi
+  FloatGeom.float_point
+  FloatGeom.float_line
+  FloatGeom.fpx
+  FloatGeom.fpy
+  FloatGeom.fla
+  FloatGeom.flb
+  FloatGeom.flc
+  FloatGeom.float_dist2
+  FloatGeom.float_midpoint
+  FloatGeom.float_line_through
+  FloatGeom.float_reflect
+  FloatGeom.float_perp_bisector
+  FloatGeom.float_line_intersection
+  FloatGeom.float_fold_O1
+  FloatGeom.float_fold_O2
+  FloatGeom.float_beloch_crease
+  FloatGeom.float_depressed_cubic
+  FloatGeom.float_cubic_discriminant
+  FloatGeom.float_cardano_discriminant
+  FloatGeom.float_heptagon_p
+  FloatGeom.float_heptagon_q
+  FloatGeom.float_delian_p
+  FloatGeom.float_delian_q
+  FloatGeom.float_ngon_angle.
