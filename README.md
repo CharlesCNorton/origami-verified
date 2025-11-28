@@ -4,22 +4,17 @@
 
 Machine-checked proofs determining which regular polygons can be constructed by paper folding.
 
-**Author:** Charles C. Norton
-**November 2025**
+**Author:** Charles C. Norton | November 2025
 
 ## Background
 
-Single-fold origami follows the Huzita-Hatori axioms (O1–O7), which define what points and lines can be constructed from existing ones through paper folding. The resulting field of constructible numbers includes everything obtainable from rationals via arithmetic, square roots, and real roots of cubic polynomials with constructible coefficients.
+Single-fold origami follows the Huzita-Hatori axioms (O1-O7), which define what points and lines can be constructed from existing ones through paper folding. The resulting field of constructible numbers includes everything obtainable from rationals via arithmetic, square roots, and real roots of cubic polynomials with constructible coefficients.
 
 This field strictly extends classical compass-and-straightedge constructibility. Compass constructions solve linear and quadratic equations; origami additionally solves cubics. The regular heptagon, impossible with compass alone, becomes constructible. Cube doubling, an ancient impossibility, becomes trivial.
 
-## The Problem
+## The Main Result
 
-Given a regular n-gon, can it be constructed using single-fold origami? Or does it require simultaneous multi-fold operations?
-
-## The Answer
-
-An n-gon is single-fold constructible if and only if φ(n) is 2-3-smooth — a product of powers of 2 and 3 only.
+An n-gon is single-fold constructible if and only if φ(n) is 2-3-smooth, meaning a product of powers of 2 and 3 only.
 
 | n-gon | φ(n) | Single-fold? |
 | :---- | :--- | :----------- |
@@ -32,8 +27,8 @@ The **hendecagon (11-gon) is the first regular polygon requiring two-fold origam
 
 ## What's Proven
 
-- Huzita-Hatori axioms O1–O7 with existence proofs
-- Heptagon constructibility via Chebyshev polynomials: 8c³ + 4c² − 4c − 1 = 0
+- Huzita-Hatori axioms O1-O7 with existence proofs
+- Heptagon constructibility via Chebyshev polynomials: 8c³ + 4c² - 4c - 1 = 0
 - Cube doubling: ∛2 is origami-constructible
 - Cardano's formula for depressed cubics
 - Alperin-Lang theorem: origami numbers form towers of degree 2ᵃ × 3ᵇ
@@ -59,7 +54,7 @@ As a library:
 #use "origami_lib.ml";;
 
 ngon_constructible 43;;              (* false *)
-ngon_tool_required 43;;              (* Origami2 — needs two-fold *)
+ngon_tool_required 43;;              (* Origami2, needs two-fold *)
 euler_phi 43;;                       (* 42 = 2 × 3 × 7, factor 7 obstructs *)
 
 (* Certified O6 Beloch parameters for heptagon *)
