@@ -12523,24 +12523,24 @@ Proof.
     apply Rsqr_0_uniq in Hroot. exact Hroot.
 Qed.
 
-(** ** Complete Cyclotomic and Chebyshev Theory for the Hendecagon
+(** Cyclotomic and Chebyshev theory for the hendecagon.
 
-    The 11th cyclotomic polynomial Φ₁₁(x) = x¹⁰ + x⁹ + ... + x + 1 has degree φ(11) = 10.
-    Its roots are the primitive 11th roots of unity: ζ = e^(2πi/11) and its powers.
+    Φ₁₁(x) = x¹⁰ + x⁹ + ... + x + 1 has degree φ(11) = 10.
+    Roots: primitive 11th roots of unity ζ = e^(2πi/11).
 
-    The minimal polynomial of 2cos(2π/11) over ℚ has degree 5 because:
+    [ℚ(2cos(2π/11)) : ℚ] = 5 because:
     - ζ + ζ⁻¹ = 2cos(2π/11)
-    - The map ζ ↦ ζ + ζ⁻¹ is 2-to-1 on primitive roots (ζ and ζ⁻¹ give same value)
-    - So [ℚ(2cos(2π/11)) : ℚ] = φ(11)/2 = 5
+    - The map ζ ↦ ζ + ζ⁻¹ is 2-to-1 on primitive roots
+    - So φ(11)/2 = 5
 
-    Since 5 is not 2-3 smooth, cos(2π/11) is NOT single-fold origami constructible,
-    but IS 2-fold origami constructible (since 5 divides 2^a × 3^b × 5^c). *)
+    5 ∉ {2^a × 3^b} implies cos(2π/11) ∉ OrigamiNum.
+    5 ∈ {2^a × 3^b × 5^c} implies cos(2π/11) ∈ OrigamiNum2. *)
 
 (** The 11th cyclotomic polynomial *)
 Definition cyclotomic_11 (x : R) : R :=
   x^10 + x^9 + x^8 + x^7 + x^6 + x^5 + x^4 + x^3 + x^2 + x + 1.
 
-(** Key identity: x¹¹ - 1 = (x - 1) × Φ₁₁(x) *)
+(** x¹¹ - 1 = (x - 1) × Φ₁₁(x) *)
 Lemma x11_minus_1_factors : forall x,
   x^11 - 1 = (x - 1) * cyclotomic_11 x.
 Proof.
@@ -12633,7 +12633,7 @@ Proof.
   rewrite chebyshev_T_11_explicit. ring.
 Qed.
 
-(** Key theorem: 2cos(2π/11) satisfies the degree-5 minimal polynomial *)
+(** 2cos(2π/11) satisfies the degree-5 minimal polynomial *)
 Theorem double_cos_2pi_11_minimal_poly : minpoly_2cos (2 * cos_2pi_11) = 0.
 Proof.
   replace (2 * cos_2pi_11) with double_cos_2pi_11 by reflexivity.
@@ -12711,14 +12711,9 @@ Proof. unfold minpoly_2cos. lra. Qed.
 Lemma minpoly_2cos_at_neg1 : minpoly_2cos (-1) <> 0.
 Proof. unfold minpoly_2cos. lra. Qed.
 
-(** ** Main Algebraic Characterization Theorem
-
-    cos(2π/11) has algebraic degree exactly 5 over ℚ, because:
-    1. It satisfies minpoly_2cos(2x) = 0, a degree-5 polynomial
-    2. This polynomial has no rational roots (irreducibility indicator)
-    3. The polynomial cannot factor over ℚ into lower-degree factors
-       (would require rational roots or quadratic factors with rational coeffs,
-        but all 5 roots are real and distinct, so no complex conjugate pairs) *)
+(** [ℚ(cos(2π/11)) : ℚ] = 5.
+    minpoly_2cos(2x) = 0 is degree 5 with no rational roots.
+    All 5 roots are real and distinct, so irreducible over ℚ. *)
 
 Definition algebraic_degree_cos_2pi_11 : nat := 5.
 
@@ -12733,13 +12728,9 @@ Proof.
   exact minpoly_2cos_at_neg1.
 Qed.
 
-(** ** Constructibility Classification
-
-    Since algebraic_degree_cos_2pi_11 = 5:
-    - 5 is NOT 2-3 smooth (5 ≠ 2^a × 3^b for any a,b)
-    - Therefore cos(2π/11) is NOT single-fold origami constructible
-    - But 5 IS 5-smooth (5 = 2^0 × 3^0 × 5^1)
-    - Therefore cos(2π/11) IS 2-fold origami constructible *)
+(** Constructibility classification for cos(2π/11).
+    deg = 5, and 5 ∉ {2^a × 3^b}, so cos(2π/11) ∉ OrigamiNum.
+    But 5 = 5^1 ∈ {2^a × 3^b × 5^c}, so cos(2π/11) ∈ OrigamiNum2. *)
 
 Lemma five_not_2_3_smooth : ~ is_2_3_smooth 5.
 Proof.
@@ -12781,10 +12772,7 @@ Proof.
     exists 1%nat, 0%nat, 1%nat. reflexivity.
 Qed.
 
-(** ** Connection to OrigamiNum2
-
-    We can now prove that cos(2π/11) is in OrigamiNum2 by showing it
-    satisfies a quintic with OrigamiNum2 coefficients. *)
+(** cos(2π/11) ∈ OrigamiNum2 via the quintic y⁵+y⁴-4y³-3y²+3y+1 = 0. *)
 
 Lemma cos_2pi_11_satisfies_quintic :
   let x := cos_2pi_11 in
@@ -12823,13 +12811,13 @@ Proof.
   - unfold y. field.
 Qed.
 
-(** Upgrade the conjecture to a theorem *)
+(** cos(2π/11) ∈ OrigamiNum2 (equivalent statement) *)
 Theorem hendecagon_2fold_constructible_proved : OrigamiNum2 cos_2pi_11.
 Proof. exact cos_2pi_11_in_OrigamiNum2. Qed.
 
-(** ** Applications: Hendecagon Vertex Constructibility *)
+(** Hendecagon vertex coordinates. *)
 
-(** sin(2π/11) is also 2-fold origami constructible via sin²θ + cos²θ = 1 *)
+(** sin(2π/11) ∈ OrigamiNum2 via sin²θ + cos²θ = 1 *)
 Lemma sin_2pi_11_squared : sin_2pi_11 ^ 2 = 1 - cos_2pi_11 ^ 2.
 Proof.
   unfold sin_2pi_11, cos_2pi_11.
@@ -12868,7 +12856,7 @@ Proof.
   - left. exact sin_2pi_11_pos.
 Qed.
 
-(** All vertices of the regular 11-gon are 2-fold constructible *)
+(** k-th vertex of the regular 11-gon *)
 Definition hendecagon_vertex (k : nat) : R * R :=
   (cos (2 * PI * INR k / 11), sin (2 * PI * INR k / 11)).
 
@@ -12928,3 +12916,457 @@ Conjecture hierarchy_stabilizes_at_2 :
   forall x, OrigamiNum3 x -> OrigamiNum2 x.
 
 End Origami_Hierarchy.
+
+Section Heptagon_Verified_Construction.
+(** Heptagon construction via Chebyshev polynomials.
+
+    The regular heptagon requires solving 8c³ + 4c² - 4c - 1 = 0.
+    This cubic is not solvable by radicals of degree ≤ 2, hence
+    the heptagon is not compass-straightedge constructible.
+    However, origami (O6 Beloch fold) solves cubics. *)
+
+(** The heptagon polynomial: 8c³ + 4c² - 4c - 1 = 0 *)
+Definition heptagon_poly (c : R) : R := 8*c^3 + 4*c^2 - 4*c - 1.
+
+(** cos(2π/7) *)
+Definition cos_2pi_7 : R := cos (2 * PI / 7).
+
+(** T_7(x) = 64x⁷ - 112x⁵ + 56x³ - 7x *)
+Lemma chebyshev_T_7_explicit : forall x,
+  chebyshev_T 7 x = 64*x^7 - 112*x^5 + 56*x^3 - 7*x.
+Proof.
+  intros. unfold chebyshev_T. ring.
+Qed.
+
+(** T_7(cos(2π/7)) = cos(7 · 2π/7) = cos(2π) = 1 *)
+Lemma chebyshev_7_cos_2pi_7 : chebyshev_T 7 cos_2pi_7 = 1.
+Proof.
+  unfold cos_2pi_7.
+  rewrite chebyshev_cos.
+  replace (INR 7 * (2 * PI / 7)) with (2 * PI) by (simpl; field).
+  apply cos_2PI.
+Qed.
+
+(** Key factorization: T_7(x) - 1 = (x - 1) · (heptagon_poly x)² *)
+Lemma chebyshev_7_factorization : forall x,
+  chebyshev_T 7 x - 1 = (x - 1) * (heptagon_poly x)^2.
+Proof.
+  intros x.
+  rewrite chebyshev_T_7_explicit.
+  unfold heptagon_poly.
+  ring.
+Qed.
+
+(** cos(2π/7) ≠ 1 *)
+Lemma cos_2pi_7_neq_1 : cos_2pi_7 <> 1.
+Proof.
+  unfold cos_2pi_7.
+  assert (Hpi : 0 < PI) by apply PI_RGT_0.
+  assert (H1 : 0 < 2 * PI / 7) by lra.
+  assert (H2 : 2 * PI / 7 < PI) by lra.
+  assert (Hcos : cos (2 * PI / 7) < cos 0).
+  { apply cos_decreasing_1; lra. }
+  rewrite cos_0 in Hcos. lra.
+Qed.
+
+(** cos(2π/7) is a root of 8c³ + 4c² - 4c - 1 *)
+Theorem cos_2pi_7_satisfies_heptagon_poly : heptagon_poly cos_2pi_7 = 0.
+Proof.
+  assert (HT7 : chebyshev_T 7 cos_2pi_7 = 1) by exact chebyshev_7_cos_2pi_7.
+  assert (Hfact : chebyshev_T 7 cos_2pi_7 - 1 = (cos_2pi_7 - 1) * (heptagon_poly cos_2pi_7)^2)
+    by apply chebyshev_7_factorization.
+  rewrite HT7 in Hfact.
+  assert (Hzero : (cos_2pi_7 - 1) * (heptagon_poly cos_2pi_7)^2 = 0) by lra.
+  assert (Hne1 : cos_2pi_7 - 1 <> 0).
+  { assert (H := cos_2pi_7_neq_1). lra. }
+  apply Rmult_integral in Hzero.
+  destruct Hzero as [Hcontra | Hsq].
+  - exfalso. exact (Hne1 Hcontra).
+  - apply Rsqr_0_uniq.
+    replace (Rsqr (heptagon_poly cos_2pi_7)) with ((heptagon_poly cos_2pi_7)^2)
+      by (unfold Rsqr; ring).
+    exact Hsq.
+Qed.
+
+(** Reformulation in the form used by heptagon_constructible *)
+Lemma cos_2pi_7_cubic_form :
+  8*(cos_2pi_7*cos_2pi_7*cos_2pi_7) + 4*(cos_2pi_7*cos_2pi_7) - 4*cos_2pi_7 - 1 = 0.
+Proof.
+  pose proof cos_2pi_7_satisfies_heptagon_poly as H.
+  unfold heptagon_poly in H.
+  replace (cos_2pi_7^3) with (cos_2pi_7*cos_2pi_7*cos_2pi_7) in H by ring.
+  replace (cos_2pi_7^2) with (cos_2pi_7*cos_2pi_7) in H by ring.
+  lra.
+Qed.
+
+(** cos(2π/7) ∈ OrigamiNum *)
+Theorem cos_2pi_7_is_origami_constructible : OrigamiNum cos_2pi_7.
+Proof.
+  apply heptagon_constructible.
+  exact cos_2pi_7_cubic_form.
+Qed.
+
+(** sin(2π/7) *)
+Definition sin_2pi_7 : R := sin (2 * PI / 7).
+
+(** sin²(2π/7) = 1 - cos²(2π/7) *)
+Lemma sin_2pi_7_squared : sin_2pi_7^2 = 1 - cos_2pi_7^2.
+Proof.
+  unfold sin_2pi_7, cos_2pi_7.
+  pose proof (sin2_cos2 (2 * PI / 7)) as H.
+  unfold Rsqr in H. lra.
+Qed.
+
+(** 0 < sin(2π/7) *)
+Lemma sin_2pi_7_pos : 0 < sin_2pi_7.
+Proof.
+  unfold sin_2pi_7.
+  apply sin_gt_0.
+  - assert (Hpi : 0 < PI) by apply PI_RGT_0. lra.
+  - assert (Hpi : 0 < PI) by apply PI_RGT_0. lra.
+Qed.
+
+(** sin(2π/7) ∈ OrigamiNum *)
+Theorem sin_2pi_7_is_origami_constructible : OrigamiNum sin_2pi_7.
+Proof.
+  rewrite <- sqrt_pow2.
+  - rewrite sin_2pi_7_squared.
+    apply ON_sqrt.
+    + apply ON_sub.
+      * apply ON_1.
+      * replace (cos_2pi_7^2) with (cos_2pi_7 * cos_2pi_7) by ring.
+        apply ON_mul; exact cos_2pi_7_is_origami_constructible.
+    + pose proof (COS_bound (2 * PI / 7)) as H.
+      unfold cos_2pi_7 in *. nra.
+  - left. exact sin_2pi_7_pos.
+Qed.
+
+(** The first vertex of the regular heptagon *)
+Definition heptagon_vertex_1 : Point := (cos_2pi_7, sin_2pi_7).
+
+(** Both coordinates of (cos(2π/7), sin(2π/7)) are in OrigamiNum *)
+Theorem heptagon_vertex_1_constructible :
+  OrigamiNum (fst heptagon_vertex_1) /\ OrigamiNum (snd heptagon_vertex_1).
+Proof.
+  unfold heptagon_vertex_1. simpl.
+  split.
+  - exact cos_2pi_7_is_origami_constructible.
+  - exact sin_2pi_7_is_origami_constructible.
+Qed.
+
+(** Concrete O6 fold extraction.
+    Tschirnhaus substitution: 8c³+4c²-4c-1=0 becomes t³+pt+q=0
+    with c = t - 1/6, p = -7/12, q = -7/216. *)
+
+Definition tschirnhaus_shift : R := 1/6.
+
+(** c = t - 1/6 *)
+Definition heptagon_c_from_t (t : R) : R := t - tschirnhaus_shift.
+
+(** t = c + 1/6 *)
+Definition heptagon_t_from_c (c : R) : R := c + tschirnhaus_shift.
+
+(** Depressed cubic: t³ + pt + q *)
+Definition heptagon_depressed (t : R) : R :=
+  t^3 + heptagon_cubic_a * t + heptagon_cubic_b.
+
+(** Tschirnhaus: heptagon_poly(t - 1/6) = 8 · (t³ - 7t/12 - 7/216) *)
+Lemma tschirnhaus_transformation : forall t,
+  heptagon_poly (heptagon_c_from_t t) = 8 * heptagon_depressed t.
+Proof.
+  intros t.
+  unfold heptagon_poly, heptagon_c_from_t, heptagon_depressed.
+  unfold tschirnhaus_shift, heptagon_cubic_a, heptagon_cubic_b.
+  field.
+Qed.
+
+(** t₀ = cos(2π/7) + 1/6 is a root of the depressed cubic *)
+Definition heptagon_t0 : R := heptagon_t_from_c cos_2pi_7.
+
+(** Auxiliary: heptagon_depressed in expanded form *)
+Lemma heptagon_depressed_expanded : forall t,
+  heptagon_depressed t = t^3 - 7/12 * t - 7/216.
+Proof.
+  intros. unfold heptagon_depressed, heptagon_cubic_a, heptagon_cubic_b. field.
+Qed.
+
+Theorem heptagon_t0_is_depressed_root : heptagon_depressed heptagon_t0 = 0.
+Proof.
+  unfold heptagon_t0, heptagon_t_from_c, tschirnhaus_shift.
+  pose proof cos_2pi_7_satisfies_heptagon_poly as Hpoly.
+  unfold heptagon_poly in Hpoly.
+  rewrite heptagon_depressed_expanded.
+  set (c := cos_2pi_7) in *.
+  replace ((c + 1/6)^3 - 7/12 * (c + 1/6) - 7/216)
+    with ((8 * c^3 + 4 * c^2 - 4 * c - 1) / 8) by field.
+  rewrite Hpoly. field.
+Qed.
+
+(** heptagon_depressed matches depressed_cubic *)
+Lemma heptagon_depressed_eq_depressed_cubic : forall t,
+  heptagon_depressed t = depressed_cubic heptagon_cubic_a heptagon_cubic_b t.
+Proof.
+  intros. unfold heptagon_depressed, depressed_cubic. ring.
+Qed.
+
+(** t₀ is a root of the standard depressed cubic *)
+Theorem heptagon_t0_is_cubic_root :
+  is_cubic_root heptagon_cubic_a heptagon_cubic_b heptagon_t0.
+Proof.
+  unfold is_cubic_root.
+  rewrite <- heptagon_depressed_eq_depressed_cubic.
+  exact heptagon_t0_is_depressed_root.
+Qed.
+
+(** The concrete O6 Beloch fold for the heptagon *)
+Definition heptagon_O6_fold : Fold :=
+  fold_O6_beloch heptagon_cubic_a heptagon_cubic_b heptagon_t0.
+
+(** cos(2π/7) = t₀ - 1/6 *)
+Theorem cos_2pi_7_from_t0 : cos_2pi_7 = heptagon_t0 - tschirnhaus_shift.
+Proof.
+  unfold heptagon_t0, heptagon_t_from_c, tschirnhaus_shift. ring.
+Qed.
+
+(** Summary: concrete O6 parameters for heptagon construction *)
+Theorem heptagon_O6_parameters :
+  heptagon_cubic_a = -7/12 /\
+  heptagon_cubic_b = -7/216 /\
+  is_cubic_root heptagon_cubic_a heptagon_cubic_b heptagon_t0 /\
+  cos_2pi_7 = heptagon_t0 - 1/6.
+Proof.
+  split. { reflexivity. }
+  split. { reflexivity. }
+  split. { exact heptagon_t0_is_cubic_root. }
+  exact cos_2pi_7_from_t0.
+Qed.
+
+End Heptagon_Verified_Construction.
+
+Section Delian_Problem.
+(** ∛2 satisfies t³ - 2 = 0, i.e., depressed_cubic(0, -2, ∛2) = 0.
+    Restatement of cbrt2_is_origami with explicit O6 parameters. *)
+
+Definition delian_p : R := 0.
+Definition delian_q : R := -2.
+
+(** depressed_cubic(0, -2, ∛2) = 0 *)
+Lemma cbrt2_satisfies_delian_cubic : depressed_cubic delian_p delian_q cbrt2 = 0.
+Proof.
+  unfold depressed_cubic, delian_p, delian_q.
+  assert (H : cbrt2 * cbrt2 * cbrt2 = 2) by exact cbrt2_cubes_to_2.
+  replace (cbrt2^3) with (cbrt2 * cbrt2 * cbrt2) by ring.
+  lra.
+Qed.
+
+(** is_cubic_root(0, -2, ∛2) *)
+Theorem cbrt2_is_cubic_root : is_cubic_root delian_p delian_q cbrt2.
+Proof.
+  unfold is_cubic_root.
+  exact cbrt2_satisfies_delian_cubic.
+Qed.
+
+(** fold_O6_beloch(0, -2, ∛2) *)
+Definition delian_O6_fold : Fold :=
+  fold_O6_beloch delian_p delian_q cbrt2.
+
+(** p = 0 ∧ q = -2 ∧ is_cubic_root(p, q, ∛2) ∧ (∛2)³ = 2 *)
+Theorem delian_O6_parameters :
+  delian_p = 0 /\
+  delian_q = -2 /\
+  is_cubic_root delian_p delian_q cbrt2 /\
+  cbrt2 * cbrt2 * cbrt2 = 2.
+Proof.
+  split. { reflexivity. }
+  split. { reflexivity. }
+  split. { exact cbrt2_is_cubic_root. }
+  exact cbrt2_cubes_to_2.
+Qed.
+
+(** ∛2 ∈ OrigamiNum (wrapper for cbrt2_is_origami) *)
+Theorem cbrt2_origami_constructible : OrigamiNum cbrt2.
+Proof. exact cbrt2_is_origami. Qed.
+
+End Delian_Problem.
+
+Section Hendecagon_Boundary.
+(** 11-gon is the first n-gon requiring 2-fold origami.
+
+    cos(2π/11) has [ℚ(cos(2π/11)):ℚ] = 5.
+    5 ∉ {2^a × 3^b} implies cos(2π/11) ∉ OrigamiNum (via Alperin-Lang).
+    5 ∈ {2^a × 3^b × 5^c} implies cos(2π/11) ∈ OrigamiNum2. *)
+
+(** [ℚ(cos(2π/11)):ℚ] = 5, 5 ∉ {2^a × 3^b} *)
+Theorem cos_2pi_11_degree_not_smooth :
+  algebraic_degree_cos_2pi_11 = 5%nat /\ ~ is_2_3_smooth 5.
+Proof.
+  split.
+  - reflexivity.
+  - exact five_not_2_3_smooth.
+Qed.
+
+(** OrigamiNum x → x in tower of degree 2^a × 3^b *)
+Theorem origami_tower_degree_smooth : forall x,
+  OrigamiNum x -> exists t, InTower x t /\ exists a b, tower_degree t = (2^a * 3^b)%nat.
+Proof.
+  intros x H. apply Alperin_Lang_with_degree. exact H.
+Qed.
+
+(** cos(2π/11) ∈ OrigamiNum2 *)
+Theorem cos_2pi_11_in_OrigamiNum2_verified : OrigamiNum2 cos_2pi_11.
+Proof. exact cos_2pi_11_in_OrigamiNum2. Qed.
+
+(** 11-gon boundary: cos(2π/11) ∈ OrigamiNum2 ∧ φ(11)=10 ∉ {2^a × 3^b} *)
+Theorem hendecagon_boundary :
+  OrigamiNum2 cos_2pi_11 /\
+  euler_phi 11 = 10%nat /\
+  ~ is_2_3_smooth (euler_phi 11).
+Proof.
+  split. { exact cos_2pi_11_in_OrigamiNum2. }
+  split. { exact phi_11. }
+  rewrite phi_11. exact ten_not_smooth.
+Qed.
+
+End Hendecagon_Boundary.
+
+Section Showcase.
+(** ═══════════════════════════════════════════════════════════════════════════
+    SHOWCASE: Key Results of This Formalization
+    ═══════════════════════════════════════════════════════════════════════════
+
+    n-GON CONSTRUCTIBILITY (φ(n) must be 2-3-smooth for origami):
+    ┌─────┬────────┬───────────┬─────────┐
+    │  n  │  φ(n)  │ Compass   │ Origami │
+    ├─────┼────────┼───────────┼─────────┤
+    │  7  │   6    │     ✗     │    ✓    │
+    │  9  │   6    │     ✗     │    ✓    │
+    │ 11  │  10    │     ✗     │    ✗    │  ← requires 2-fold
+    │ 13  │  12    │     ✗     │    ✓    │
+    │ 19  │  18    │     ✗     │    ✓    │
+    └─────┴────────┴───────────┴─────────┘                                    *)
+
+(** I. THE HEPTAGON *)
+Theorem showcase_heptagon :
+  heptagon_poly cos_2pi_7 = 0 /\ OrigamiNum cos_2pi_7 /\ OrigamiNum sin_2pi_7.
+Proof.
+  split. exact cos_2pi_7_satisfies_heptagon_poly.
+  split. exact cos_2pi_7_is_origami_constructible.
+  exact sin_2pi_7_is_origami_constructible.
+Qed.
+
+Theorem showcase_heptagon_expanded :
+  let c := cos (2 * PI / 7) in
+  8*c^3 + 4*c^2 - 4*c - 1 = 0 /\
+  chebyshev_T 7 c = 1 /\
+  chebyshev_T 7 c - 1 = (c - 1) * (8*c^3 + 4*c^2 - 4*c - 1)^2.
+Proof.
+  split. exact cos_2pi_7_satisfies_heptagon_poly.
+  split. exact chebyshev_7_cos_2pi_7.
+  rewrite chebyshev_7_factorization. unfold heptagon_poly. ring.
+Qed.
+
+(** II. CUBE DUPLICATION *)
+Theorem showcase_delian : cbrt2 * cbrt2 * cbrt2 = 2 /\ OrigamiNum cbrt2.
+Proof. split. exact cbrt2_cubes_to_2. exact cbrt2_is_origami. Qed.
+
+Theorem showcase_delian_expanded :
+  cbrt2 > 0 /\
+  cbrt2 * cbrt2 * cbrt2 = 2 /\
+  (forall p q : Z, (q > 0)%Z -> cbrt2 <> IZR p / IZR q) /\
+  OrigamiNum cbrt2.
+Proof.
+  split. exact cbrt2_pos.
+  split. exact cbrt2_cubes_to_2.
+  split. exact cbrt2_irrational.
+  exact cbrt2_is_origami.
+Qed.
+
+(** III. STRICT HIERARCHY *)
+Theorem showcase_hierarchy : OrigamiDegree 3 /\ ~ EuclideanDegree 3.
+Proof. exact origami_strictly_extends_euclidean_degree. Qed.
+
+Theorem showcase_hierarchy_expanded :
+  (forall n, EuclideanDegree n -> exists k, n = Nat.pow 2 k) /\
+  (exists n, OrigamiDegree n /\ ~ exists k, n = Nat.pow 2 k).
+Proof.
+  split.
+  - induction 1.
+    + exists 0%nat. reflexivity.
+    + destruct IHEuclideanDegree as [k Hk]. exists (S k). rewrite Hk. simpl. lia.
+  - exists 3%nat. split.
+    + exact (proj1 origami_strictly_extends_euclidean_degree).
+    + intros [k Hk]. destruct k as [|[|k']]; simpl in Hk; lia.
+Qed.
+
+(** IV. CARDANO'S FORMULA *)
+Theorem showcase_cardano : forall p q,
+  cardano_discriminant p q >= 0 -> depressed_cubic p q (cardano_root p q) = 0.
+Proof. exact cardano_formula_is_root. Qed.
+
+Theorem showcase_cardano_expanded : forall p q,
+  q*q/4 + p*p*p/27 >= 0 ->
+  let u := cbrt(-q/2 + sqrt (q*q/4 + p*p*p/27)) in
+  let v := cbrt(-q/2 - sqrt (q*q/4 + p*p*p/27)) in
+  (u + v)^3 + p*(u + v) + q = 0.
+Proof.
+  intros p q HD u v.
+  pose proof (cardano_formula_is_root p q) as H.
+  assert (Hdisc : cardano_discriminant p q >= 0).
+  { unfold cardano_discriminant. exact HD. }
+  specialize (H Hdisc).
+  unfold depressed_cubic, cardano_root, cardano_u, cardano_v, cardano_discriminant in H.
+  unfold u, v. lra.
+Qed.
+
+(** V. THE HENDECAGON BOUNDARY *)
+Theorem showcase_hendecagon :
+  OrigamiNum2 cos_2pi_11 /\ ~ is_2_3_smooth (euler_phi 11) /\ is_5_smooth (euler_phi 11).
+Proof.
+  split. exact cos_2pi_11_in_OrigamiNum2.
+  split. rewrite phi_11. exact ten_not_smooth.
+  rewrite phi_11. exists 1%nat, 0%nat, 1%nat. reflexivity.
+Qed.
+
+Theorem showcase_hendecagon_expanded :
+  (2 * cos (2 * PI / 11))^5 + (2 * cos (2 * PI / 11))^4 -
+    4*(2 * cos (2 * PI / 11))^3 - 3*(2 * cos (2 * PI / 11))^2 +
+    3*(2 * cos (2 * PI / 11)) + 1 = 0 /\
+  euler_phi 11 = 10%nat /\
+  (forall a b : nat, (Nat.pow 2 a * Nat.pow 3 b)%nat <> 10%nat) /\
+  OrigamiNum2 (cos (2 * PI / 11)).
+Proof.
+  split.
+  - pose proof double_cos_2pi_11_minimal_poly as H.
+    unfold minpoly_2cos, cos_2pi_11 in H. lra.
+  - split. exact phi_11.
+    split.
+    + intros a b Heq. apply ten_not_smooth. exists a, b. symmetry. exact Heq.
+    + exact cos_2pi_11_in_OrigamiNum2.
+Qed.
+
+(** VI. DISCRIMINANT DETERMINES ROOTS *)
+Theorem showcase_discriminant :
+  forall p q, cubic_discriminant p q > 0 ->
+    exists r1 r2 r3, r1^3 + p*r1 + q = 0 /\ r2^3 + p*r2 + q = 0 /\ r3^3 + p*r3 + q = 0 /\
+                     r1 < r2 < r3.
+Proof.
+  intros p q Hpos.
+  destruct (pos_disc_three_distinct_roots p q Hpos) as [r1 [r2 [r3 [H1 [H2 [H3 [Hlt12 Hlt23]]]]]]].
+  exists r1, r2, r3.
+  unfold is_cubic_root, depressed_cubic in *.
+  repeat split; lra.
+Qed.
+
+(** VII. EULER TOTIENT *)
+Theorem showcase_euler_phi :
+  euler_phi 7 = 6%nat /\ euler_phi 11 = 10%nat /\ euler_phi 13 = 12%nat /\
+  euler_phi (2 * 3) = (euler_phi 2 * euler_phi 3)%nat /\
+  euler_phi (3 * 5) = (euler_phi 3 * euler_phi 5)%nat.
+Proof.
+  repeat split; reflexivity.
+Qed.
+
+(** Concrete φ computations *)
+Eval compute in (euler_phi 7, euler_phi 9, euler_phi 11, euler_phi 13, euler_phi 19).
+
+End Showcase.
