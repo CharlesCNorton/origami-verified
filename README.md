@@ -1,6 +1,7 @@
 # A Formal Verification of Origami Geometry and Constructible Numbers
 
 **Author:** Charles C. Norton
+
 **Date:** November 2025
 
 A Coq formalization establishing the mathematical foundations of paper folding as a construction system. The development defines the seven Huzita-Hatori axioms governing single-fold origami operations and
