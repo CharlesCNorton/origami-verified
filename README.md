@@ -27,11 +27,13 @@ The **hendecagon (11-gon) is the first regular polygon requiring two-fold origam
 
 ## What's Proven
 
-- Huzita-Hatori axioms O1-O7 with existence proofs
-- Heptagon constructibility via Chebyshev polynomials: 8c³ + 4c² - 4c - 1 = 0
-- Cube doubling: ∛2 is origami-constructible
-- Cardano's formula for depressed cubics
-- Alperin-Lang theorem: origami numbers form towers of degree 2ᵃ × 3ᵇ
+The formalization establishes the Huzita-Hatori axioms O1-O7 with existence proofs for each fold operation. Heptagon constructibility is derived via Chebyshev polynomial identities, showing that cos(2π/7) satisfies 8c³ + 4c² - 4c - 1 = 0. Cube doubling follows from ∛2 being origami-constructible. Cardano's formula is verified for depressed cubics with non-negative discriminant. The Alperin-Lang theorem characterizes origami numbers as living in field towers of degree 2ᵃ × 3ᵇ over the rationals.
+
+## Extraction
+
+Coq's extraction mechanism produces `origami_lib.ml`, an OCaml module whose functions are guaranteed to match the verified specifications. This is not generated code in the ordinary sense. Every function in `origami_lib.ml` has a corresponding proof in `origami_proofs.v` ensuring correctness.
+
+The extracted library provides `euler_phi` for computing totients, `ngon_constructible` for checking 2-3-smoothness, `ngon_tool_required` for classifying construction difficulty, and the certified cubic parameters for the O6 Beloch fold that constructs the heptagon.
 
 ## Files
 
