@@ -13617,3 +13617,41 @@ Theorem degree_classification :
 Proof. repeat split; reflexivity. Qed.
 
 End Algebraic_Classifier.
+
+(** ═══════════════════════════════════════════════════════════════════════════
+    OCAML EXTRACTION
+    ═══════════════════════════════════════════════════════════════════════════ *)
+
+Require Import ExtrOcamlBasic.
+Require Import ExtrOcamlNatInt.
+
+Extraction Language OCaml.
+
+Extract Inductive bool => "bool" [ "true" "false" ].
+Extract Inductive list => "list" [ "[]" "(::)" ].
+Extract Inductive prod => "( * )" [ "(,)" ].
+Extract Inductive nat => "int" [ "0" "succ" ]
+  "(fun fO fS n -> if n=0 then fO () else fS (n-1))".
+
+Extract Constant plus => "(+)".
+Extract Constant mult => "( * )".
+Extract Constant minus => "(fun n m -> max 0 (n-m))".
+Extract Constant Nat.div => "(/)".
+Extract Constant Nat.modulo => "(mod)".
+Extract Constant Nat.eqb => "(=)".
+Extract Constant Nat.leb => "(<=)".
+Extract Constant Nat.ltb => "(<)".
+Extract Constant negb => "not".
+Extract Constant andb => "(&&)".
+Extract Constant orb => "(||)".
+
+Extraction "origami_kernel"
+  euler_phi
+  is_2_3_smooth_b
+  remove_twos
+  remove_threes
+  classify_by_degree
+  ConstructLevel
+  count_smooth_aux
+  list_smooth_aux
+  list_non_smooth_aux.
