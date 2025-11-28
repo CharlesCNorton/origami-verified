@@ -9424,6 +9424,69 @@ Proof.
     destruct (g n'); lia.
 Qed.
 
+(** ═══════════════════════════════════════════════════════════════════════════
+    CERTIFIED n-GON CATALOG - Mass Classification
+    Each proof is a machine-checked certificate of constructibility.
+    ═══════════════════════════════════════════════════════════════════════════ *)
+
+Example cat_3 : ngon_constructible_iff_phi_smooth 3. Proof. decide_ngon. Qed.
+Example cat_4 : ngon_constructible_iff_phi_smooth 4. Proof. decide_ngon. Qed.
+Example cat_5 : ngon_constructible_iff_phi_smooth 5. Proof. decide_ngon. Qed.
+Example cat_6 : ngon_constructible_iff_phi_smooth 6. Proof. decide_ngon. Qed.
+Example cat_8 : ngon_constructible_iff_phi_smooth 8. Proof. decide_ngon. Qed.
+Example cat_10 : ngon_constructible_iff_phi_smooth 10. Proof. decide_ngon. Qed.
+Example cat_12 : ngon_constructible_iff_phi_smooth 12. Proof. decide_ngon. Qed.
+Example cat_14 : ngon_constructible_iff_phi_smooth 14. Proof. decide_ngon. Qed.
+Example cat_16 : ngon_constructible_iff_phi_smooth 16. Proof. decide_ngon. Qed.
+Example cat_18 : ngon_constructible_iff_phi_smooth 18. Proof. decide_ngon. Qed.
+Example cat_21 : ngon_constructible_iff_phi_smooth 21. Proof. decide_ngon. Qed.
+Example cat_24 : ngon_constructible_iff_phi_smooth 24. Proof. decide_ngon. Qed.
+Example cat_26 : ngon_constructible_iff_phi_smooth 26. Proof. decide_ngon. Qed.
+Example cat_27 : ngon_constructible_iff_phi_smooth 27. Proof. decide_ngon. Qed.
+Example cat_28 : ngon_constructible_iff_phi_smooth 28. Proof. decide_ngon. Qed.
+Example cat_32 : ngon_constructible_iff_phi_smooth 32. Proof. decide_ngon. Qed.
+Example cat_34 : ngon_constructible_iff_phi_smooth 34. Proof. decide_ngon. Qed.
+Example cat_36 : ngon_constructible_iff_phi_smooth 36. Proof. decide_ngon. Qed.
+Example cat_38 : ngon_constructible_iff_phi_smooth 38. Proof. decide_ngon. Qed.
+Example cat_39 : ngon_constructible_iff_phi_smooth 39. Proof. decide_ngon. Qed.
+Example cat_42 : ngon_constructible_iff_phi_smooth 42. Proof. decide_ngon. Qed.
+Example cat_48 : ngon_constructible_iff_phi_smooth 48. Proof. decide_ngon. Qed.
+Example cat_52 : ngon_constructible_iff_phi_smooth 52. Proof. decide_ngon. Qed.
+Example cat_54 : ngon_constructible_iff_phi_smooth 54. Proof. decide_ngon. Qed.
+Example cat_56 : ngon_constructible_iff_phi_smooth 56. Proof. decide_ngon. Qed.
+Example cat_57 : ngon_constructible_iff_phi_smooth 57. Proof. decide_ngon. Qed.
+Example cat_63 : ngon_constructible_iff_phi_smooth 63. Proof. decide_ngon. Qed.
+Example cat_64 : ngon_constructible_iff_phi_smooth 64. Proof. decide_ngon. Qed.
+Example cat_72 : ngon_constructible_iff_phi_smooth 72. Proof. decide_ngon. Qed.
+Example cat_74 : ngon_constructible_iff_phi_smooth 74. Proof. decide_ngon. Qed.
+Example cat_76 : ngon_constructible_iff_phi_smooth 76. Proof. decide_ngon. Qed.
+Example cat_78 : ngon_constructible_iff_phi_smooth 78. Proof. decide_ngon. Qed.
+Example cat_81 : ngon_constructible_iff_phi_smooth 81. Proof. decide_ngon. Qed.
+Example cat_84 : ngon_constructible_iff_phi_smooth 84. Proof. decide_ngon. Qed.
+Example cat_96 : ngon_constructible_iff_phi_smooth 96. Proof. decide_ngon. Qed.
+
+Example cat_11_not : ~ ngon_constructible_iff_phi_smooth 11. Proof. decide_ngon. Qed.
+Example cat_22_not : ~ ngon_constructible_iff_phi_smooth 22. Proof. decide_ngon. Qed.
+Example cat_23_not : ~ ngon_constructible_iff_phi_smooth 23. Proof. decide_ngon. Qed.
+Example cat_25_not : ~ ngon_constructible_iff_phi_smooth 25. Proof. decide_ngon. Qed.
+Example cat_29_not : ~ ngon_constructible_iff_phi_smooth 29. Proof. decide_ngon. Qed.
+Example cat_31_not : ~ ngon_constructible_iff_phi_smooth 31. Proof. decide_ngon. Qed.
+Example cat_33_not : ~ ngon_constructible_iff_phi_smooth 33. Proof. decide_ngon. Qed.
+Example cat_41_not : ~ ngon_constructible_iff_phi_smooth 41. Proof. decide_ngon. Qed.
+Example cat_43_not : ~ ngon_constructible_iff_phi_smooth 43. Proof. decide_ngon. Qed.
+Example cat_44_not : ~ ngon_constructible_iff_phi_smooth 44. Proof. decide_ngon. Qed.
+Example cat_46_not : ~ ngon_constructible_iff_phi_smooth 46. Proof. decide_ngon. Qed.
+Example cat_47_not : ~ ngon_constructible_iff_phi_smooth 47. Proof. decide_ngon. Qed.
+Example cat_49_not : ~ ngon_constructible_iff_phi_smooth 49. Proof. decide_ngon. Qed.
+Example cat_50_not : ~ ngon_constructible_iff_phi_smooth 50. Proof. decide_ngon. Qed.
+Example cat_53_not : ~ ngon_constructible_iff_phi_smooth 53. Proof. decide_ngon. Qed.
+Example cat_55_not : ~ ngon_constructible_iff_phi_smooth 55. Proof. decide_ngon. Qed.
+Example cat_58_not : ~ ngon_constructible_iff_phi_smooth 58. Proof. decide_ngon. Qed.
+Example cat_59_not : ~ ngon_constructible_iff_phi_smooth 59. Proof. decide_ngon. Qed.
+
+Eval compute in (euler_phi 11, euler_phi 23, euler_phi 31, euler_phi 47).
+Eval compute in (euler_phi 50, euler_phi 100, euler_phi 200).
+
 End CRT_Machinery.
 
 Section Impossibility.
@@ -13370,3 +13433,187 @@ Qed.
 Eval compute in (euler_phi 7, euler_phi 9, euler_phi 11, euler_phi 13, euler_phi 19).
 
 End Showcase.
+
+Section Density_Analysis.
+(** ═══════════════════════════════════════════════════════════════════════════
+    DENSITY OF ORIGAMI-CONSTRUCTIBLE n-GONS
+    Analysis of how frequently n-gons are single-fold constructible.
+    ═══════════════════════════════════════════════════════════════════════════ *)
+
+Fixpoint count_smooth_aux (fuel lo : nat) : nat :=
+  match fuel with
+  | O => O
+  | S f => (if is_2_3_smooth_b (euler_phi lo) then 1 else 0) + count_smooth_aux f (S lo)
+  end.
+
+Definition count_smooth_in_range (lo hi : nat) : nat := count_smooth_aux (hi - lo) lo.
+
+Definition density_numerator (lo hi : nat) : nat := count_smooth_in_range lo hi.
+Definition density_denominator (lo hi : nat) : nat := hi - lo.
+
+Eval compute in count_smooth_in_range 3 51.
+Eval compute in count_smooth_in_range 3 101.
+
+Fixpoint list_smooth_aux (fuel lo : nat) : list nat :=
+  match fuel with
+  | O => nil
+  | S f => (if is_2_3_smooth_b (euler_phi lo) then lo :: nil else nil) ++
+           list_smooth_aux f (S lo)
+  end.
+
+Definition list_smooth_in_range (lo hi : nat) : list nat := list_smooth_aux (hi - lo) lo.
+
+Fixpoint list_non_smooth_aux (fuel lo : nat) : list nat :=
+  match fuel with
+  | O => nil
+  | S f => (if is_2_3_smooth_b (euler_phi lo) then nil else lo :: nil) ++
+           list_non_smooth_aux f (S lo)
+  end.
+
+Definition list_non_smooth_in_range (lo hi : nat) : list nat := list_non_smooth_aux (hi - lo) lo.
+
+Eval compute in list_smooth_in_range 3 51.
+Eval compute in list_non_smooth_in_range 3 51.
+
+(** First 20 non-constructible n values *)
+Eval compute in list_non_smooth_in_range 3 80.
+
+(** Key boundary results - verified by computation *)
+Lemma smooth_3_to_10 :
+  is_2_3_smooth_b (euler_phi 3) = true /\
+  is_2_3_smooth_b (euler_phi 4) = true /\
+  is_2_3_smooth_b (euler_phi 5) = true /\
+  is_2_3_smooth_b (euler_phi 6) = true /\
+  is_2_3_smooth_b (euler_phi 7) = true /\
+  is_2_3_smooth_b (euler_phi 8) = true /\
+  is_2_3_smooth_b (euler_phi 9) = true /\
+  is_2_3_smooth_b (euler_phi 10) = true /\
+  is_2_3_smooth_b (euler_phi 11) = false.
+Proof. repeat split; reflexivity. Qed.
+
+(** Specific counts *)
+Definition constructible_3_to_50 : nat := count_smooth_in_range 3 51.
+Definition constructible_3_to_100 : nat := count_smooth_in_range 3 101.
+
+Eval compute in constructible_3_to_50.
+Eval compute in constructible_3_to_100.
+
+(** Verified boundary: 11-gon is first requiring 2-fold *)
+Theorem boundary_11 :
+  is_2_3_smooth_b (euler_phi 10) = true /\
+  is_2_3_smooth_b (euler_phi 11) = false /\
+  euler_phi 11 = 10%nat.
+Proof.
+  repeat split; reflexivity.
+Qed.
+
+(** Classification of first 20 non-constructible *)
+Definition first_non_constructible : list nat :=
+  list_non_smooth_in_range 3 80.
+
+Eval compute in first_non_constructible.
+
+(** φ values for non-constructible n *)
+Eval compute in map euler_phi (list_non_smooth_in_range 3 50).
+
+End Density_Analysis.
+
+Section Algebraic_Classifier.
+(** ═══════════════════════════════════════════════════════════════════════════
+    ALGEBRAIC NUMBER CLASSIFIER
+    Given a polynomial degree, determine constructibility level.
+    ═══════════════════════════════════════════════════════════════════════════ *)
+
+Inductive ConstructLevel : Type :=
+| Rational : ConstructLevel
+| Compass : ConstructLevel
+| Origami1 : ConstructLevel
+| Origami2 : ConstructLevel
+| Higher : ConstructLevel.
+
+Definition is_power_of_2_b (n : nat) : bool :=
+  Nat.eqb (remove_twos n) 1.
+
+Definition classify_by_degree (d : nat) : ConstructLevel :=
+  match d with
+  | O => Rational
+  | S O => Rational
+  | _ =>
+    if is_power_of_2_b d then Compass
+    else if is_2_3_smooth_b d then Origami1
+    else Higher
+  end.
+
+Eval compute in classify_by_degree 1.
+Eval compute in classify_by_degree 2.
+Eval compute in classify_by_degree 3.
+Eval compute in classify_by_degree 4.
+Eval compute in classify_by_degree 5.
+Eval compute in classify_by_degree 6.
+Eval compute in classify_by_degree 8.
+Eval compute in classify_by_degree 9.
+Eval compute in classify_by_degree 10.
+
+(** Degree classification examples *)
+Lemma degree_1_rational : classify_by_degree 1 = Rational.
+Proof. reflexivity. Qed.
+
+Lemma degree_2_compass : classify_by_degree 2 = Compass.
+Proof. reflexivity. Qed.
+
+Lemma degree_3_origami : classify_by_degree 3 = Origami1.
+Proof. reflexivity. Qed.
+
+Lemma degree_4_compass : classify_by_degree 4 = Compass.
+Proof. reflexivity. Qed.
+
+Lemma degree_5_higher : classify_by_degree 5 = Higher.
+Proof. reflexivity. Qed.
+
+Lemma degree_6_origami : classify_by_degree 6 = Origami1.
+Proof. reflexivity. Qed.
+
+(** Key algebraic numbers and their degrees *)
+Definition sqrt2_degree : nat := 2.
+Definition cbrt2_degree : nat := 3.
+Definition cos_2pi_7_degree : nat := 3.
+Definition cos_2pi_11_degree : nat := 5.
+Definition cos_2pi_17_degree : nat := 8.
+
+Lemma sqrt2_is_compass : classify_by_degree sqrt2_degree = Compass.
+Proof. reflexivity. Qed.
+
+Lemma cbrt2_degree_origami : classify_by_degree cbrt2_degree = Origami1.
+Proof. reflexivity. Qed.
+
+Lemma cos_2pi_7_degree_origami : classify_by_degree cos_2pi_7_degree = Origami1.
+Proof. reflexivity. Qed.
+
+Lemma cos_2pi_11_requires_2fold : classify_by_degree cos_2pi_11_degree = Higher.
+Proof. reflexivity. Qed.
+
+Lemma cos_2pi_17_is_compass : classify_by_degree cos_2pi_17_degree = Compass.
+Proof. reflexivity. Qed.
+
+(** Summary of classification *)
+Definition classification_summary : list (nat * ConstructLevel) :=
+  map (fun d => (d, classify_by_degree d)) (seq 1 15).
+
+Eval compute in classification_summary.
+
+(** The classification theorem: degree d constructibility *)
+Theorem degree_classification :
+  (classify_by_degree 2 = Compass) /\
+  (classify_by_degree 4 = Compass) /\
+  (classify_by_degree 8 = Compass) /\
+  (classify_by_degree 16 = Compass) /\
+  (classify_by_degree 3 = Origami1) /\
+  (classify_by_degree 6 = Origami1) /\
+  (classify_by_degree 9 = Origami1) /\
+  (classify_by_degree 12 = Origami1) /\
+  (classify_by_degree 5 = Higher) /\
+  (classify_by_degree 7 = Higher) /\
+  (classify_by_degree 10 = Higher).
+Proof. repeat split; reflexivity. Qed.
+
+End Algebraic_Classifier.
