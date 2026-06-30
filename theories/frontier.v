@@ -136,3 +136,32 @@ Proof.
   pose proof (Forall_inv (Forall_inv_tail (Forall_inv_tail Hzero))) as Hnc2.
   split; [exact Hc1z | lra].
 Qed.
+
+(** Square-root obstruction.  A real square-root extension F(beta), beta^2 = d,
+    cannot contain a root of an F-irreducible cubic: the candidate root and its
+    square already lie in the 2-dimensional space spanned by 1 and beta, so
+    1, rho, rho^2 are F-dependent -- contradicting degree 3. *)
+Lemma casus_sqrt_obstruction :
+  forall (F : R -> Prop) (d c0 c1 beta : R),
+  is_subfield F -> F d -> F c0 -> F c1 ->
+  beta ^ 2 = d ->
+  lin_indep F (powers (c0 + c1 * beta) 3) ->
+  False.
+Proof.
+  intros F d c0 c1 beta HF Fd Fc0 Fc1 Hbeta2 Hindep.
+  set (rho := c0 + c1 * beta).
+  assert (F2 : F 2) by (replace 2 with (1+1) by ring; apply subfield_add;
+    [exact HF | apply subfield_1; exact HF | apply subfield_1; exact HF]).
+  assert (Hrel : (c0*c0 - c1*c1*d) * 1 + (- (2*c0)) * rho + 1 * rho^2 = 0).
+  { unfold rho. replace d with (beta*beta) by (rewrite <- Hbeta2; ring). ring. }
+  assert (HF3 : Forall F ((c0*c0 - c1*c1*d) :: (- (2*c0)) :: 1 :: nil)).
+  { repeat (apply Forall_cons; [ sfclose | ]). apply Forall_nil. }
+  assert (Hlen : length ((c0*c0 - c1*c1*d) :: (- (2*c0)) :: 1 :: nil) = length (powers rho 3))
+    by (rewrite powers_length; reflexivity).
+  assert (Hcomb : Fcomb ((c0*c0 - c1*c1*d) :: (- (2*c0)) :: 1 :: nil) (powers rho 3) = 0).
+  { transitivity ((c0*c0 - c1*c1*d) * 1 + (- (2*c0)) * rho + 1 * rho^2);
+      [simpl; ring | exact Hrel]. }
+  pose proof (Hindep _ Hlen HF3 Hcomb) as Hzero.
+  pose proof (Forall_inv (Forall_inv_tail (Forall_inv_tail Hzero))) as H1.
+  lra.
+Qed.
