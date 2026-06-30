@@ -1,0 +1,8 @@
+-R theories ""
+-arg -w -arg -deprecated
+
+theories/foundations.v
+theories/cyclotomic.v
+theories/geometry.v
+theories/frontier.v
+theories/extraction.v
