@@ -975,13 +975,6 @@ Proof.
 Qed.
 Close Scope R_scope.
 Open Scope R_scope.
-Lemma foot_eq_intersection_case1 : forall x y b c,
-  b <> 0 ->
-  (x - 0 * ((0 * x + b * y + c) / (b * b)), y - b * ((0 * x + b * y + c) / (b * b))) =
-  ((- (0 * y - b * x) * b - - c * - 0) / (b * b - 0 * - 0), (b * - c - 0 * - (0 * y - b * x)) / (b * b - 0 * - 0)).
-Proof.
-  intros. unfold Rdiv. f_equal; field; lra.
-Qed.
 Close Scope R_scope.
 Open Scope R_scope.
 Lemma neg_zero : -0 = 0.

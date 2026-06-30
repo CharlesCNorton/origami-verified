@@ -1408,15 +1408,6 @@ Proof.
     simpl. field. exact Hneq.
 Qed.
 
-(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
-Theorem perp_bisector_reflects_correctly : forall p1 p2,
-  p1 <> p2 ->
-  reflect_point p1 (perp_bisector p1 p2) = p2.
-Proof.
-  intros p1 p2 Hneq.
-  apply perp_bisector_reflects_to_other.
-  exact Hneq.
-Qed.
 
 (** dist²(p₁,p₂) = dist²(reflect(p₁,l), reflect(p₂,l)) *)
 Theorem reflection_is_isometry : forall p1 p2 l,
@@ -1610,7 +1601,12 @@ Proof.
   - apply line_through_on_line_snd.
 Qed.
 
-(** Alias for fold_O6_approx *)
+(** [fold_O6] is the common-perpendicular fold.  It satisfies the O6 incidence
+    constraint exactly when both points lie on their target lines
+    ([O6_exact_when_both_on_lines]) and approximates it otherwise; [CF_O6] is the
+    matching constructor.  The cubic-solving O6 fold is the Beloch fold
+    [fold_O6_beloch], with constructor [CF_O6_beloch], whose creases the depth
+    enumeration produces through [cubic_real_roots]. *)
 Definition fold_O6 := fold_O6_approx.
 
 Lemma fold_line_O6 : forall p1 l1 p2 l2,
@@ -1734,29 +1730,6 @@ Proof.
   unfold sqr. field.
 Qed.
 
-(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
-Lemma reflect_perp_bisector_swap : forall p1 p2,
-  p1 <> p2 -> reflect_point p1 (perp_bisector p1 p2) = p2.
-Proof.
-  intros [x1 y1] [x2 y2] Hneq.
-  unfold reflect_point, perp_bisector.
-  destruct (Req_EM_T x1 x2) as [Hx|Hx].
-  - subst. destruct (Req_EM_T y1 y2) as [Hy|Hy].
-    + subst. exfalso. apply Hneq. reflexivity.
-    + simpl. f_equal; field; intro H; apply Hy; lra.
-  - simpl. assert (Hden: 2 * (x2 - x1) * (2 * (x2 - x1)) + 2 * (y2 - y1) * (2 * (y2 - y1)) <> 0).
-    { intro Heq.
-      assert (H0: (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) = 0) by lra.
-      assert (Hx2: 0 <= (x2 - x1) * (x2 - x1)) by apply Rle_0_sqr.
-      assert (Hy2: 0 <= (y2 - y1) * (y2 - y1)) by apply Rle_0_sqr.
-      assert (Hxz: (x2 - x1) * (x2 - x1) = 0) by lra.
-      assert (Hyz: (y2 - y1) * (y2 - y1) = 0) by lra.
-      apply Rmult_integral in Hxz.
-      apply Rmult_integral in Hyz.
-      destruct Hxz as [Hx0|Hx0]; destruct Hyz as [Hy0|Hy0]; lra. }
-    f_equal; field; assumption.
-Qed.
-
 (** O7: Fold ⊥ l₂ placing p₁ onto l₁ *)
 Definition fold_O7_simple (p1 : Point) (l1 : Line) (l2 : Line) : Fold :=
   let perp_l2 := perp_through p1 l2 in
@@ -1786,7 +1759,7 @@ Proof.
       destruct target as [x y].
       destruct (Req_EM_T x x); [|contradiction].
       destruct (Req_EM_T y y); simpl; ring.
-  - rewrite reflect_perp_bisector_swap; [|exact Hneq].
+  - rewrite perp_bisector_reflects_to_other; [|exact Hneq].
     exact Htarget_l1.
 Qed.
 
@@ -2085,20 +2058,6 @@ Proof.
   - apply refl_gen_bisector_horiz. assumption.
 Qed.
 
-(** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
-Lemma perp_bisector_reflection : forall p1 p2,
-  p1 <> p2 ->
-  reflect_point p1 (perp_bisector p1 p2) = p2.
-Proof.
-  intros [x1 y1] [x2 y2] Hneq.
-  apply refl_gen_bisector.
-  destruct (Req_EM_T x1 x2); destruct (Req_EM_T y1 y2); subst.
-  - exfalso. apply Hneq. reflexivity.
-  - right. assumption.
-  - left. assumption.
-  - left. assumption.
-Qed.
-
 (** O6 validity: img₁ ∈ l₁, img₂ ∈ l₂, and perp_bisectors coincide *)
 Definition O6_general_valid (p1 : Point) (l1 : Line) (p2 : Point) (l2 : Line)
                             (img1 : Point) (img2 : Point) : Prop :=
@@ -2119,7 +2078,7 @@ Lemma fold_O6_general_reflects_p1 : forall p1 img1,
 Proof.
   intros p1 img1 Hneq.
   unfold fold_O6_general, fold_line.
-  apply perp_bisector_reflection. exact Hneq.
+  apply perp_bisector_reflects_to_other. exact Hneq.
 Qed.
 
 (** perp_bisectors equal → reflect(p₂, fold_O6_general(p₁,img₁)) = img₂ *)
@@ -2132,7 +2091,7 @@ Proof.
   intros p1 p2 img1 img2 Hneq1 Hneq2 Heq.
   unfold fold_O6_general, fold_line.
   rewrite Heq.
-  apply perp_bisector_reflection. exact Hneq2.
+  apply perp_bisector_reflects_to_other. exact Hneq2.
 Qed.
 
 (** O6_general_valid → fold_O6_general satisfies O6 line constraint *)
@@ -2185,7 +2144,7 @@ Lemma perp_bisector_reflects_onto_line : forall p1 q l,
   on_line (reflect_point p1 (perp_bisector p1 q)) l.
 Proof.
   intros p1 q l Hq_on_l Hneq.
-  rewrite perp_bisector_reflection; auto.
+  rewrite perp_bisector_reflects_to_other; auto.
 Qed.
 
 (** line_wf l ∧ t·B = 0 ∧ t·(-A) = 0 → t = 0 *)
@@ -3142,44 +3101,6 @@ Proof.
 Qed.
 Close Scope R_scope.
 Open Scope R_scope.
-Lemma foot_eq_intersection : forall p l,
-  line_wf l -> foot_on_line p l = line_intersection (perp_through p l) l.
-Proof.
-  intros [x y] [a b c] Hnz.
-  unfold foot_on_line, line_intersection, perp_through; simpl.
-  unfold line_wf in Hnz. simpl in Hnz.
-  set (d := a * a + b * b).
-  assert (Hd_nz: d <> 0).
-  { unfold d. intro HC.
-    assert (Ha2: 0 <= a * a) by apply Rle_0_sqr.
-    assert (Hb2: 0 <= b * b) by apply Rle_0_sqr.
-    assert (Hsum: a * a + b * b = 0) by exact HC.
-    assert (Ha_z: a * a = 0) by lra.
-    assert (Hb_z: b * b = 0) by lra.
-    apply Rmult_integral in Ha_z. apply Rmult_integral in Hb_z.
-    destruct Hnz as [Hna|Hnb]; [destruct Ha_z | destruct Hb_z]; contradiction. }
-  destruct (Req_EM_T a 0) as [Ha0|Han0].
-  - subst a. simpl in *. unfold d in Hd_nz. simpl in Hd_nz.
-    destruct Hnz as [Hcontra|Hb]; [contradiction|].
-    destruct (Req_EM_T (b * b - 0 * - 0) 0).
-    + exfalso. assert (Hb2: b * b = 0) by lra. apply Rmult_integral in Hb2. destruct Hb2; contradiction.
-    + simpl. unfold d. assert (Heq: 0 * 0 + b * b = b * b) by ring. rewrite Heq. apply foot_eq_intersection_case1. assumption.
-  - assert (Hdet_nz: b * b - a * - a <> 0).
-    { intro HC. assert (Hsq: b * b + a * a = 0) by lra.
-      assert (Hb2: 0 <= b * b) by apply Rle_0_sqr.
-      assert (Ha2: 0 <= a * a) by apply Rle_0_sqr.
-      assert (Hbz: b * b = 0) by lra.
-      assert (Haz: a * a = 0) by lra.
-      apply Rmult_integral in Hbz. apply Rmult_integral in Haz.
-      destruct Hbz; destruct Haz; lra. }
-    destruct (Req_EM_T (b * b - a * - a) 0); [contradiction|].
-    simpl.
-    unfold line_intersection.
-    destruct (Req_EM_T (b * b - a * - a) 0); [contradiction|].
-    simpl. unfold d.
-    f_equal; field; assumption.
-Qed.
-
 (** foot(p,l) ∈ enum_points(S(S(max dp dl))) *)
 Lemma CF_O5_helper_foot_in_enum : forall p l dp dl,
   line_wf l ->
@@ -3194,7 +3115,7 @@ Proof.
   { unfold d1. apply (enum_lines_monotone_le dl (S (Nat.max dp dl))).
     - apply le_S, Nat.le_max_r.
     - exact Hl. }
-  rewrite foot_eq_intersection by exact Hwf.
+  rewrite foot_is_intersection by exact Hwf.
   assert (Hgoal: In (line_intersection (perp_through p l) l) (enum_points (S (Nat.max d1 d1)))).
   { apply line_intersection_in_enum_S; assumption. }
   assert (Heq: S (Nat.max d1 d1) = S d1).
@@ -5254,7 +5175,7 @@ Lemma O5_sqrt_fold_reflects_origin : forall x,
 Proof.
   intros x Hpos.
   unfold O5_sqrt_fold_line.
-  apply perp_bisector_reflection.
+  apply perp_bisector_reflects_to_other.
   assert (Hsqrt_pos: 0 < sqrt x) by (apply sqrt_lt_R0; lra).
   intro H. injection H as H1 H2. lra.
 Qed.
@@ -6012,7 +5933,7 @@ Lemma O5_fold_reflects_onto_line : forall p l q,
 Proof.
   intros p l q Hwf Hvalid Hneq.
   unfold fold_O5_general, fold_line. simpl.
-  apply perp_bisector_reflection. exact Hneq.
+  apply perp_bisector_reflects_to_other. exact Hneq.
 Qed.
 
 (** q ∈ O5_fold ∧ reflect(p, O5_fold) ∈ l *)
@@ -6102,11 +6023,6 @@ Proof.
   apply Rplus_le_le_0_compat; apply Rle_0_sqr.
 Qed.
 
-(** dist = √dist² *)
-Lemma dist_eq_sqrt_dist2 : forall p q, dist p q = sqrt (dist2 p q).
-Proof.
-  intros [px py] [qx qy]. unfold dist, dist2, sqr. simpl. reflexivity.
-Qed.
 
 (** O5_general_valid ⟺ (point_line_dist q l)² ≤ dist²(p,q) *)
 Lemma O5_valid_unfold : forall p l q,
@@ -6128,7 +6044,7 @@ Theorem O5_valid_iff_dist : forall p l q,
 Proof.
   intros p l q Hwf.
   rewrite O5_valid_unfold.
-  rewrite dist_eq_sqrt_dist2.
+  rewrite dist_via_dist2.
   assert (Hpld_nn : 0 <= point_line_dist q l) by (apply point_line_dist_nonneg; exact Hwf).
   assert (Hd2_nn : 0 <= dist2 p q) by apply dist2_nonneg.
   assert (Hsqrt_nn : 0 <= sqrt (dist2 p q)) by apply sqrt_pos.
@@ -6214,10 +6130,10 @@ Proof.
   { intro Heq. apply Hpnl. rewrite Heq. apply o5land_on_line; exact Hwf. }
   unfold satisfies_O5_constraint. cbn [fold_line]. split.
   - apply equidistant_on_perp_bisector; [exact Hpne|].
-    rewrite (dist_eq_sqrt_dist2 q p), (dist_eq_sqrt_dist2 q (o5land l q s)).
+    rewrite (dist_via_dist2 q p), (dist_via_dist2 q (o5land l q s)).
     f_equal. rewrite (dist2_sym2 q p), (dist2_sym2 q (o5land l q s)).
     symmetry; exact Hd.
-  - rewrite perp_bisector_reflection by exact Hpne. apply o5land_on_line; exact Hwf.
+  - rewrite perp_bisector_reflects_to_other by exact Hpne. apply o5land_on_line; exact Hwf.
 Qed.
 
 (** d < r: two distinct creases solve the O5 incidence. *)
@@ -6233,7 +6149,7 @@ Proof.
     by (symmetry; apply point_line_dist_sq; exact Hwf).
   assert (Hpos : 0 <= point_line_dist q l) by (apply point_line_dist_nonneg; exact Hwf).
   assert (Hdd : dist p q * dist p q = dist2 p q)
-    by (rewrite (dist_eq_sqrt_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
+    by (rewrite (dist_via_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
   assert (Hh2 : 0 < dist2 p q - (A l * fst q + B l * snd q + C l)^2 / (A l * A l + B l * B l)).
   { rewrite Hpld2. nra. }
   assert (Harg : 0 <= (dist2 p q - (A l * fst q + B l * snd q + C l)^2 / (A l * A l + B l * B l))
@@ -6267,8 +6183,8 @@ Proof.
   split; [|split].
   - intro Hfeq. injection Hfeq as Hpb. apply Hlandne.
     transitivity (reflect_point p (perp_bisector p (o5land l q t))).
-    + symmetry. apply perp_bisector_reflection. exact Hpne1.
-    + rewrite Hpb. apply perp_bisector_reflection. exact Hpne2.
+    + symmetry. apply perp_bisector_reflects_to_other. exact Hpne1.
+    + rewrite Hpb. apply perp_bisector_reflects_to_other. exact Hpne2.
   - apply o5land_crease; [exact Hwf | exact Hpnl | apply (o5land_hits l p q t Hwf Hhitst)].
   - apply o5land_crease; [exact Hwf | exact Hpnl | apply (o5land_hits l p q (-t) Hwf Hhitsmt)].
 Qed.
@@ -6313,9 +6229,9 @@ Proof.
                   = point_line_dist q l * point_line_dist q l)
     by (symmetry; apply point_line_dist_sq; exact Hwf).
   assert (Hpos : 0 <= point_line_dist q l) by (apply point_line_dist_nonneg; exact Hwf).
-  assert (Hdp : 0 <= dist p q) by (rewrite dist_eq_sqrt_dist2; apply sqrt_pos).
+  assert (Hdp : 0 <= dist p q) by (rewrite dist_via_dist2; apply sqrt_pos).
   assert (Hdd : dist p q * dist p q = dist2 p q)
-    by (rewrite (dist_eq_sqrt_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
+    by (rewrite (dist_via_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
   rewrite (dist2_sym2 q (reflect_point p (fold_line f))), Hiso, Hpld2 in Hmin.
   nra.
 Qed.
@@ -6332,7 +6248,7 @@ Proof.
     by (symmetry; apply point_line_dist_sq; exact Hwf).
   assert (Hpos : 0 <= point_line_dist q l) by (apply point_line_dist_nonneg; exact Hwf).
   assert (Hdd : dist p q * dist p q = dist2 p q)
-    by (rewrite (dist_eq_sqrt_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
+    by (rewrite (dist_via_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
   assert (Hh2 : 0 < dist2 p q - (A l*fst q+B l*snd q+C l)^2/(A l*A l+B l*B l)) by (rewrite Hpld2; nra).
   assert (Harg : 0 <= (dist2 p q - (A l*fst q+B l*snd q+C l)^2/(A l*A l+B l*B l))/(A l*A l+B l*B l))
     by (apply Rlt_le; apply Rdiv_lt_0_compat; lra).
@@ -6377,7 +6293,7 @@ Proof.
   assert (Hpld2 : (A l*fst q+B l*snd q+C l)^2/(A l*A l+B l*B l) = point_line_dist q l * point_line_dist q l)
     by (symmetry; apply point_line_dist_sq; exact Hwf).
   assert (Hdd : dist p q * dist p q = dist2 p q)
-    by (rewrite (dist_eq_sqrt_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
+    by (rewrite (dist_via_dist2 p q) at 1 2; apply sqrt_sqrt; apply dist2_nonneg).
   assert (Hh0 : dist2 p q - (A l*fst q+B l*snd q+C l)^2/(A l*A l+B l*B l) = 0)
     by (rewrite Hpld2, Heq; lra).
   exists (o5land l q 0). intro y'. split.
