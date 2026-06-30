@@ -1606,7 +1606,9 @@ Qed.
     ([O6_exact_when_both_on_lines]) and approximates it otherwise; [CF_O6] is the
     matching constructor.  The cubic-solving O6 fold is the Beloch fold
     [fold_O6_beloch], with constructor [CF_O6_beloch], whose creases the depth
-    enumeration produces through [cubic_real_roots]. *)
+    enumeration produces through [cubic_real_roots].  For general-position inputs,
+    [O6_general_constructible] gives a constructible crease meeting the O6
+    constraint for any constructible foci and directrices. *)
 Definition fold_O6 := fold_O6_approx.
 
 Lemma fold_line_O6 : forall p1 l1 p2 l2,
@@ -7395,6 +7397,360 @@ Proof.
     rewrite Hfocus, Hdir, (motion_inv_point p2 th v), (motion_inv_line l2 th v) in Ht.
     apply (proj1 (satisfies_O6_scale_l1 _ (px, py) l1 p2 l2 (/ N) (Rinv_neq_0_compat N HNne))).
     exact Ht.
+Qed.
+
+(* ============================================================================
+   General O6 as a constructible operation.  The general-position O6 crease has
+   origami coordinates -- it is a rigid-motion image of a crease whose slope is an
+   origami root of an origami-coefficient cubic -- and it equals, up to scale, the
+   perpendicular bisector of p1 and its reflection, hence the O2 fold of two
+   constructible points.
+   ============================================================================ *)
+
+(** Origami numbers are closed under roots of a general cubic with origami
+    coefficients: depress the cubic, then apply the depressed-root constructor. *)
+Lemma OrigamiNum_general_cubic_root : forall c3 c2 c1 c0,
+  OrigamiNum c3 -> OrigamiNum c2 -> OrigamiNum c1 -> OrigamiNum c0 -> c3 <> 0 ->
+  exists s, OrigamiNum s /\ c3 * (s ^ 3) + c2 * (s ^ 2) + c1 * s + c0 = 0.
+Proof.
+  intros c3 c2 c1 c0 H3 H2 H1 H0 Hc3.
+  assert (O3 : OrigamiNum 3) by apply Origami_three.
+  assert (O2 : OrigamiNum 2) by (replace 2 with (1 + 1) by ring; apply ON_add; apply ON_1).
+  assert (O27 : OrigamiNum 27) by
+    (replace 27 with (3 * 3 * 3) by ring; apply ON_mul; [apply ON_mul; exact O3 | exact O3]).
+  assert (H3c3 : 3 * c3 <> 0) by (apply Rmult_integral_contrapositive_currified; [lra | exact Hc3]).
+  assert (H3c3c3 : 3 * c3 * c3 <> 0)
+    by (apply Rmult_integral_contrapositive_currified; [exact H3c3 | exact Hc3]).
+  assert (H27c3 : 27 * c3 * c3 * c3 <> 0).
+  { apply Rmult_integral_contrapositive_currified; [| exact Hc3].
+    apply Rmult_integral_contrapositive_currified; [| exact Hc3].
+    apply Rmult_integral_contrapositive_currified; [lra | exact Hc3]. }
+  assert (ON3c3 : OrigamiNum (3 * c3)) by (apply ON_mul; [exact O3 | exact H3]).
+  assert (ON3c3c3 : OrigamiNum (3 * c3 * c3)) by (apply ON_mul; [exact ON3c3 | exact H3]).
+  assert (ON27c3 : OrigamiNum (27 * c3 * c3 * c3))
+    by (apply ON_mul; [apply ON_mul; [apply ON_mul; [exact O27 | exact H3] | exact H3] | exact H3]).
+  set (sh := c2 / (3 * c3)).
+  set (P := c1 / c3 - c2 * c2 / (3 * c3 * c3)).
+  set (Q := c0 / c3 - c1 * c2 / (3 * c3 * c3) + 2 * (c2 * c2 * c2) / (27 * c3 * c3 * c3)).
+  assert (HshON : OrigamiNum sh) by (unfold sh; apply Origami_div; [exact H2 | exact ON3c3 | exact H3c3]).
+  assert (HPON : OrigamiNum P).
+  { unfold P. apply ON_sub.
+    - apply Origami_div; [exact H1 | exact H3 | exact Hc3].
+    - apply Origami_div; [apply ON_mul; [exact H2 | exact H2] | exact ON3c3c3 | exact H3c3c3]. }
+  assert (HQON : OrigamiNum Q).
+  { unfold Q. apply ON_add.
+    - apply ON_sub.
+      + apply Origami_div; [exact H0 | exact H3 | exact Hc3].
+      + apply Origami_div; [apply ON_mul; [exact H1 | exact H2] | exact ON3c3c3 | exact H3c3c3].
+    - apply Origami_div;
+        [apply ON_mul; [exact O2 | apply ON_mul; [apply ON_mul; [exact H2 | exact H2] | exact H2]]
+        | exact ON27c3 | exact H27c3]. }
+  destruct (depressed_cubic_root_exists P Q) as [u Hu].
+  unfold is_cubic_root, depressed_cubic in Hu.
+  assert (HuON : OrigamiNum u).
+  { apply (ON_cubic_root P Q u HPON HQON). replace (u * u * u) with (u ^ 3) by ring. exact Hu. }
+  exists (u - sh). split.
+  - apply ON_sub; assumption.
+  - assert (Hdep : c3 * ((u - sh) ^ 3) + c2 * ((u - sh) ^ 2) + c1 * (u - sh) + c0
+                   = c3 * (u ^ 3 + P * u + Q)) by (unfold sh, P, Q; field; exact Hc3).
+    rewrite Hdep, Hu. ring.
+Qed.
+
+(** rotate_point preserves origami coordinates. *)
+Lemma GoodPoint_rotate : forall p th,
+  GoodPoint p -> OrigamiNum (cos th) -> OrigamiNum (sin th) ->
+  GoodPoint (rotate_point p th).
+Proof.
+  intros [x y] th [Hx Hy] Hc Hs. unfold rotate_point, GoodPoint; simpl in *.
+  split.
+  - apply ON_sub; apply ON_mul; assumption.
+  - apply ON_add; apply ON_mul; assumption.
+Qed.
+
+(** translate_point preserves origami coordinates. *)
+Lemma GoodPoint_translate : forall p v,
+  GoodPoint p -> GoodPoint v -> GoodPoint (translate_point p v).
+Proof.
+  intros [x y] [vx vy] [Hx Hy] [Hvx Hvy]. unfold translate_point, GoodPoint; simpl in *.
+  split; apply ON_add; assumption.
+Qed.
+
+(** rotate_line preserves origami coefficients. *)
+Lemma GoodLine_rotate : forall l th,
+  GoodLine l -> OrigamiNum (cos th) -> OrigamiNum (sin th) ->
+  GoodLine (rotate_line l th).
+Proof.
+  intros l th [HA [HB HC]] Hc Hs. unfold rotate_line, GoodLine; simpl.
+  split; [| split].
+  - apply ON_sub; apply ON_mul; assumption.
+  - apply ON_add; apply ON_mul; assumption.
+  - exact HC.
+Qed.
+
+(** translate_line preserves origami coefficients. *)
+Lemma GoodLine_translate : forall l v,
+  GoodLine l -> GoodPoint v -> GoodLine (translate_line l v).
+Proof.
+  intros l [vx vy] [HA [HB HC]] [Hvx Hvy]. unfold translate_line, GoodLine; simpl in *.
+  split; [exact HA | split; [exact HB |]].
+  apply ON_sub; [apply ON_sub; [exact HC | apply ON_mul; [exact HA | exact Hvx]]
+                | apply ON_mul; [exact HB | exact Hvy]].
+Qed.
+
+(** Reflection across a line is invariant under scaling its coefficients. *)
+Lemma reflect_point_scale_eq : forall p k l,
+  k <> 0 -> A l * A l + B l * B l <> 0 ->
+  reflect_point p {| A := k * A l; B := k * B l; C := k * C l |} = reflect_point p l.
+Proof.
+  intros [x y] k l Hk Hnz. unfold reflect_point; simpl.
+  assert (Hknz : k * A l * (k * A l) + k * B l * (k * B l) <> 0).
+  { replace (k * A l * (k * A l) + k * B l * (k * B l))
+      with (k * k * (A l * A l + B l * B l)) by ring.
+    apply Rmult_integral_contrapositive_currified;
+      [apply Rmult_integral_contrapositive_currified; exact Hk | exact Hnz]. }
+  f_equal; field; split; assumption.
+Qed.
+
+(** A point with origami coordinates is constructible. *)
+Lemma good_constructible_point : forall p, GoodPoint p -> ConstructiblePoint p.
+Proof.
+  intros [x y] [Hx Hy]. simpl in Hx, Hy.
+  apply point_xy_constructible.
+  - apply origami_xaxis_point; exact Hx.
+  - apply yaxis_from_xaxis. apply origami_xaxis_point; exact Hy.
+Qed.
+
+(** The reference-parabola O6 solve with an origami crease slope, for origami
+    inputs (the same cubic as O6_scaled_solvable, solved inside OrigamiNum). *)
+Lemma O6_scaled_solvable_good : forall d1 a b A2 B2 C2,
+  OrigamiNum d1 -> OrigamiNum a -> OrigamiNum b ->
+  OrigamiNum A2 -> OrigamiNum B2 -> OrigamiNum C2 ->
+  d1 <> 0 -> A2 <> 0 ->
+  exists s, OrigamiNum s /\
+    satisfies_O6_line_constraint
+      {| A := s; B := -1; C := -(d1 * s * s) |}
+      (0, d1) {| A := 0; B := 1; C := d1 |}
+      (a, b) {| A := A2; B := B2; C := C2 |}.
+Proof.
+  intros d1 a b A2 B2 C2 Hd1 Ha Hb HA2 HB2 HC2 Hd1n HA2n.
+  assert (O2 : OrigamiNum 2) by (replace 2 with (1 + 1) by ring; apply ON_add; apply ON_1).
+  assert (Hc3 : 2 * d1 * A2 <> 0).
+  { apply Rmult_integral_contrapositive_currified;
+      [apply Rmult_integral_contrapositive_currified; [lra | exact Hd1n] | exact HA2n]. }
+  assert (ONc3 : OrigamiNum (2 * d1 * A2))
+    by (apply ON_mul; [apply ON_mul; [exact O2 | exact Hd1] | exact HA2]).
+  assert (ONc2 : OrigamiNum (A2 * a + B2 * b + C2 - 2 * a * A2 - 2 * d1 * B2)).
+  { apply ON_sub; [apply ON_sub;
+      [apply ON_add; [apply ON_add; [apply ON_mul; [exact HA2 | exact Ha]
+                                    | apply ON_mul; [exact HB2 | exact Hb]] | exact HC2]
+      | apply ON_mul; [apply ON_mul; [exact O2 | exact Ha] | exact HA2]]
+    | apply ON_mul; [apply ON_mul; [exact O2 | exact Hd1] | exact HB2]]. }
+  assert (ONc1 : OrigamiNum (2 * (a * B2 + b * A2)))
+    by (apply ON_mul; [exact O2 | apply ON_add; [apply ON_mul; [exact Ha | exact HB2]
+                                                | apply ON_mul; [exact Hb | exact HA2]]]).
+  assert (ONc0 : OrigamiNum (A2 * a + B2 * b + C2 - 2 * b * B2)).
+  { apply ON_sub; [apply ON_add; [apply ON_add; [apply ON_mul; [exact HA2 | exact Ha]
+                                                | apply ON_mul; [exact HB2 | exact Hb]] | exact HC2]
+    | apply ON_mul; [apply ON_mul; [exact O2 | exact Hb] | exact HB2]]. }
+  destruct (OrigamiNum_general_cubic_root _ _ _ _ ONc3 ONc2 ONc1 ONc0 Hc3) as [s [Hson Hs]].
+  exists s. split; [exact Hson |].
+  unfold satisfies_O6_line_constraint. split.
+  - unfold reflect_point, on_line; simpl.
+    assert (Hd : s * s + 1 <> 0) by nra.
+    apply (Rmult_eq_reg_r (s * s + 1)); [| exact Hd]. rewrite Rmult_0_l. field. exact Hd.
+  - unfold reflect_point, on_line; simpl.
+    assert (Hd : s * s + 1 <> 0) by nra.
+    apply (Rmult_eq_reg_r (s * s + 1)); [| exact Hd]. rewrite Rmult_0_l.
+    transitivity (2 * d1 * A2 * (s ^ 3)
+                  + (A2 * a + B2 * b + C2 - 2 * a * A2 - 2 * d1 * B2) * (s ^ 2)
+                  + 2 * (a * B2 + b * A2) * s + (A2 * a + B2 * b + C2 - 2 * b * B2)).
+    + field. exact Hd.
+    + exact Hs.
+Qed.
+
+(** General-position O6 has an origami-coordinate crease for origami inputs: the
+    same construction as O6_fully_general, with OrigamiNum threaded through the
+    rigid-motion reduction and the origami cubic root. *)
+Theorem O6_general_good : forall p1 l1 p2 l2,
+  GoodPoint p1 -> GoodLine l1 -> GoodPoint p2 -> GoodLine l2 ->
+  line_wf l1 -> line_wf l2 -> ~ on_line p1 l1 ->
+  A l1 * B l2 <> A l2 * B l1 ->
+  exists crease, GoodLine crease /\ line_wf crease /\
+    satisfies_O6_line_constraint crease p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 HGp1 HGl1 HGp2 HGl2 Hwf1 Hwf2 Hp1 Hpar.
+  destruct HGl1 as [HoA1 [HoB1 HoC1]]. destruct HGl2 as [HoA2 [HoB2 HoC2]].
+  destruct p1 as [px py]. destruct HGp1 as [Hopx Hopy]. simpl in Hopx, Hopy.
+  assert (Ho2 : OrigamiNum 2) by (replace 2 with (1 + 1) by ring; apply ON_add; apply ON_1).
+  set (N := R_sqrt.sqrt (A l1 * A l1 + B l1 * B l1)).
+  assert (HA2B2 : 0 < A l1 * A l1 + B l1 * B l1) by (destruct Hwf1 as [H|H]; nra).
+  assert (HN : 0 < N) by (unfold N; apply sqrt_lt_R0; exact HA2B2).
+  assert (HN2 : N * N = A l1 * A l1 + B l1 * B l1) by (unfold N; apply sqrt_sqrt; lra).
+  assert (HN2p : N ^ 2 = A l1 * A l1 + B l1 * B l1) by (simpl; rewrite Rmult_1_r; exact HN2).
+  assert (HNne : N <> 0) by lra.
+  assert (HoN : OrigamiNum N)
+    by (unfold N; apply ON_sqrt; [apply ON_add; apply ON_mul; assumption | lra]).
+  set (d1 := (A l1 * px + B l1 * py + C l1) / (2 * N)).
+  assert (Hp1ne : A l1 * px + B l1 * py + C l1 <> 0)
+    by (intro Hc; apply Hp1; unfold on_line; simpl; lra).
+  assert (Hd1 : d1 <> 0).
+  { unfold d1. intro Hc. apply Hp1ne.
+    apply (Rmult_eq_reg_r (/ (2 * N))); [| apply Rinv_neq_0_compat; lra].
+    rewrite Rmult_0_l. exact Hc. }
+  assert (H2Nne : 2 * N <> 0) by lra.
+  assert (Hod1 : OrigamiNum d1).
+  { unfold d1. apply Origami_div.
+    - apply ON_add; [apply ON_add; apply ON_mul; assumption | exact HoC1].
+    - apply ON_mul; [exact Ho2 | exact HoN].
+    - exact H2Nne. }
+  destruct (exists_angle (B l1 / N) (- A l1 / N)) as [th [Hcos Hsin]].
+  { replace (B l1 / N * (B l1 / N) + - A l1 / N * (- A l1 / N))
+      with ((A l1 * A l1 + B l1 * B l1) / (N * N)) by (field; lra).
+    rewrite HN2. field; lra. }
+  assert (Hocos : OrigamiNum (cos th))
+    by (rewrite Hcos; apply Origami_div; [exact HoB1 | exact HoN | exact HNne]).
+  assert (Hosin : OrigamiNum (sin th)).
+  { rewrite Hsin. replace (- A l1 / N) with (- (A l1 / N)) by (field; exact HNne).
+    apply Origami_neg. apply Origami_div; [exact HoA1 | exact HoN | exact HNne]. }
+  set (v := (px - d1 * A l1 / N, py - d1 * B l1 / N)).
+  assert (HGv : GoodPoint v).
+  { unfold v, GoodPoint; simpl. split.
+    - apply ON_sub; [exact Hopx |
+        apply Origami_div; [apply ON_mul; [exact Hod1 | exact HoA1] | exact HoN | exact HNne]].
+    - apply ON_sub; [exact Hopy |
+        apply Origami_div; [apply ON_mul; [exact Hod1 | exact HoB1] | exact HoN | exact HNne]]. }
+  assert (Hfocus : translate_point (rotate_point (0, d1) th) v = (px, py)).
+  { unfold rotate_point, translate_point, v; simpl. rewrite Hcos, Hsin. f_equal; field; lra. }
+  assert (Hdir : translate_line (rotate_line {| A := 0; B := 1; C := d1 |} th) v
+                 = {| A := / N * A l1; B := / N * B l1; C := / N * C l1 |}).
+  { unfold rotate_line, translate_line, v; simpl. f_equal.
+    - rewrite ?Hcos, ?Hsin; field; lra.
+    - rewrite ?Hcos, ?Hsin; field; lra.
+    - rewrite ?Hcos, ?Hsin.
+      replace (d1 - (0 * (B l1 / N) - 1 * (- A l1 / N)) * (px - d1 * A l1 / N)
+                  - (0 * (- A l1 / N) + 1 * (B l1 / N)) * (py - d1 * B l1 / N))
+        with (d1 + d1 * (A l1 * A l1 + B l1 * B l1) / (N * N)
+              - (A l1 * px + B l1 * py) / N) by (field; lra).
+      rewrite HN2. unfold d1. field. split; lra. }
+  assert (HA2 : A (rotate_line (translate_line l2 (- fst v, - snd v)) (- th)) <> 0).
+  { unfold rotate_line, translate_line; simpl. rewrite cos_neg, sin_neg, Hcos, Hsin.
+    intro Hc. apply Hpar.
+    apply (Rmult_eq_reg_r (/ N)); [| apply Rinv_neq_0_compat; exact HNne].
+    field_simplify; try exact HNne. nra. }
+  assert (Hocosn : OrigamiNum (cos (- th))) by (rewrite cos_neg; exact Hocos).
+  assert (Hosinn : OrigamiNum (sin (- th))) by (rewrite sin_neg; apply Origami_neg; exact Hosin).
+  assert (HGmv : GoodPoint (- fst v, - snd v)).
+  { destruct HGv as [Hvx Hvy]. unfold GoodPoint; simpl.
+    split; apply Origami_neg; [exact Hvx | exact Hvy]. }
+  assert (HGp2m : GoodPoint (rotate_point (translate_point p2 (- fst v, - snd v)) (- th)))
+    by (apply GoodPoint_rotate;
+        [apply GoodPoint_translate; [exact HGp2 | exact HGmv] | exact Hocosn | exact Hosinn]).
+  assert (HGl2m : GoodLine (rotate_line (translate_line l2 (- fst v, - snd v)) (- th)))
+    by (apply GoodLine_rotate;
+        [apply GoodLine_translate;
+           [split; [exact HoA2 | split; [exact HoB2 | exact HoC2]] | exact HGmv]
+        | exact Hocosn | exact Hosinn]).
+  destruct HGp2m as [Hoa Hob]. destruct HGl2m as [HoA2' [HoB2' HoC2']].
+  destruct (O6_scaled_solvable_good d1
+              (fst (rotate_point (translate_point p2 (- fst v, - snd v)) (- th)))
+              (snd (rotate_point (translate_point p2 (- fst v, - snd v)) (- th)))
+              (A (rotate_line (translate_line l2 (- fst v, - snd v)) (- th)))
+              (B (rotate_line (translate_line l2 (- fst v, - snd v)) (- th)))
+              (C (rotate_line (translate_line l2 (- fst v, - snd v)) (- th)))
+              Hod1 Hoa Hob HoA2' HoB2' HoC2' Hd1 HA2) as [s [Hson Hs]].
+  exists (translate_line (rotate_line {| A := s; B := -1; C := - (d1 * s * s) |} th) v).
+  assert (Hwfc : line_wf {| A := s; B := -1; C := - (d1 * s * s) |}) by (right; simpl; lra).
+  assert (HGref : GoodLine {| A := s; B := -1; C := - (d1 * s * s) |}).
+  { unfold GoodLine; cbn [A B C]. split; [exact Hson | split].
+    - replace (-1) with (0 - 1) by ring. apply ON_sub; [apply ON_0 | apply ON_1].
+    - apply Origami_neg. apply ON_mul; [apply ON_mul; [exact Hod1 | exact Hson] | exact Hson]. }
+  split; [| split].
+  - apply GoodLine_translate;
+      [apply GoodLine_rotate; [exact HGref | exact Hocos | exact Hosin] | exact HGv].
+  - apply line_wf_rotate_translate. exact Hwfc.
+  - pose proof (satisfies_O6_rotate th _ _ _ _ _ Hwfc Hs) as Hr.
+    pose proof (satisfies_O6_translate v _ _ _ _ _ (line_wf_rotate _ th Hwfc) Hr) as Ht.
+    rewrite <- surjective_pairing in Ht.
+    rewrite (line_eta (rotate_line (translate_line l2 (- fst v, - snd v)) (- th))) in Ht.
+    rewrite Hfocus, Hdir, (motion_inv_point p2 th v), (motion_inv_line l2 th v) in Ht.
+    apply (proj1 (satisfies_O6_scale_l1 _ (px, py) l1 p2 l2 (/ N) (Rinv_neq_0_compat N HNne))).
+    exact Ht.
+Qed.
+
+(** Reflecting any point across the perpendicular bisector of p and its mirror
+    image in c equals reflecting across c -- the two lines coincide -- so the
+    perpendicular bisector carries the O6 incidence of c. *)
+Lemma reflect_via_perp_bisector : forall q p c,
+  line_wf c -> ~ on_line p c ->
+  reflect_point q (perp_bisector p (reflect_point p c)) = reflect_point q c.
+Proof.
+  intros q p c Hwf Hnp.
+  assert (HD : A c * A c + B c * B c <> 0) by (pose proof (line_norm_pos c Hwf); lra).
+  destruct p as [px py].
+  assert (Hnum : A c * px + B c * py + C c <> 0)
+    by (intro Hc0; apply Hnp; unfold on_line; simpl; exact Hc0).
+  set (lam := (A c * px + B c * py + C c) / (A c * A c + B c * B c)).
+  assert (Hlam : lam <> 0).
+  { unfold lam, Rdiv. intro Hc0. apply Rmult_integral in Hc0.
+    destruct Hc0 as [Hc0 | Hc0]; [apply Hnum; exact Hc0 | exact (Rinv_neq_0_compat _ HD Hc0)]. }
+  set (k := -4 * lam).
+  assert (Hk : k <> 0)
+    by (unfold k; apply Rmult_integral_contrapositive_currified; [lra | exact Hlam]).
+  assert (Hpb : perp_bisector (px, py) (reflect_point (px, py) c)
+                = {| A := k * A c; B := k * B c; C := k * C c |}).
+  { unfold reflect_point, perp_bisector. cbn [fst snd].
+    match goal with
+    | |- context[Req_EM_T px ?t] => destruct (Req_EM_T px t) as [Hx | Hx]
+    end.
+    - assert (HAc0 : A c = 0).
+      { assert (H0 : A c * lam = 0) by (unfold lam; nra).
+        apply Rmult_integral in H0. destruct H0 as [H0 | H0];
+          [exact H0 | exfalso; apply Hlam; exact H0]. }
+      match goal with
+      | |- context[Req_EM_T py ?t] => destruct (Req_EM_T py t) as [Hy | Hy]
+      end.
+      + exfalso. assert (HBc0 : B c = 0).
+        { assert (H0 : B c * lam = 0) by (unfold lam; nra).
+          apply Rmult_integral in H0. destruct H0 as [H0 | H0];
+            [exact H0 | exfalso; apply Hlam; exact H0]. }
+        destruct Hwf as [Hw | Hw]; [apply Hw; exact HAc0 | apply Hw; exact HBc0].
+      + assert (HBcn : B c <> 0)
+          by (destruct Hwf as [Hw | Hw]; [exfalso; apply Hw; exact HAc0 | exact Hw]).
+        f_equal; unfold k, lam; rewrite HAc0; field; nra.
+    - f_equal; unfold k, lam; field; exact HD. }
+  rewrite Hpb. apply reflect_point_scale_eq; [exact Hk | exact HD].
+Qed.
+
+(** General O6 is a constructible single fold: for constructible foci and
+    directrices in general position there is a constructible crease meeting the
+    O6 incidence constraint -- built as the O2 fold of p1 and its reflection,
+    which carries the O6 incidence of the origami-coordinate crease. *)
+Theorem O6_general_constructible : forall p1 l1 p2 l2,
+  ConstructiblePoint p1 -> ConstructibleLine l1 ->
+  ConstructiblePoint p2 -> ConstructibleLine l2 ->
+  ~ on_line p1 l1 -> A l1 * B l2 <> A l2 * B l1 ->
+  exists crease, ConstructibleLine crease /\
+    satisfies_O6_line_constraint crease p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 Cp1 Cl1 Cp2 Cl2 Hp1 Hpar.
+  destruct (O6_general_good p1 l1 p2 l2
+              (constructible_implies_origami p1 Cp1) (ConstructibleLine_good l1 Cl1)
+              (constructible_implies_origami p2 Cp2) (ConstructibleLine_good l2 Cl2)
+              (ConstructibleLine_wf l1 Cl1) (ConstructibleLine_wf l2 Cl2) Hp1 Hpar)
+    as [c [Gc [Hwfc [Ho1 Ho2]]]].
+  assert (HD : A c * A c + B c * B c <> 0) by (pose proof (line_norm_pos c Hwfc); lra).
+  assert (Hpc : ~ on_line p1 c).
+  { intro Hon. apply Hp1.
+    assert (Heq : reflect_point p1 c = p1) by (apply reflect_point_on_line; exact Hon).
+    rewrite Heq in Ho1. exact Ho1. }
+  exists (perp_bisector p1 (reflect_point p1 c)). split.
+  - rewrite <- fold_line_O2. apply CL_fold. apply CF_O2.
+    + exact Cp1.
+    + apply good_constructible_point. apply GoodPoint_reflect;
+        [exact Hwfc | exact (constructible_implies_origami p1 Cp1) | exact Gc].
+  - unfold satisfies_O6_line_constraint. split.
+    + rewrite (reflect_via_perp_bisector p1 p1 c Hwfc Hpc). exact Ho1.
+    + rewrite (reflect_via_perp_bisector p2 p1 c Hwfc Hpc). exact Ho2.
 Qed.
 Close Scope R_scope.
 Close Scope R_scope.
