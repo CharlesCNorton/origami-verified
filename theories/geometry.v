@@ -9089,6 +9089,34 @@ Theorem ngon_origami_iff_complete : forall m, (3 <= m)%nat ->
 Proof.
   exact (ngon_origami_iff Hcore ppart_exists coprime_pp p_dvd_phi_pp prime_dvd_2a3b).
 Qed.
+
+(* The regular n-gon as a geometric object: all n vertices
+   (cos(2.pi.k/n), sin(2.pi.k/n)) on the unit circle are constructible points
+   exactly when phi(n) is 2-3-smooth, lifting the angle-level
+   ngon_origami_iff_complete from cos(2pi/n) to the polygon itself. *)
+Definition regular_ngon_constructible (n : nat) : Prop :=
+  forall k : nat,
+    ConstructiblePoint (cos (2 * PI * INR k / INR n), sin (2 * PI * INR k / INR n)).
+
+Theorem regular_ngon_constructible_iff : forall n, (3 <= n)%nat ->
+  (regular_ngon_constructible n <-> two_three_smooth (euler_phi n)).
+Proof.
+  intros n Hn. split.
+  - intro Hverts.
+    assert (HnR : INR n <> 0) by (apply not_0_INR; lia).
+    specialize (Hverts 1%nat).
+    replace (2 * PI * INR 1 / INR n) with (2 * PI / INR n) in Hverts
+      by (rewrite INR_1; field; exact HnR).
+    apply constructible_implies_origami in Hverts.
+    destruct Hverts as [Hcos _]. simpl in Hcos.
+    exact (proj1 (ngon_origami_iff_complete n Hn) Hcos).
+  - intros Hsm k.
+    assert (Hcos : OrigamiNum (cos (2 * PI / INR n)))
+      by exact (proj2 (ngon_origami_iff_complete n Hn) Hsm).
+    assert (Hsin : OrigamiNum (sin (2 * PI / INR n)))
+      by (apply sin_origami_of_cos; [lia | exact Hcos]).
+    apply regular_ngon_vertex_constructible; [lia | exact Hcos | exact Hsin].
+Qed.
 Close Scope R_scope.
 Close Scope R_scope.
 Close Scope R_scope.

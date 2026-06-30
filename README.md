@@ -96,8 +96,9 @@ As a library:
 #use "origami_lib.ml";;
 
 ngon_constructible 43;;              (* false *)
-ngon_tool_required 43;;              (* Origami2, needs two-fold *)
-euler_phi 43;;                       (* 42 = 2 × 3 × 7, factor 7 obstructs *)
+ngon_tool_required 43;;              (* Higher, needs more than two folds *)
+ngon_tool_required 11;;              (* Origami2, two-fold (quintic) *)
+euler_phi 43;;                       (* 42; degree φ(43)/2 = 21 = 3 × 7, the 7 obstructs even two-fold *)
 
 (* Certified O6 Beloch parameters for heptagon *)
 (* Cubic: t³ + (p_num/p_den)t + (q_num/q_den) = 0 *)

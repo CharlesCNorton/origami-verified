@@ -304,11 +304,78 @@ Open Scope R_scope.
 Definition ngon_constructible (n : nat) : bool :=
   is_2_3_smooth_b (euler_phi n).
 
+(** Repeatedly divide by 5; composed with remove_twos/remove_threes it tests
+    5-smoothness, the degree reach of two-fold (quintic-solving) origami. *)
+Fixpoint remove_fives_aux (n fuel : nat) : nat :=
+  match fuel with
+  | O => n
+  | S fuel' =>
+    if Nat.eqb (Nat.modulo n 5) 0 then remove_fives_aux (Nat.div n 5) fuel' else n
+  end.
+Definition remove_fives (n : nat) : nat := remove_fives_aux n n.
+Definition is_2_3_5_smooth_b (n : nat) : bool :=
+  match n with
+  | O => false
+  | _ => Nat.eqb (remove_fives (remove_threes (remove_twos n))) 1
+  end.
+
+(** Tool level for the regular n-gon, keyed on the totient phi(n) (whose 2/3/5
+    smoothness matches that of the governing degree phi(n)/2): a power of two is
+    compass, 2-3-smooth is single-fold origami, 5-smooth is two-fold origami, and
+    anything else needs more than two folds. *)
 Definition ngon_tool_required (n : nat) : ConstructLevel :=
   let phi := euler_phi n in
   if is_power_of_2_b phi then Compass
   else if is_2_3_smooth_b phi then Origami1
-  else Origami2.
+  else if is_2_3_5_smooth_b phi then Origami2
+  else Higher.
+
+Lemma pow2b_implies_2_3_smoothb : forall n,
+  is_power_of_2_b n = true -> is_2_3_smooth_b n = true.
+Proof.
+  intros n H.
+  assert (Hrt : remove_twos n = 1%nat) by (apply Nat.eqb_eq; exact H).
+  destruct n as [|m].
+  - vm_compute in Hrt. discriminate.
+  - unfold is_2_3_smooth_b. rewrite Hrt. reflexivity.
+Qed.
+
+(** The 43-gon needs more than two folds: phi(43)/2 = 21 = 3.7 is not 5-smooth. *)
+Lemma ngon_tool_43_higher : ngon_tool_required 43 = Higher.
+Proof. reflexivity. Qed.
+
+(** The hendecagon is the first two-fold n-gon: phi(11)/2 = 5. *)
+Lemma ngon_tool_11_origami2 : ngon_tool_required 11 = Origami2.
+Proof. reflexivity. Qed.
+
+Lemma ngon_tool_7_origami1 : ngon_tool_required 7 = Origami1.
+Proof. reflexivity. Qed.
+
+Lemma ngon_tool_5_compass : ngon_tool_required 5 = Compass.
+Proof. reflexivity. Qed.
+
+(** The single-fold boundary is exact: the n-gon is classified compass or
+    single-fold origami iff cos(2pi/n) is an origami number, by
+    ngon_origami_iff_complete. *)
+Theorem ngon_tool_single_fold_correct : forall n, (3 <= n)%nat ->
+  ((ngon_tool_required n = Compass \/ ngon_tool_required n = Origami1)
+   <-> OrigamiNum (cos (2 * PI / INR n))).
+Proof.
+  intros n Hn.
+  transitivity (is_2_3_smooth_b (euler_phi n) = true).
+  - unfold ngon_tool_required.
+    destruct (is_power_of_2_b (euler_phi n)) eqn:Hp.
+    + split; intro; [ apply pow2b_implies_2_3_smoothb; exact Hp | left; reflexivity ].
+    + destruct (is_2_3_smooth_b (euler_phi n)) eqn:Hs.
+      * split; intro; [ reflexivity | right; reflexivity ].
+      * destruct (is_2_3_5_smooth_b (euler_phi n));
+          split; (intros [H|H] || intro H); discriminate.
+  - split.
+    + intro Hb. apply (proj2 (ngon_origami_iff_complete n Hn)).
+      apply (proj1 (is_2_3_smooth_b_correct (euler_phi n))). exact Hb.
+    + intro Ho. apply (proj2 (is_2_3_smooth_b_correct (euler_phi n))).
+      exact (proj1 (ngon_origami_iff_complete n Hn) Ho).
+Qed.
 
 Definition list_constructible_in_range (lo hi : nat) : list nat :=
   list_smooth_aux (hi - lo) lo.
