@@ -1617,12 +1617,13 @@ Qed.
 
 (** [fold_O6] is the common-perpendicular fold.  It satisfies the O6 incidence
     constraint exactly when both points lie on their target lines
-    ([O6_exact_when_both_on_lines]) and approximates it otherwise; [CF_O6] is the
-    matching constructor.  The cubic-solving O6 fold is the Beloch fold
-    [fold_O6_beloch], with constructor [CF_O6_beloch], whose creases the depth
-    enumeration produces through [cubic_real_roots].  For general-position inputs,
-    [O6_general_constructible] gives a constructible crease meeting the O6
-    constraint for any constructible foci and directrices. *)
+    ([O6_exact_when_both_on_lines]) and approximates it otherwise.  The
+    constructor [CF_O6] realizes the axiom O6 itself: it carries an arbitrary
+    O6-satisfying crease as the O2 fold of p1 and its reflection
+    ([CF_O6_satisfies]), and [CF_O6_general_realizable] supplies that crease for
+    any constructible general-position instance.  The cubic-solving O6 fold is
+    the Beloch fold [fold_O6_beloch], with constructor [CF_O6_beloch], whose
+    creases the depth enumeration produces through [cubic_real_roots]. *)
 Definition fold_O6 := fold_O6_approx.
 
 Lemma fold_line_O6 : forall p1 l1 p2 l2,
@@ -2396,10 +2397,13 @@ with ConstructibleFold : Fold -> Prop :=
       ConstructiblePoint p1 -> ConstructibleLine l -> ConstructiblePoint p2 ->
       ConstructibleFold (fold_O5 p1 l p2)
 | CF_O6 :
-    forall p1 l1 p2 l2,
+    forall p1 l1 p2 l2 crease,
       ConstructiblePoint p1 -> ConstructibleLine l1 ->
       ConstructiblePoint p2 -> ConstructibleLine l2 ->
-      ConstructibleFold (fold_O6 p1 l1 p2 l2)
+      ConstructiblePoint (reflect_point p1 crease) ->
+      line_wf crease -> ~ on_line p1 crease ->
+      satisfies_O6_line_constraint crease p1 l1 p2 l2 ->
+      ConstructibleFold (fold_O2 p1 (reflect_point p1 crease))
 | CF_O7 :
     forall p1 l1 l2,
       ConstructiblePoint p1 -> ConstructibleLine l1 -> ConstructibleLine l2 ->
@@ -2791,6 +2795,85 @@ Proof.
   rewrite <- fold_line_O2.
   apply CL_fold.
   apply CF_O2; assumption.
+Qed.
+
+(** midpoint(p,q) ∈ line_through(p,q) *)
+Lemma midpoint_on_line_through : forall p q,
+  on_line (midpoint p q) (line_through p q).
+Proof.
+  intros [x1 y1] [x2 y2].
+  unfold on_line, midpoint, line_through. simpl.
+  destruct (Req_EM_T x1 x2) as [Hx|Hx]; simpl.
+  - subst. field.
+  - field.
+Qed.
+
+(** Two non-parallel lines have at most one common point *)
+Lemma line_intersection_unique : forall l1 l2 z,
+  A l1 * B l2 - A l2 * B l1 <> 0 ->
+  on_line z l1 -> on_line z l2 ->
+  z = line_intersection l1 l2.
+Proof.
+  intros l1 l2 [zx zy] Hdet H1 H2.
+  unfold on_line in H1, H2.
+  unfold line_intersection.
+  destruct (Req_EM_T (A l1 * B l2 - A l2 * B l1) 0) as [Hc|Hne]; [contradiction|].
+  assert (Hx : zx * (A l1 * B l2 - A l2 * B l1)
+               = (- C l1) * B l2 - (- C l2) * B l1).
+  { transitivity (B l2 * (A l1 * zx + B l1 * zy + C l1)
+                  - B l1 * (A l2 * zx + B l2 * zy + C l2)
+                  + ((- C l1) * B l2 - (- C l2) * B l1)).
+    - ring.
+    - rewrite H1, H2. ring. }
+  assert (Hy : zy * (A l1 * B l2 - A l2 * B l1)
+               = A l1 * (- C l2) - A l2 * (- C l1)).
+  { transitivity (A l1 * (A l2 * zx + B l2 * zy + C l2)
+                  - A l2 * (A l1 * zx + B l1 * zy + C l1)
+                  + (A l1 * (- C l2) - A l2 * (- C l1))).
+    - ring.
+    - rewrite H1, H2. ring. }
+  apply injective_projections; simpl.
+  - rewrite <- Hx. field. exact Hne.
+  - rewrite <- Hy. field. exact Hne.
+Qed.
+
+(** Perpendicular well-formed lines are never parallel (Lagrange identity) *)
+Lemma perp_wf_not_parallel : forall l1 l2,
+  line_wf l1 -> line_wf l2 -> line_perp l1 l2 ->
+  A l1 * B l2 - A l2 * B l1 <> 0.
+Proof.
+  intros l1 l2 Hwf1 Hwf2 Hperp Hdet.
+  unfold line_perp in Hperp.
+  assert (Hn1 : A l1 * A l1 + B l1 * B l1 > 0) by (apply line_norm_pos; exact Hwf1).
+  assert (Hn2 : A l2 * A l2 + B l2 * B l2 > 0) by (apply line_norm_pos; exact Hwf2).
+  assert (HL : (A l1 * A l2 + B l1 * B l2) * (A l1 * A l2 + B l1 * B l2)
+               + (A l1 * B l2 - A l2 * B l1) * (A l1 * B l2 - A l2 * B l1)
+               = (A l1 * A l1 + B l1 * B l1) * (A l2 * A l2 + B l2 * B l2)) by ring.
+  rewrite Hperp, Hdet in HL. nra.
+Qed.
+
+(** The midpoint of two constructible points is constructible: it is the
+    intersection of their perpendicular bisector with their join. *)
+Lemma CP_midpoint : forall p q,
+  ConstructiblePoint p -> ConstructiblePoint q ->
+  ConstructiblePoint (midpoint p q).
+Proof.
+  intros p q Hp Hq.
+  destruct (point_eq_dec p q) as [Heq | Hneq].
+  - subst q. rewrite midpoint_self. exact Hp.
+  - assert (Hperp : line_perp (perp_bisector p q) (line_through p q)).
+    { apply perp_bisector_perp_to_connecting_line;
+        [apply line_through_on_line_fst | apply line_through_on_line_snd | exact Hneq]. }
+    assert (Hdet : A (perp_bisector p q) * B (line_through p q)
+                   - A (line_through p q) * B (perp_bisector p q) <> 0).
+    { apply perp_wf_not_parallel;
+        [apply perp_bisector_wf | apply line_through_wf | exact Hperp]. }
+    rewrite (line_intersection_unique (perp_bisector p q) (line_through p q)
+               (midpoint p q) Hdet (perp_bisector_midpoint p q)
+               (midpoint_on_line_through p q)).
+    apply CP_inter;
+      [apply perp_bisector_constructible; assumption
+      | apply line_through_constructible; assumption].
 Qed.
 
 Lemma bisector_constructible : forall l1 l2,
@@ -3786,7 +3869,7 @@ Proof.
     + rewrite fold_line_O3. apply bisector_wf; apply ConstructibleLine_wf; assumption.
     + rewrite fold_line_O4. apply perp_through_wf; apply ConstructibleLine_wf; assumption.
     + rewrite fold_line_O5. apply perp_through_wf. apply line_through_wf.
-    + rewrite fold_line_O6. apply line_through_wf.
+    + rewrite fold_line_O2. apply perp_bisector_wf.
     + unfold fold_O7, fold_O7_corrected. simpl.
       destruct (on_line_dec p1 l1).
       * apply perp_through_wf; apply ConstructibleLine_wf; assumption.
@@ -4185,14 +4268,10 @@ with ConstructibleFold_good (f : Fold) (Hf : ConstructibleFold f) {struct Hf} : 
         (ConstructiblePoint_good p1 Hp1)
         (ConstructibleLine_good l Hl)
         (ConstructiblePoint_good p2 Hp2)
-  | CF_O6 p1 l1 p2 l2 Hp1 Hl1 Hp2 Hl2 =>
-      GoodFold_O6 p1 l1 p2 l2
-        (ConstructibleLine_wf l1 Hl1)
-        (ConstructibleLine_wf l2 Hl2)
+  | CF_O6 p1 l1 p2 l2 crease Hp1 Hl1 Hp2 Hl2 Hr Hwfc Hnc Hsat =>
+      GoodFold_O2 p1 (reflect_point p1 crease)
         (ConstructiblePoint_good p1 Hp1)
-        (ConstructibleLine_good l1 Hl1)
-        (ConstructiblePoint_good p2 Hp2)
-        (ConstructibleLine_good l2 Hl2)
+        (ConstructiblePoint_good (reflect_point p1 crease) Hr)
   | CF_O7 p1 l1 l2 Hp1 Hl1 Hl2 =>
       GoodFold_O7 p1 l1 l2
         (ConstructiblePoint_good p1 Hp1)
@@ -6636,7 +6715,15 @@ Proof. intros; apply ConstructibleLine_of_fold, CF_O5; assumption. Qed.
 Lemma CL_of_O6 : forall p1 l1 p2 l2, ConstructiblePoint p1 -> ConstructibleLine l1 ->
   ConstructiblePoint p2 -> ConstructibleLine l2 ->
   ConstructibleLine (fold_line (fold_O6 p1 l1 p2 l2)).
-Proof. intros; apply ConstructibleLine_of_fold, CF_O6; assumption. Qed.
+Proof.
+  intros p1 l1 p2 l2 Hp1 Hl1 Hp2 Hl2.
+  rewrite fold_line_O6.
+  apply line_through_constructible; apply CP_midpoint;
+    [ exact Hp1
+    | apply foot_constructible; [apply ConstructibleLine_wf; exact Hl1 | exact Hp1 | exact Hl1]
+    | exact Hp2
+    | apply foot_constructible; [apply ConstructibleLine_wf; exact Hl2 | exact Hp2 | exact Hl2]].
+Qed.
 
 Lemma CL_of_O7 : forall p1 l1 l2, ConstructiblePoint p1 -> ConstructibleLine l1 ->
   ConstructibleLine l2 -> ConstructibleLine (fold_line (fold_O7 p1 l1 l2)).
@@ -6946,7 +7033,8 @@ Proof.
   - intros p l _ IHp _ IHl. apply CF_O4_in_enum; assumption.
   - intros p1 l p2 _ IH1 Hl IHl _ IH2.
     apply CF_O5_in_enum; try assumption. apply ConstructibleLine_wf; exact Hl.
-  - intros p1 l1 p2 l2 _ IH1 _ IHl1 _ IH2 _ IHl2. apply CF_O6_in_enum; assumption.
+  - intros p1 l1 p2 l2 crease _ IH1 _ IHl1 _ IH2 _ IHl2 _ IHr Hwfc Hnc Hsat.
+    apply CF_O2_in_enum; assumption.
   - intros p1 l1 l2 _ IH1 _ IHl1 _ IHl2. apply CF_O7_in_enum; assumption.
   - intros p q c _ IHp _ IHq _ IHc Hvalid. apply CF_O5_vert_in_enum; assumption.
   - intros p q t _ IHp _ IHq Hroot. apply CF_O6_beloch_in_enum; assumption.
@@ -7633,6 +7721,48 @@ Proof.
   - unfold satisfies_O6_line_constraint. split.
     + rewrite (reflect_via_perp_bisector p1 p1 c Hwfc Hpc). exact Ho1.
     + rewrite (reflect_via_perp_bisector p2 p1 c Hwfc Hpc). exact Ho2.
+Qed.
+
+(** Every CF_O6 fold satisfies the O6 incidence it was built for: the O2 fold
+    of p1 and its reflection carries the crease's O6 incidence. *)
+Theorem CF_O6_satisfies : forall p1 l1 p2 l2 crease,
+  line_wf crease -> ~ on_line p1 crease ->
+  satisfies_O6_line_constraint crease p1 l1 p2 l2 ->
+  satisfies_O6_constraint (fold_O2 p1 (reflect_point p1 crease)) p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 crease Hwfc Hnc Hsat.
+  destruct Hsat as [H1 H2].
+  unfold satisfies_O6_constraint. rewrite fold_line_O2. cbv zeta. split.
+  - rewrite (reflect_via_perp_bisector p1 p1 crease Hwfc Hnc). exact H1.
+  - rewrite (reflect_via_perp_bisector p2 p1 crease Hwfc Hnc). exact H2.
+Qed.
+
+(** General-position O6 is realized by a constructible CF_O6 fold. *)
+Theorem CF_O6_general_realizable : forall p1 l1 p2 l2,
+  ConstructiblePoint p1 -> ConstructibleLine l1 ->
+  ConstructiblePoint p2 -> ConstructibleLine l2 ->
+  ~ on_line p1 l1 -> A l1 * B l2 <> A l2 * B l1 ->
+  exists f, ConstructibleFold f /\ satisfies_O6_constraint f p1 l1 p2 l2.
+Proof.
+  intros p1 l1 p2 l2 Cp1 Cl1 Cp2 Cl2 Hp1 Hpar.
+  destruct (O6_general_good p1 l1 p2 l2
+              (constructible_implies_origami p1 Cp1) (ConstructibleLine_good l1 Cl1)
+              (constructible_implies_origami p2 Cp2) (ConstructibleLine_good l2 Cl2)
+              (ConstructibleLine_wf l1 Cl1) (ConstructibleLine_wf l2 Cl2) Hp1 Hpar)
+    as [c [Gc [Hwfc [Ho1 Ho2]]]].
+  assert (Hpc : ~ on_line p1 c).
+  { intro Hon. apply Hp1.
+    assert (Heq : reflect_point p1 c = p1) by (apply reflect_point_on_line; exact Hon).
+    rewrite Heq in Ho1. exact Ho1. }
+  assert (Hr : ConstructiblePoint (reflect_point p1 c)).
+  { apply good_constructible_point. apply GoodPoint_reflect;
+      [exact Hwfc | exact (constructible_implies_origami p1 Cp1) | exact Gc]. }
+  exists (fold_O2 p1 (reflect_point p1 c)).
+  split.
+  - apply (CF_O6 p1 l1 p2 l2 c); try assumption.
+    unfold satisfies_O6_line_constraint. split; assumption.
+  - apply CF_O6_satisfies; [exact Hwfc | exact Hpc |].
+    unfold satisfies_O6_line_constraint. split; assumption.
 Qed.
 (* ===== Complex Cardano (item 10): C as a field, complex square and cube
    roots via polar form, and the radical formula returning all three roots of
