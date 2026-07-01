@@ -12746,6 +12746,518 @@ Proof.
   destruct HsmBL as [a [b [c Hab]]]. rewrite Hab in Hdiv.
   apply (divisor_5_smooth a b c d Hdiv).
 Qed.
+
+(* ===== Degree-7 ring extension F[r] for a root r of a monic septic =====
+   Sept7F F a b c d e f g r = { p0 + p1 r + ... + p6 r^6 : pi in F }, the
+   septic analog of Quint5F, grounding the three-fold degree bound. *)
+Definition Sept7F (F : R -> Prop) (a b c d e f g r : R) (x : R) : Prop :=
+  exists p0 p1 p2 p3 p4 p5 p6,
+    F p0 /\ F p1 /\ F p2 /\ F p3 /\ F p4 /\ F p5 /\ F p6 /\
+    x = p0 + p1 * r + p2 * (r * r) + p3 * (r * r * r) + p4 * (r * r * r * r)
+        + p5 * (r * r * r * r * r) + p6 * (r * r * r * r * r * r).
+
+Ltac ds7 H px0 px1 px2 px3 px4 px5 px6 Hx0 Hx1 Hx2 Hx3 Hx4 Hx5 Hx6 Hxe :=
+  destruct H as [px0 [px1 [px2 [px3 [px4 [px5 [px6
+    [Hx0 [Hx1 [Hx2 [Hx3 [Hx4 [Hx5 [Hx6 Hxe]]]]]]]]]]]]]].
+
+Lemma Sept7F_0 : forall F a b c d e f g r, is_subring F -> Sept7F F a b c d e f g r 0.
+Proof.
+  intros F a b c d e f g r HF. exists 0, 0, 0, 0, 0, 0, 0.
+  repeat split; try (apply subring_0; exact HF). ring.
+Qed.
+
+Lemma Sept7F_1 : forall F a b c d e f g r, is_subring F -> Sept7F F a b c d e f g r 1.
+Proof.
+  intros F a b c d e f g r HF. exists 1, 0, 0, 0, 0, 0, 0.
+  repeat split; try (apply subring_0; exact HF); try (apply subring_1; exact HF). ring.
+Qed.
+
+Lemma Sept7F_add : forall F a b c d e f g r x y, is_subring F ->
+  Sept7F F a b c d e f g r x -> Sept7F F a b c d e f g r y -> Sept7F F a b c d e f g r (x + y).
+Proof.
+  intros F a b c d e f g r x y HF Hx Hy.
+  ds7 Hx px0 px1 px2 px3 px4 px5 px6 Hx0 Hx1 Hx2 Hx3 Hx4 Hx5 Hx6 Hxe.
+  ds7 Hy py0 py1 py2 py3 py4 py5 py6 Hy0 Hy1 Hy2 Hy3 Hy4 Hy5 Hy6 Hye.
+  exists (px0+py0),(px1+py1),(px2+py2),(px3+py3),(px4+py4),(px5+py5),(px6+py6).
+  repeat split; [srclose|srclose|srclose|srclose|srclose|srclose|srclose|]. subst x y. ring.
+Qed.
+
+Lemma Sept7F_sub : forall F a b c d e f g r x y, is_subring F ->
+  Sept7F F a b c d e f g r x -> Sept7F F a b c d e f g r y -> Sept7F F a b c d e f g r (x - y).
+Proof.
+  intros F a b c d e f g r x y HF Hx Hy.
+  ds7 Hx px0 px1 px2 px3 px4 px5 px6 Hx0 Hx1 Hx2 Hx3 Hx4 Hx5 Hx6 Hxe.
+  ds7 Hy py0 py1 py2 py3 py4 py5 py6 Hy0 Hy1 Hy2 Hy3 Hy4 Hy5 Hy6 Hye.
+  exists (px0-py0),(px1-py1),(px2-py2),(px3-py3),(px4-py4),(px5-py5),(px6-py6).
+  repeat split; [srclose|srclose|srclose|srclose|srclose|srclose|srclose|]. subst x y. ring.
+Qed.
+
+Lemma Sept7F_scalar : forall F a b c d e f g r lam x, is_subring F ->
+  F lam -> Sept7F F a b c d e f g r x -> Sept7F F a b c d e f g r (lam * x).
+Proof.
+  intros F a b c d e f g r lam x HF Hlam Hx.
+  ds7 Hx p0 p1 p2 p3 p4 p5 p6 H0 H1 H2 H3 H4 H5 H6 Hxe.
+  exists (lam*p0),(lam*p1),(lam*p2),(lam*p3),(lam*p4),(lam*p5),(lam*p6).
+  repeat split; [srclose|srclose|srclose|srclose|srclose|srclose|srclose|]. subst x. ring.
+Qed.
+
+Lemma Sept7F_mulr : forall F a b c d e f g r x, is_subring F ->
+  F a -> F b -> F c -> F d -> F e -> F f -> F g ->
+  r ^ 7 + a * r ^ 6 + b * r ^ 5 + c * r ^ 4 + d * r ^ 3 + e * r ^ 2 + f * r + g = 0 ->
+  Sept7F F a b c d e f g r x -> Sept7F F a b c d e f g r (r * x).
+Proof.
+  intros F a b c d e f g r x HF Ha Hb Hc Hd He Hf Hg Hr Hx.
+  ds7 Hx p0 p1 p2 p3 p4 p5 p6 H0 H1 H2 H3 H4 H5 H6 Hxe.
+  assert (Hr' : r * r * r * r * r * r * r + a * (r * r * r * r * r * r)
+                + b * (r * r * r * r * r) + c * (r * r * r * r) + d * (r * r * r)
+                + e * (r * r) + f * r + g = 0)
+    by (replace (r * r * r * r * r * r * r + a * (r * r * r * r * r * r)
+                 + b * (r * r * r * r * r) + c * (r * r * r * r) + d * (r * r * r)
+                 + e * (r * r) + f * r + g)
+          with (r ^ 7 + a * r ^ 6 + b * r ^ 5 + c * r ^ 4 + d * r ^ 3 + e * r ^ 2
+                + f * r + g) by ring; exact Hr).
+  exists (0 - p6 * g), (p0 - p6 * f), (p1 - p6 * e), (p2 - p6 * d), (p3 - p6 * c),
+         (p4 - p6 * b), (p5 - p6 * a).
+  repeat split; [srclose|srclose|srclose|srclose|srclose|srclose|srclose|]. subst x.
+  transitivity ((0 - p6 * g) + (p0 - p6 * f) * r + (p1 - p6 * e) * (r * r)
+                + (p2 - p6 * d) * (r * r * r) + (p3 - p6 * c) * (r * r * r * r)
+                + (p4 - p6 * b) * (r * r * r * r * r) + (p5 - p6 * a) * (r * r * r * r * r * r)
+                + p6 * (r * r * r * r * r * r * r + a * (r * r * r * r * r * r)
+                        + b * (r * r * r * r * r) + c * (r * r * r * r) + d * (r * r * r)
+                        + e * (r * r) + f * r + g)).
+  - ring.
+  - rewrite Hr'. ring.
+Qed.
+
+Lemma Sept7F_subring : forall F a b c d e f g r,
+  is_subring F -> F a -> F b -> F c -> F d -> F e -> F f -> F g ->
+  r ^ 7 + a * r ^ 6 + b * r ^ 5 + c * r ^ 4 + d * r ^ 3 + e * r ^ 2 + f * r + g = 0 ->
+  is_subring (Sept7F F a b c d e f g r).
+Proof.
+  intros F a b c d e f g r HF Ha Hb Hc Hd He Hf Hg Hr. repeat split.
+  - apply Sept7F_0; exact HF.
+  - apply Sept7F_1; exact HF.
+  - intros x y Hx Hy. apply Sept7F_add; assumption.
+  - intros x y Hx Hy. apply Sept7F_sub; assumption.
+  - intros x y Hx Hy.
+    ds7 Hy q0 q1 q2 q3 q4 q5 q6 Hq0 Hq1 Hq2 Hq3 Hq4 Hq5 Hq6 Hye.
+    replace (x * y) with
+      (q0 * x + (q1 * (r * x) + (q2 * (r * (r * x))
+        + (q3 * (r * (r * (r * x))) + (q4 * (r * (r * (r * (r * x))))
+        + (q5 * (r * (r * (r * (r * (r * x)))))
+           + q6 * (r * (r * (r * (r * (r * (r * x))))))))))))
+      by (rewrite Hye; ring).
+    assert (Trx : Sept7F F a b c d e f g r (r * x)) by (apply Sept7F_mulr; assumption).
+    assert (Trrx : Sept7F F a b c d e f g r (r * (r * x))) by (apply Sept7F_mulr; assumption).
+    assert (Trrrx : Sept7F F a b c d e f g r (r * (r * (r * x))))
+      by (apply Sept7F_mulr; assumption).
+    assert (Trrrrx : Sept7F F a b c d e f g r (r * (r * (r * (r * x)))))
+      by (apply Sept7F_mulr; assumption).
+    assert (Trrrrrx : Sept7F F a b c d e f g r (r * (r * (r * (r * (r * x))))))
+      by (apply Sept7F_mulr; assumption).
+    assert (Trrrrrrx : Sept7F F a b c d e f g r (r * (r * (r * (r * (r * (r * x)))))))
+      by (apply Sept7F_mulr; assumption).
+    assert (T0 : Sept7F F a b c d e f g r (q0 * x)) by (apply Sept7F_scalar; assumption).
+    assert (T1 : Sept7F F a b c d e f g r (q1 * (r * x))) by (apply Sept7F_scalar; assumption).
+    assert (T2 : Sept7F F a b c d e f g r (q2 * (r * (r * x))))
+      by (apply Sept7F_scalar; assumption).
+    assert (T3 : Sept7F F a b c d e f g r (q3 * (r * (r * (r * x)))))
+      by (apply Sept7F_scalar; assumption).
+    assert (T4 : Sept7F F a b c d e f g r (q4 * (r * (r * (r * (r * x))))))
+      by (apply Sept7F_scalar; assumption).
+    assert (T5 : Sept7F F a b c d e f g r (q5 * (r * (r * (r * (r * (r * x)))))))
+      by (apply Sept7F_scalar; assumption).
+    assert (T6 : Sept7F F a b c d e f g r (q6 * (r * (r * (r * (r * (r * (r * x))))))))
+      by (apply Sept7F_scalar; assumption).
+    apply Sept7F_add; [exact HF | exact T0 |].
+    apply Sept7F_add; [exact HF | exact T1 |].
+    apply Sept7F_add; [exact HF | exact T2 |].
+    apply Sept7F_add; [exact HF | exact T3 |].
+    apply Sept7F_add; [exact HF | exact T4 |].
+    apply Sept7F_add; [exact HF | exact T5 | exact T6].
+Qed.
+
+Lemma Sept7F_contains_sr : forall F a b c d e f g r x,
+  is_subring F -> F x -> Sept7F F a b c d e f g r x.
+Proof.
+  intros F a b c d e f g r x HF Hx. exists x, 0, 0, 0, 0, 0, 0.
+  repeat split;
+    [ exact Hx | apply subring_0; exact HF | apply subring_0; exact HF
+    | apply subring_0; exact HF | apply subring_0; exact HF
+    | apply subring_0; exact HF | apply subring_0; exact HF | ring ].
+Qed.
+
+Lemma Sept7F_subfield : forall F a b c d e f g r,
+  is_subfield F -> F a -> F b -> F c -> F d -> F e -> F f -> F g ->
+  r ^ 7 + a * r ^ 6 + b * r ^ 5 + c * r ^ 4 + d * r ^ 3 + e * r ^ 2 + f * r + g = 0 ->
+  is_subfield (Sept7F F a b c d e f g r).
+Proof.
+  intros F a b c d e f g r HF Ha Hb Hc Hd He Hf Hg Hr.
+  assert (HsrF : is_subring F) by (apply subfield_is_subring; exact HF).
+  assert (HsrQ : is_subring (Sept7F F a b c d e f g r)) by (apply Sept7F_subring; assumption).
+  repeat split.
+  - apply subring_0; exact HsrQ.
+  - apply subring_1; exact HsrQ.
+  - intros x y Hx Hy. apply subring_add; assumption.
+  - intros x y Hx Hy. apply subring_sub; assumption.
+  - intros x y Hx Hy. apply subring_mul; assumption.
+  - intros u Hu Hune.
+    assert (Hspan : Forall (spans F (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+                                       :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil))
+                          (powers u 8)).
+    { apply Forall_forall. intros w Hw. unfold powers in Hw. apply in_map_iff in Hw.
+      destruct Hw as [i [Hwi Hi]]. subst w.
+      assert (HuiQ : Sept7F F a b c d e f g r (u ^ i)) by (apply subring_pow; [exact HsrQ | exact Hu]).
+      destruct HuiQ as [p0 [p1 [p2 [p3 [p4 [p5 [p6
+        [Hp0 [Hp1 [Hp2 [Hp3 [Hp4 [Hp5 [Hp6 Hue]]]]]]]]]]]]]].
+      exists (p0 :: p1 :: p2 :: p3 :: p4 :: p5 :: p6 :: nil). split; [reflexivity|]. split.
+      - repeat (constructor; [assumption|]). constructor.
+      - simpl. rewrite Hue. ring. }
+    assert (Hgt : Nat.lt (length (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+                                    :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil))
+                   (length (powers u 8))).
+    { unfold powers; rewrite length_map, length_seq; simpl; lia. }
+    destruct (lin_dep_of_spanned F (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+                :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil)
+                (powers u 8) HF Hspan Hgt) as [cs [Hlencs [Hratcs [Hfccs Hnd]]]].
+    assert (Hlen8 : length cs = 8%nat)
+      by (rewrite Hlencs; unfold powers; rewrite length_map, length_seq; reflexivity).
+    assert (Hrel : Fcomb cs (powers u (length cs)) = 0) by (rewrite Hlen8; exact Hfccs).
+    destruct (inverse_from_relation F cs u HF Hune Hratcs Hnd Hrel) as [ds [Hdsf Hinv]].
+    assert (HvQ : Sept7F F a b c d e f g r (Fcomb ds (powers u (length ds)))).
+    { apply Fcomb_in_subring; [exact HsrQ | |].
+      - apply Forall_forall. intros z Hz. apply Sept7F_contains_sr; [exact HsrF |].
+        rewrite Forall_forall in Hdsf; apply Hdsf; exact Hz.
+      - apply Forall_forall. intros z Hz. unfold powers in Hz. apply in_map_iff in Hz.
+        destruct Hz as [i [Hzi Hi]]. subst z. apply subring_pow; [exact HsrQ | exact Hu]. }
+    replace (/ u) with (Fcomb ds (powers u (length ds))).
+    + exact HvQ.
+    + apply (Rmult_eq_reg_l u); [|exact Hune]. rewrite Rinv_r by exact Hune. exact Hinv.
+Qed.
+
+Lemma Sept7F_step_basis : forall F a b c d e f g r,
+  is_subfield F -> F a -> F b -> F c -> F d -> F e -> F f -> F g ->
+  r ^ 7 + a * r ^ 6 + b * r ^ 5 + c * r ^ 4 + d * r ^ 3 + e * r ^ 2 + f * r + g = 0 ->
+  exists Be, basis F Be (Sept7F F a b c d e f g r) /\
+    (length Be = 1 \/ length Be = 2 \/ length Be = 3 \/ length Be = 4
+     \/ length Be = 5 \/ length Be = 6 \/ length Be = 7)%nat.
+Proof.
+  intros F a b c d e f g r HF Ha Hb Hc Hd He Hf Hg Hr.
+  assert (Hspanned : spanning F (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+                                   :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil)
+                              (Sept7F F a b c d e f g r)).
+  { intros y [p0 [p1 [p2 [p3 [p4 [p5 [p6 [Hp0 [Hp1 [Hp2 [Hp3 [Hp4 [Hp5 [Hp6 Hy]]]]]]]]]]]]]].
+    exists (p0 :: p1 :: p2 :: p3 :: p4 :: p5 :: p6 :: nil). split; [reflexivity | split].
+    - repeat (constructor; [assumption|]). constructor.
+    - cbn [Fcomb]. rewrite Hy. ring. }
+  assert (Hin : Forall (Sept7F F a b c d e f g r)
+                       (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+                          :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil)).
+  { constructor; [exists 1,0,0,0,0,0,0; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor; [exists 0,1,0,0,0,0,0; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor; [exists 0,0,1,0,0,0,0; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor; [exists 0,0,0,1,0,0,0; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor; [exists 0,0,0,0,1,0,0; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor; [exists 0,0,0,0,0,1,0; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor; [exists 0,0,0,0,0,0,1; repeat split;
+      try (apply subfield_1; exact HF); try (apply subfield_0; exact HF); ring |].
+    constructor. }
+  destruct (basis_extract F (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+              :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil)
+              (Sept7F F a b c d e f g r) HF Hin Hspanned) as [Be HbBe].
+  exists Be. split; [exact HbBe |].
+  destruct HbBe as [HBeC [HliBe HspBe]].
+  assert (Hle : (length Be <= 7)%nat).
+  { pose proof (indep_le_span F Be (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r)
+                  :: (r*r*r*r*r) :: (r*r*r*r*r*r) :: nil)
+                  (Sept7F F a b c d e f g r) HF HliBe HBeC Hspanned) as H.
+    simpl in H. exact H. }
+  assert (Hge : (1 <= length Be)%nat).
+  { destruct Be as [|bb Be']; [|simpl; lia]. exfalso.
+    destruct (HspBe 1 (Sept7F_contains_sr F a b c d e f g r 1
+                (subfield_is_subring F HF) (subfield_1 F HF)))
+      as [cs [Hl [Hff Hfc]]].
+    destruct cs; [simpl in Hfc; lra | simpl in Hl; lia]. }
+  lia.
+Qed.
+
+(* ===== Tower of quadratic / cubic / quintic / septic extensions (7-smooth) ===== *)
+Inductive o7step : Type :=
+  | O7Quad (s : R)
+  | O7Cubic (a b r : R)
+  | O7Quint (a b c d e r : R)
+  | O7Sept (a b c d e f g r : R).
+
+Fixpoint o7tower (L : list o7step) : R -> Prop :=
+  match L with
+  | nil => is_rational
+  | O7Quad s :: L' => QF (o7tower L') s
+  | O7Cubic a b r :: L' => CF (o7tower L') a b r
+  | O7Quint a b c d e r :: L' => Quint5F (o7tower L') a b c d e r
+  | O7Sept a b c d e f g r :: L' => Sept7F (o7tower L') a b c d e f g r
+  end.
+
+Fixpoint o7wf (L : list o7step) : Prop :=
+  match L with
+  | nil => True
+  | O7Quad s :: L' => o7tower L' (s * s) /\ o7wf L'
+  | O7Cubic a b r :: L' => o7tower L' a /\ o7tower L' b /\ (r*r*r + a*r + b = 0) /\ o7wf L'
+  | O7Quint a b c d e r :: L' =>
+      o7tower L' a /\ o7tower L' b /\ o7tower L' c /\ o7tower L' d /\ o7tower L' e
+      /\ (r ^ 5 + a * r ^ 4 + b * r ^ 3 + c * r ^ 2 + d * r + e = 0) /\ o7wf L'
+  | O7Sept a b c d e f g r :: L' =>
+      o7tower L' a /\ o7tower L' b /\ o7tower L' c /\ o7tower L' d /\ o7tower L' e
+      /\ o7tower L' f /\ o7tower L' g
+      /\ (r ^ 7 + a * r ^ 6 + b * r ^ 5 + c * r ^ 4 + d * r ^ 3 + e * r ^ 2 + f * r + g = 0)
+      /\ o7wf L'
+  end.
+
+Lemma o7tower_subring : forall L, o7wf L -> is_subring (o7tower L).
+Proof.
+  induction L as [|st L' IH]; intros W.
+  - simpl. apply is_rational_subring.
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r]; simpl in *.
+    + destruct W as [Wss W']. apply QF_subring; [apply IH; exact W' | exact Wss].
+    + destruct W as [Wa [Wb [Wr W']]].
+      apply CF_subring; [apply IH; exact W' | exact Wa | exact Wb | exact Wr].
+    + destruct W as [Wa [Wb [Wc [Wd [We [Wr W']]]]]].
+      apply Quint5F_subring; [apply IH; exact W' | exact Wa | exact Wb | exact Wc
+        | exact Wd | exact We | exact Wr].
+    + destruct W as [Wa [Wb [Wc [Wd [We [Wf [Wg [Wr W']]]]]]]].
+      apply Sept7F_subring; [apply IH; exact W' | exact Wa | exact Wb | exact Wc
+        | exact Wd | exact We | exact Wf | exact Wg | exact Wr].
+Qed.
+
+Lemma o7tower_subfield : forall L, o7wf L -> is_subfield (o7tower L).
+Proof.
+  induction L as [|st L' IH]; intros W.
+  - simpl. apply is_rational_subfield.
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r]; simpl in *.
+    + destruct W as [Wss W']. apply QF_subfield; [apply IH; exact W' | exact Wss].
+    + destruct W as [Wa [Wb [Wr W']]].
+      apply CF_subfield; [apply IH; exact W' | exact Wa | exact Wb | exact Wr].
+    + destruct W as [Wa [Wb [Wc [Wd [We [Wr W']]]]]].
+      apply Quint5F_subfield; [apply IH; exact W' | exact Wa | exact Wb | exact Wc
+        | exact Wd | exact We | exact Wr].
+    + destruct W as [Wa [Wb [Wc [Wd [We [Wf [Wg [Wr W']]]]]]]].
+      apply Sept7F_subfield; [apply IH; exact W' | exact Wa | exact Wb | exact Wc
+        | exact Wd | exact We | exact Wf | exact Wg | exact Wr].
+Qed.
+
+Lemma o7tower_contains_rational : forall L, o7wf L -> forall x, is_rational x -> o7tower L x.
+Proof.
+  induction L as [|st L' IH]; intros W x Hx.
+  - simpl. exact Hx.
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r]; simpl in *.
+    + destruct W as [_ W'].
+      apply QF_contains_sr; [apply o7tower_subring; exact W' | apply IH; assumption].
+    + destruct W as [_ [_ [_ W']]].
+      apply CF_contains_sr; [apply o7tower_subring; exact W' | apply IH; assumption].
+    + destruct W as [_ [_ [_ [_ [_ [_ W']]]]]].
+      apply Quint5F_contains_sr; [apply o7tower_subring; exact W' | apply IH; assumption].
+    + destruct W as [_ [_ [_ [_ [_ [_ [_ [_ W']]]]]]]].
+      apply Sept7F_contains_sr; [apply o7tower_subring; exact W' | apply IH; assumption].
+Qed.
+
+Lemma o7tower_weaken_base : forall L1 L2 x, o7wf L2 -> o7tower L1 x -> o7tower (L1 ++ L2) x.
+Proof.
+  induction L1 as [|st L1' IH]; intros L2 x W2 Tx.
+  - simpl in Tx. simpl. apply o7tower_contains_rational; [exact W2 | exact Tx].
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r]; simpl in *.
+    + destruct Tx as [p [q [Tp [Tq Hx]]]]. exists p, q.
+      repeat split; [apply IH; assumption | apply IH; assumption | exact Hx].
+    + destruct Tx as [p [q [s0 [Tp [Tq [Ts0 Hx]]]]]]. exists p, q, s0.
+      repeat split; [apply IH; assumption | apply IH; assumption | apply IH; assumption | exact Hx].
+    + destruct Tx as [p0 [p1 [p2 [p3 [p4 [T0 [T1 [T2 [T3 [T4 Hx]]]]]]]]]].
+      exists p0, p1, p2, p3, p4.
+      repeat split; [apply IH; assumption | apply IH; assumption | apply IH; assumption
+        | apply IH; assumption | apply IH; assumption | exact Hx].
+    + destruct Tx as [p0 [p1 [p2 [p3 [p4 [p5 [p6 [T0 [T1 [T2 [T3 [T4 [T5 [T6 Hx]]]]]]]]]]]]]].
+      exists p0, p1, p2, p3, p4, p5, p6.
+      repeat split; [apply IH; assumption | apply IH; assumption | apply IH; assumption
+        | apply IH; assumption | apply IH; assumption | apply IH; assumption
+        | apply IH; assumption | exact Hx].
+Qed.
+
+Lemma o7wf_app : forall L1 L2, o7wf L1 -> o7wf L2 -> o7wf (L1 ++ L2).
+Proof.
+  induction L1 as [|st L1' IH]; intros L2 W1 W2.
+  - simpl. exact W2.
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r]; simpl in *.
+    + destruct W1 as [Wss W1']. split.
+      * apply o7tower_weaken_base; [exact W2 | exact Wss].
+      * apply IH; [exact W1' | exact W2].
+    + destruct W1 as [Wa [Wb [Wr W1']]]. split; [|split; [|split]].
+      * apply o7tower_weaken_base; [exact W2 | exact Wa].
+      * apply o7tower_weaken_base; [exact W2 | exact Wb].
+      * exact Wr.
+      * apply IH; [exact W1' | exact W2].
+    + destruct W1 as [Wa [Wb [Wc [Wd [We [Wr W1']]]]]].
+      split; [|split; [|split; [|split; [|split; [|split]]]]].
+      * apply o7tower_weaken_base; [exact W2 | exact Wa].
+      * apply o7tower_weaken_base; [exact W2 | exact Wb].
+      * apply o7tower_weaken_base; [exact W2 | exact Wc].
+      * apply o7tower_weaken_base; [exact W2 | exact Wd].
+      * apply o7tower_weaken_base; [exact W2 | exact We].
+      * exact Wr.
+      * apply IH; [exact W1' | exact W2].
+    + destruct W1 as [Wa [Wb [Wc [Wd [We [Wf [Wg [Wr W1']]]]]]]].
+      split; [|split; [|split; [|split; [|split; [|split; [|split; [|split]]]]]]].
+      * apply o7tower_weaken_base; [exact W2 | exact Wa].
+      * apply o7tower_weaken_base; [exact W2 | exact Wb].
+      * apply o7tower_weaken_base; [exact W2 | exact Wc].
+      * apply o7tower_weaken_base; [exact W2 | exact Wd].
+      * apply o7tower_weaken_base; [exact W2 | exact We].
+      * apply o7tower_weaken_base; [exact W2 | exact Wf].
+      * apply o7tower_weaken_base; [exact W2 | exact Wg].
+      * exact Wr.
+      * apply IH; [exact W1' | exact W2].
+Qed.
+
+Lemma o7tower_weaken_top : forall L1 L2 x, o7wf (L1 ++ L2) -> o7tower L2 x -> o7tower (L1 ++ L2) x.
+Proof.
+  induction L1 as [|st L1' IH]; intros L2 x W Tx.
+  - simpl in *. exact Tx.
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r]; simpl in *.
+    + destruct W as [Wss W'].
+      apply QF_contains_sr; [apply o7tower_subring; exact W' | apply IH; [exact W' | exact Tx]].
+    + destruct W as [Wa [Wb [Wr W']]].
+      apply CF_contains_sr; [apply o7tower_subring; exact W' | apply IH; [exact W' | exact Tx]].
+    + destruct W as [Wa [Wb [Wc [Wd [We [Wr W']]]]]].
+      apply Quint5F_contains_sr; [apply o7tower_subring; exact W' | apply IH; [exact W' | exact Tx]].
+    + destruct W as [Wa [Wb [Wc [Wd [We [Wf [Wg [Wr W']]]]]]]].
+      apply Sept7F_contains_sr; [apply o7tower_subring; exact W' | apply IH; [exact W' | exact Tx]].
+Qed.
+
+Lemma OrigamiNum3_in_o7tower : forall x, OrigamiNum3 x -> exists L, o7wf L /\ o7tower L x.
+Proof.
+  intros x H. induction H as
+    [ | | x y Hx IHx Hy IHy | x y Hx IHx Hy IHy | x y Hx IHx Hy IHy
+    | x Hx IHx Hxne | x Hx IHx Hxnn | a b r Ha IHa Hb IHb Hcubic
+    | a b c d e r Ha IHa Hb IHb Hc IHc Hd IHd He IHe Hquint
+    | a b c d e f g r Ha IHa Hb IHb Hc IHc Hd IHd He IHe Hf IHf Hg IHg Hsept ].
+  - exists nil. split; [exact I | simpl; exists 0%Z, 1%Z; split; [lia | simpl; field]].
+  - exists nil. split; [exact I | simpl; exists 1%Z, 1%Z; split; [lia | simpl; field]].
+  - destruct IHx as [L1 [W1 T1]]. destruct IHy as [L2 [W2 T2]].
+    exists (L1 ++ L2). assert (Wapp : o7wf (L1 ++ L2)) by (apply o7wf_app; assumption).
+    split; [exact Wapp |]. apply subring_add; [apply o7tower_subring; exact Wapp
+      | apply o7tower_weaken_base; [exact W2 | exact T1]
+      | apply o7tower_weaken_top; [exact Wapp | exact T2]].
+  - destruct IHx as [L1 [W1 T1]]. destruct IHy as [L2 [W2 T2]].
+    exists (L1 ++ L2). assert (Wapp : o7wf (L1 ++ L2)) by (apply o7wf_app; assumption).
+    split; [exact Wapp |]. apply subring_sub; [apply o7tower_subring; exact Wapp
+      | apply o7tower_weaken_base; [exact W2 | exact T1]
+      | apply o7tower_weaken_top; [exact Wapp | exact T2]].
+  - destruct IHx as [L1 [W1 T1]]. destruct IHy as [L2 [W2 T2]].
+    exists (L1 ++ L2). assert (Wapp : o7wf (L1 ++ L2)) by (apply o7wf_app; assumption).
+    split; [exact Wapp |]. apply subring_mul; [apply o7tower_subring; exact Wapp
+      | apply o7tower_weaken_base; [exact W2 | exact T1]
+      | apply o7tower_weaken_top; [exact Wapp | exact T2]].
+  - destruct IHx as [L [W T]]. exists L. split; [exact W |].
+    apply subfield_inv; [apply o7tower_subfield; exact W | exact T | exact Hxne].
+  - destruct IHx as [L [W T]]. exists (O7Quad (R_sqrt.sqrt x) :: L). split.
+    + simpl. split; [| exact W]. rewrite (R_sqrt.sqrt_sqrt x Hxnn). exact T.
+    + simpl. exists 0, 1. repeat split;
+        [ apply subring_0; apply o7tower_subring; exact W
+        | apply subring_1; apply o7tower_subring; exact W | ring ].
+  - destruct IHa as [La [Wa Ta]]. destruct IHb as [Lb [Wb Tb]].
+    assert (Wapp : o7wf (La ++ Lb)) by (apply o7wf_app; assumption).
+    exists (O7Cubic a b r :: (La ++ Lb)). split.
+    + simpl. split; [|split; [|split]].
+      * apply o7tower_weaken_base; [exact Wb | exact Ta].
+      * apply o7tower_weaken_top; [exact Wapp | exact Tb].
+      * exact Hcubic.
+      * exact Wapp.
+    + simpl. exists 0, 1, 0. repeat split;
+        [ apply subring_0; apply o7tower_subring; exact Wapp
+        | apply subring_1; apply o7tower_subring; exact Wapp
+        | apply subring_0; apply o7tower_subring; exact Wapp | ring ].
+  - destruct IHa as [La [Wa Ta]]. destruct IHb as [Lb [Wb Tb]].
+    destruct IHc as [Lc [Wc Tc]]. destruct IHd as [Ld [Wd Td]]. destruct IHe as [Le [We Te]].
+    assert (Wab : o7wf (La ++ Lb)) by (apply o7wf_app; assumption).
+    assert (Ta1 : o7tower (La ++ Lb) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb1 : o7tower (La ++ Lb) b) by (apply o7tower_weaken_top; assumption).
+    assert (Wabc : o7wf ((La ++ Lb) ++ Lc)) by (apply o7wf_app; assumption).
+    assert (Ta2 : o7tower ((La ++ Lb) ++ Lc) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb2 : o7tower ((La ++ Lb) ++ Lc) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc2 : o7tower ((La ++ Lb) ++ Lc) c) by (apply o7tower_weaken_top; assumption).
+    assert (Wabcd : o7wf (((La ++ Lb) ++ Lc) ++ Ld)) by (apply o7wf_app; assumption).
+    assert (Ta3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) c) by (apply o7tower_weaken_base; assumption).
+    assert (Td3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) d) by (apply o7tower_weaken_top; assumption).
+    assert (Wabcde : o7wf ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le)) by (apply o7wf_app; assumption).
+    assert (Ta4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) c) by (apply o7tower_weaken_base; assumption).
+    assert (Td4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) d) by (apply o7tower_weaken_base; assumption).
+    assert (Te4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) e) by (apply o7tower_weaken_top; assumption).
+    exists (O7Quint a b c d e r :: ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le)). split.
+    + simpl. split; [|split; [|split; [|split; [|split; [|split]]]]];
+        [ exact Ta4 | exact Tb4 | exact Tc4 | exact Td4 | exact Te4 | exact Hquint | exact Wabcde ].
+    + simpl. exists 0, 1, 0, 0, 0. repeat split;
+        [ apply subring_0; apply o7tower_subring; exact Wabcde
+        | apply subring_1; apply o7tower_subring; exact Wabcde
+        | apply subring_0; apply o7tower_subring; exact Wabcde
+        | apply subring_0; apply o7tower_subring; exact Wabcde
+        | apply subring_0; apply o7tower_subring; exact Wabcde | ring ].
+  - destruct IHa as [La [Wa Ta]]. destruct IHb as [Lb [Wb Tb]].
+    destruct IHc as [Lc [Wc Tc]]. destruct IHd as [Ld [Wd Td]].
+    destruct IHe as [Le [We Te]]. destruct IHf as [Lf [Wf' Tf]].
+    destruct IHg as [Lg [Wg Tg]].
+    assert (Wab : o7wf (La ++ Lb)) by (apply o7wf_app; assumption).
+    assert (Ta1 : o7tower (La ++ Lb) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb1 : o7tower (La ++ Lb) b) by (apply o7tower_weaken_top; assumption).
+    assert (Wabc : o7wf ((La ++ Lb) ++ Lc)) by (apply o7wf_app; assumption).
+    assert (Ta2 : o7tower ((La ++ Lb) ++ Lc) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb2 : o7tower ((La ++ Lb) ++ Lc) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc2 : o7tower ((La ++ Lb) ++ Lc) c) by (apply o7tower_weaken_top; assumption).
+    assert (Wabcd : o7wf (((La ++ Lb) ++ Lc) ++ Ld)) by (apply o7wf_app; assumption).
+    assert (Ta3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) c) by (apply o7tower_weaken_base; assumption).
+    assert (Td3 : o7tower (((La ++ Lb) ++ Lc) ++ Ld) d) by (apply o7tower_weaken_top; assumption).
+    assert (Wabcde : o7wf ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le)) by (apply o7wf_app; assumption).
+    assert (Ta4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) c) by (apply o7tower_weaken_base; assumption).
+    assert (Td4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) d) by (apply o7tower_weaken_base; assumption).
+    assert (Te4 : o7tower ((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) e) by (apply o7tower_weaken_top; assumption).
+    assert (Wabcdef : o7wf (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf)) by (apply o7wf_app; assumption).
+    assert (Ta5 : o7tower (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb5 : o7tower (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc5 : o7tower (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) c) by (apply o7tower_weaken_base; assumption).
+    assert (Td5 : o7tower (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) d) by (apply o7tower_weaken_base; assumption).
+    assert (Te5 : o7tower (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) e) by (apply o7tower_weaken_base; assumption).
+    assert (Tf5 : o7tower (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) f) by (apply o7tower_weaken_top; assumption).
+    assert (Wall : o7wf ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg)) by (apply o7wf_app; assumption).
+    assert (Ta6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) a) by (apply o7tower_weaken_base; assumption).
+    assert (Tb6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) b) by (apply o7tower_weaken_base; assumption).
+    assert (Tc6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) c) by (apply o7tower_weaken_base; assumption).
+    assert (Td6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) d) by (apply o7tower_weaken_base; assumption).
+    assert (Te6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) e) by (apply o7tower_weaken_base; assumption).
+    assert (Tf6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) f) by (apply o7tower_weaken_base; assumption).
+    assert (Tg6 : o7tower ((((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg) g) by (apply o7tower_weaken_top; assumption).
+    exists (O7Sept a b c d e f g r :: (((((La ++ Lb) ++ Lc) ++ Ld) ++ Le) ++ Lf) ++ Lg). split.
+    + simpl. split; [|split; [|split; [|split; [|split; [|split; [|split; [|split]]]]]]];
+        [ exact Ta6 | exact Tb6 | exact Tc6 | exact Td6 | exact Te6 | exact Tf6 | exact Tg6
+        | exact Hsept | exact Wall ].
+    + simpl. exists 0, 1, 0, 0, 0, 0, 0. repeat split;
+        [ apply subring_0; apply o7tower_subring; exact Wall
+        | apply subring_1; apply o7tower_subring; exact Wall
+        | apply subring_0; apply o7tower_subring; exact Wall
+        | apply subring_0; apply o7tower_subring; exact Wall
+        | apply subring_0; apply o7tower_subring; exact Wall
+        | apply subring_0; apply o7tower_subring; exact Wall
+        | apply subring_0; apply o7tower_subring; exact Wall | ring ].
+Qed.
+
 Open Scope R_scope.
 (* ============================================================================
    Toward general cyclotomic irreducibility (the Dedekind reduction-mod-q
@@ -17031,6 +17543,113 @@ Lemma is_7_smooth_max : forall n m,
   is_7_smooth n -> is_7_smooth m -> is_7_smooth (Nat.max n m).
 Proof.
   intros n m Hn Hm. destruct (Nat.max_spec n m) as [[_ E] | [_ E]]; rewrite E; assumption.
+Qed.
+
+(* the 7-smooth dimension of an o7tower, and the three-fold degree bound *)
+Lemma o7tower_dim_smooth : forall L, o7wf L ->
+  exists BL, basis is_rational BL (o7tower L) /\ is_7_smooth (length BL).
+Proof.
+  induction L as [|st L' IH]; intros Wf.
+  - exists (1 :: nil)%R. split.
+    + split; [|split].
+      * constructor; [apply (subfield_1 is_rational is_rational_subfield) | constructor].
+      * intros cs Hl Hf Hfc. destruct cs as [|c cs']; [simpl in Hl; lia|].
+        destruct cs' as [|c2 cs'']; [|simpl in Hl; lia]. cbn [Fcomb] in Hfc.
+        constructor; [lra | constructor].
+      * intros y Hy. exists (y :: nil). split; [reflexivity | split].
+        -- constructor; [exact Hy | constructor].
+        -- cbn [Fcomb]. ring.
+    + apply is_7_smooth_one.
+  - destruct st as [s | a b r | a b c d e r | a b c d e f g r].
+    + simpl in Wf. destruct Wf as [Wss Wf'].
+      destruct (IH Wf') as [BL' [HbBL' Hsm']].
+      assert (HsfL' : is_subfield (o7tower L')) by (apply o7tower_subfield; exact Wf').
+      destruct (QF_step_basis (o7tower L') s HsfL' Wss) as [Be [HbBe Hbecard]].
+      assert (HsfL : is_subfield (o7tower (O7Quad s :: L')))
+        by (apply o7tower_subfield; simpl; split; assumption).
+      exists (flat_map (fun ee => map (Rmult ee) BL') Be). split.
+      * apply (product_basis BL' Be (o7tower L') (o7tower (O7Quad s :: L'))).
+        -- exact HsfL'. -- exact HsfL.
+        -- intros z Hz. apply subfield_contains_rational; [exact HsfL' | exact Hz].
+        -- intros z Hz. simpl. apply QF_contains; [exact HsfL' | exact Hz].
+        -- exact HbBL'. -- exact HbBe.
+      * rewrite product_length. destruct Hsm' as [aa [bb [cc [dd Hsm]]]]. rewrite Hsm.
+        destruct Hbecard as [H1 | H2].
+        -- rewrite H1. exists aa, bb, cc, dd. nia.
+        -- rewrite H2. exists (S aa), bb, cc, dd. rewrite Nat.pow_succ_r'. nia.
+    + simpl in Wf. destruct Wf as [Wa [Wb [Wr Wf']]].
+      destruct (IH Wf') as [BL' [HbBL' Hsm']].
+      assert (HsfL' : is_subfield (o7tower L')) by (apply o7tower_subfield; exact Wf').
+      destruct (CF_step_basis (o7tower L') a b r HsfL' Wa Wb Wr) as [Be [HbBe Hbecard]].
+      assert (HsfL : is_subfield (o7tower (O7Cubic a b r :: L')))
+        by (apply o7tower_subfield; simpl; repeat split; assumption).
+      exists (flat_map (fun ee => map (Rmult ee) BL') Be). split.
+      * apply (product_basis BL' Be (o7tower L') (o7tower (O7Cubic a b r :: L'))).
+        -- exact HsfL'. -- exact HsfL.
+        -- intros z Hz. apply subfield_contains_rational; [exact HsfL' | exact Hz].
+        -- intros z Hz. simpl. apply CF_contains_sr; [apply subfield_is_subring; exact HsfL' | exact Hz].
+        -- exact HbBL'. -- exact HbBe.
+      * rewrite product_length. destruct Hsm' as [aa [bb [cc [dd Hsm]]]]. rewrite Hsm.
+        destruct Hbecard as [H1 | [H2 | H3]].
+        -- rewrite H1. exists aa, bb, cc, dd. nia.
+        -- rewrite H2. exists (S aa), bb, cc, dd. rewrite Nat.pow_succ_r'. nia.
+        -- rewrite H3. exists aa, (S bb), cc, dd. rewrite Nat.pow_succ_r'. nia.
+    + simpl in Wf. destruct Wf as [Wa [Wb [Wc [Wd [We [Wr Wf']]]]]].
+      destruct (IH Wf') as [BL' [HbBL' Hsm']].
+      assert (HsfL' : is_subfield (o7tower L')) by (apply o7tower_subfield; exact Wf').
+      destruct (Quint5F_step_basis (o7tower L') a b c d e r HsfL' Wa Wb Wc Wd We Wr)
+        as [Be [HbBe Hbecard]].
+      assert (HsfL : is_subfield (o7tower (O7Quint a b c d e r :: L')))
+        by (apply o7tower_subfield; simpl; repeat split; assumption).
+      exists (flat_map (fun ee => map (Rmult ee) BL') Be). split.
+      * apply (product_basis BL' Be (o7tower L') (o7tower (O7Quint a b c d e r :: L'))).
+        -- exact HsfL'. -- exact HsfL.
+        -- intros z Hz. apply subfield_contains_rational; [exact HsfL' | exact Hz].
+        -- intros z Hz. simpl. apply Quint5F_contains_sr; [apply subfield_is_subring; exact HsfL' | exact Hz].
+        -- exact HbBL'. -- exact HbBe.
+      * rewrite product_length. destruct Hsm' as [aa [bb [cc [dd Hsm]]]]. rewrite Hsm.
+        destruct Hbecard as [H1 | [H2 | [H3 | [H4 | H5]]]].
+        -- rewrite H1. exists aa, bb, cc, dd. nia.
+        -- rewrite H2. exists (S aa), bb, cc, dd. rewrite Nat.pow_succ_r'. nia.
+        -- rewrite H3. exists aa, (S bb), cc, dd. rewrite Nat.pow_succ_r'. nia.
+        -- rewrite H4. exists (S (S aa)), bb, cc, dd. rewrite !Nat.pow_succ_r'. nia.
+        -- rewrite H5. exists aa, bb, (S cc), dd. rewrite Nat.pow_succ_r'. nia.
+    + simpl in Wf. destruct Wf as [Wa [Wb [Wc [Wd [We [Wff [Wg [Wr Wf']]]]]]]].
+      destruct (IH Wf') as [BL' [HbBL' Hsm']].
+      assert (HsfL' : is_subfield (o7tower L')) by (apply o7tower_subfield; exact Wf').
+      destruct (Sept7F_step_basis (o7tower L') a b c d e f g r HsfL' Wa Wb Wc Wd We Wff Wg Wr)
+        as [Be [HbBe Hbecard]].
+      assert (HsfL : is_subfield (o7tower (O7Sept a b c d e f g r :: L')))
+        by (apply o7tower_subfield; simpl; repeat split; assumption).
+      exists (flat_map (fun ee => map (Rmult ee) BL') Be). split.
+      * apply (product_basis BL' Be (o7tower L') (o7tower (O7Sept a b c d e f g r :: L'))).
+        -- exact HsfL'. -- exact HsfL.
+        -- intros z Hz. apply subfield_contains_rational; [exact HsfL' | exact Hz].
+        -- intros z Hz. simpl. apply Sept7F_contains_sr; [apply subfield_is_subring; exact HsfL' | exact Hz].
+        -- exact HbBL'. -- exact HbBe.
+      * rewrite product_length. destruct Hsm' as [aa [bb [cc [dd Hsm]]]]. rewrite Hsm.
+        destruct Hbecard as [H1 | [H2 | [H3 | [H4 | [H5 | [H6 | H7]]]]]].
+        -- rewrite H1. exists aa, bb, cc, dd. nia.
+        -- rewrite H2. exists (S aa), bb, cc, dd. rewrite Nat.pow_succ_r'. nia.
+        -- rewrite H3. exists aa, (S bb), cc, dd. rewrite Nat.pow_succ_r'. nia.
+        -- rewrite H4. exists (S (S aa)), bb, cc, dd. rewrite !Nat.pow_succ_r'. nia.
+        -- rewrite H5. exists aa, bb, (S cc), dd. rewrite Nat.pow_succ_r'. nia.
+        -- rewrite H6. exists (S aa), (S bb), cc, dd. rewrite !Nat.pow_succ_r'. nia.
+        -- rewrite H7. exists aa, bb, cc, (S dd). rewrite Nat.pow_succ_r'. nia.
+Qed.
+
+(* every three-fold origami number has algebraic degree 2^a*3^b*5^c*7^d *)
+Theorem OrigamiNum3_field_degree_smooth : forall x, OrigamiNum3 x ->
+  exists d, basis is_rational (powers x d) (Qx x) /\ is_7_smooth d.
+Proof.
+  intros x HO. destruct (OrigamiNum3_in_o7tower x HO) as [L [Wf Tx]].
+  destruct (o7tower_dim_smooth L Wf) as [BL [HbBL HsmBL]].
+  assert (HsfL : is_subfield (o7tower L)) by (apply o7tower_subfield; exact Wf).
+  destruct (tower_law_div x (o7tower L) BL HsfL Tx HbBL) as [d [HbBx Hdiv]].
+  exists d. split; [exact HbBx |].
+  destruct HsmBL as [a [b [c [dd Hab]]]]. rewrite Hab in Hdiv.
+  destruct (divisor_7_smooth a b c dd d Hdiv) as [i [j [k [l Hd]]]].
+  exists i, j, k, l. exact Hd.
 Qed.
 
 (* coprimality of powers of coprime bases *)

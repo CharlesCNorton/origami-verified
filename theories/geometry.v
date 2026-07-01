@@ -10780,3 +10780,63 @@ Qed.
 Theorem cos_2pi_n_three_fold_smooth : forall n, (1 <= n)%nat ->
   is_7_smooth (euler_phi n) -> OrigamiNum3 (cos (2 * PI / INR n)).
 Proof. intros n Hn Hsm. apply (cos_sin_smooth3 n Hn Hsm). Qed.
+
+(* ============================================================================
+   Necessity: an OrigamiNum3 number has {2,3,5,7}-smooth field degree
+   (OrigamiNum3_field_degree_smooth, from the Sept7F/o7tower degree theory),
+   and the degree of 2cos(2*PI/n) over Q is exactly phi(n)/2, so a
+   non-7-smooth phi(n) rules out three-fold constructibility.  With the
+   constructive direction this closes ngon_three_fold_iff, the exact analogue
+   of ngon_two_fold_iff.
+   ============================================================================ *)
+
+(* if phi(n) = 2k with k not 7-smooth, then cos(2*PI/n) is not three-fold origami *)
+Theorem cos_2pi_n_not_three_fold : forall n k, (3 <= n)%nat -> (euler_phi n = 2*k)%nat ->
+  ~ is_7_smooth k -> ~ OrigamiNum3 (cos (2 * PI / INR n)).
+Proof.
+  intros n k Hn Hphi Hns HO.
+  set (delta := 2 * cos (2 * PI / INR n)).
+  assert (Hdelta : OrigamiNum3 delta).
+  { unfold delta.
+    replace (2 * cos (2 * PI / INR n))
+      with (cos (2 * PI / INR n) + cos (2 * PI / INR n)) by ring.
+    apply ON3_add; exact HO. }
+  destruct (OrigamiNum3_field_degree_smooth delta Hdelta) as [d [Hbasis Hsmooth]].
+  pose proof (cos_2pi_n_degree_exactly n k Hn Hphi) as Hbasisk. fold delta in Hbasisk.
+  destruct Hbasis as [HBd [Hlid Hspd]].
+  destruct Hbasisk as [HBk [Hlik Hspk]].
+  assert (Hdk : (d <= k)%nat).
+  { pose proof (indep_le_span is_rational (powers delta d) (powers delta k) (Qx delta)
+                  is_rational_subfield Hlid HBd Hspk) as Hle.
+    rewrite !powers_length in Hle. exact Hle. }
+  assert (Hkd : (k <= d)%nat).
+  { pose proof (indep_le_span is_rational (powers delta k) (powers delta d) (Qx delta)
+                  is_rational_subfield Hlik HBk Hspd) as Hle.
+    rewrite !powers_length in Hle. exact Hle. }
+  assert (Hdeq : d = k) by lia. subst d. exact (Hns Hsmooth).
+Qed.
+
+(* clean form for all n >= 3: phi(n) not 7-smooth rules out three-fold origami *)
+Theorem cos_2pi_n_not_three_fold_clean : forall n, (3 <= n)%nat ->
+  ~ is_7_smooth (euler_phi n) -> ~ OrigamiNum3 (cos (2 * PI / INR n)).
+Proof.
+  intros n Hn Hns HO.
+  destruct (euler_phi_even n Hn) as [k Hk].
+  assert (Hk7 : is_7_smooth k).
+  { destruct (classic (is_7_smooth k)) as [Hs|Hns2]; [exact Hs|].
+    exfalso. exact (cos_2pi_n_not_three_fold n k Hn Hk Hns2 HO). }
+  apply Hns. rewrite Hk. exact (is_7_smooth_mul2 k Hk7).
+Qed.
+
+(* THE THREE-FOLD n-GON THEOREM: cos(2pi/n) is three-fold-origami constructible
+   iff phi(n) is {2,3,5,7}-smooth.  The exact three-fold analogue of
+   ngon_two_fold_iff. *)
+Theorem ngon_three_fold_iff : forall n, (3 <= n)%nat ->
+  (OrigamiNum3 (cos (2 * PI / INR n)) <-> is_7_smooth (euler_phi n)).
+Proof.
+  intros n Hn. split.
+  - intro HO. destruct (classic (is_7_smooth (euler_phi n))) as [Hs|Hns].
+    + exact Hs.
+    + exfalso. exact (cos_2pi_n_not_three_fold_clean n Hn Hns HO).
+  - intro Hs. apply cos_2pi_n_three_fold_smooth; [lia | exact Hs].
+Qed.
