@@ -1,8 +1,8 @@
 # Remaining Work
 
-Open theorems, ordered by logical completion: enabling results precede the
-theorems that depend on them. Everything not listed here is already proven
-admit-free across the development in `theories/` — including the full
+No open theorems remain: every item once listed here is now proven admit-free
+across the development in `theories/`. The results below are all complete —
+including the full
 composite-n cyclotomic degree theory (`cyclotomic_irreducible_composite`,
 `PhiZ_exists`, `cos_2pi_n_degree_exactly`: [Q(2cos(2π/n)):Q] = φ(n)/2), the
 complete single-fold n-gon characterization in both directions for every n
@@ -28,9 +28,12 @@ every extracted primitive-float operation computes the IEEE-754 round-to-nearest
 value of its exact real model at each step -- within half an ulp per step, with
 explicit per-operation error bounds `add/sub/mul/div_err` -- and
 `float_line_intersection` decides the real two-lines-meet predicate when the
-determinant does not round to zero).
-
-1. **Geometric two-fold operations.** Formalize simultaneous two-fold origami as
-   genuine fold pairs with incidence constraints, derive their quintic-solving
-   power from the geometry, and prove OrigamiNum2 equals exactly the numbers those
-   operations construct.
+determinant does not round to zero), and two-fold origami grounding OrigamiNum2
+(`theories/frontier.v`: `twofold_reflects_quintic`, the crease {t,-1,-t^4}
+tangent to a quartic envelope reflects (q,p) onto {1,0,q} exactly when
+t^5 + p t + q = 0 -- the geometric Bring-Jerrard quintic fold, degree-5 analog of
+the Beloch cubic; `twofold_general_incidence` / `twofold_solves_no_t3`, the fold
+solves the whole no-t^3 quintic family; and `OrigamiNum2_eq_TwoFold`,
+OrigamiNum2 is exactly the two-fold-constructible numbers -- the rationals closed
+under the single-fold field operations, the cubic O6 fold, and the two-fold
+quintic fold).
