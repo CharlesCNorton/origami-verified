@@ -57,8 +57,8 @@ without ingesting the whole corpus.
 | :--- | :--- | :--- |
 | `theories/foundations.v` | Algebra / analysis / number theory / polynomials / linear algebra; complex numbers; the `OrigamiNum` algebraic core | — |
 | `theories/cyclotomic.v` | Roots of unity, Φₙ over ℤ and ℂ, full Dedekind irreducibility, Chebyshev/Dickson, the cos-degree theory | foundations |
-| `theories/geometry.v` | Huzita O1-O7, folds, constructibility and enumeration, the Gaussian-period tower, the n-gon iff | foundations, cyclotomic |
-| `theories/frontier.v` | Scratchpad for results beyond the current frontier | foundations, cyclotomic, geometry |
+| `theories/geometry.v` | Huzita O1-O7, folds, constructibility and enumeration, the Gaussian-period tower, the n-gon iff, casus irreducibilis for real square+cube-root towers | foundations, cyclotomic |
+| `theories/frontier.v` | Reserved for results beyond established origami/constructibility mathematics; currently empty | foundations, cyclotomic, geometry |
 | `theories/extraction.v` | Demonstrations, density/classifier catalogs, `FloatGeom`, and the OCaml extraction | foundations, cyclotomic, geometry |
 
 Placement is by dependency, not physical location — number-theoretic machinery
@@ -66,9 +66,11 @@ Placement is by dependency, not physical location — number-theoretic machinery
 in `foundations` even though it ultimately serves the n-gon theorem. `frontier.v` and
 `extraction.v` are siblings: both build on the settled core, neither depends on the
 other. This matters — `extraction.v` imports `Floats`, which rebinds `sqrt` to the
-primitive machine-float root, so the frontier must never `Require` it. The intended
-workflow is to prove new results in `frontier.v`, promote matured ones down into the
-file their dependencies dictate, and let `extraction.v` only showcase and extract the
+primitive machine-float root, so the frontier must never `Require` it. `frontier.v`
+is reserved for genuinely new mathematics — open problems and theorems not yet proved
+on paper; anything classical belongs directly in the settled core at the file its
+dependencies dictate, and matured frontier results migrate down the same way, leaving
+`frontier.v` empty between campaigns. `extraction.v` only showcases and extracts the
 published core.
 
 The mathematical core is axiom-clean. `coqchk -R theories "" geometry` reports only
