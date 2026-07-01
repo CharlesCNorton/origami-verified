@@ -16,20 +16,19 @@ classifier (`ngon_tool_required` with `ngon_tool_single_fold_correct`), and the
 general O6 fold as a constructible operation (`O6_general_constructible`: a
 constructible crease meets the O6 constraint for any constructible foci and
 directrices in general position, via the origami-coordinate crease
-`O6_general_good`).
+`O6_general_good`), and casus irreducibilis for real square+cube-root towers
+(`casus_irreducibilis_tower`: a monic cubic with rational coefficients, three
+real roots, and no rational root has no root in any real square+cube-root tower
+over Q; with `casus_irreducibilis_split` discharging the three-real-roots
+hypothesis from a real factorization, and `casus_cube_heart` /
+`casus_sqrt_obstruction` the underlying complex-conjugate and dimension
+obstructions -- the real-radical counterpart to origami solving every cubic).
 
-1. **Casus irreducibilis impossibility.** When the depressed cubic has positive
-   discriminant (three distinct real roots, irreducible polynomial), its roots lie
-   in no real radical tower over Q, the exact counterpart to "origami solves every
-   cubic." The complex Cardano formula is available (`Cardano_C.cardano_complex`):
-   over C the three roots always exist as nested radicals; the real-radical
-   impossibility is the orthogonal direction.
-
-2. **Geometric two-fold operations.** Formalize simultaneous two-fold origami as
+1. **Geometric two-fold operations.** Formalize simultaneous two-fold origami as
    genuine fold pairs with incidence constraints, derive their quintic-solving
    power from the geometry, and prove OrigamiNum2 equals exactly the numbers those
    operations construct.
 
-3. **FloatGeom soundness via Flocq.** Each float operation lies within a proven
+2. **FloatGeom soundness via Flocq.** Each float operation lies within a proven
    error bound of its real-number model, and the float predicates decide their
    real counterparts on adequately separated inputs.

@@ -436,3 +436,54 @@ Proof.
         exact (IHroot w' Fw' Hw'root). }
   destruct Hmain as [_ Hroot]. exact Hroot.
 Qed.
+
+Lemma RtoC_opp : forall x, RtoC (- x) = Copp (RtoC x).
+Proof. intros x. unfold RtoC, Copp. simpl. f_equal. ring. Qed.
+
+(** A real cubic that splits into three real linear factors has only real
+    complex roots.  This discharges the three-real-roots hypothesis of
+    casus_irreducibilis_tower whenever the cubic is presented by its real roots
+    r1, r2, r3 (its coefficients being the elementary symmetric functions). *)
+Lemma all_roots_real_of_split : forall (r1 r2 r3 : R) (z : C),
+  fC (-(r1+r2+r3)) (r1*r2 + r1*r3 + r2*r3) (-(r1*r2*r3)) z = C0 ->
+  Cim z = 0.
+Proof.
+  intros r1 r2 r3 z Hz.
+  assert (Hfac : fC (-(r1+r2+r3)) (r1*r2 + r1*r3 + r2*r3) (-(r1*r2*r3)) z
+    = Cmul (Cmul (Csub z (RtoC r1)) (Csub z (RtoC r2))) (Csub z (RtoC r3))).
+  { unfold fC, Ccube.
+    rewrite ?RtoC_opp, ?RtoC_add, ?RtoC_mul, ?RtoC_add, ?RtoC_mul.
+    ring. }
+  rewrite Hfac in Hz.
+  apply Cmul_integral in Hz. destruct Hz as [Hz12 | Hz3].
+  - apply Cmul_integral in Hz12. destruct Hz12 as [Hz1 | Hz2].
+    + assert (Hze : z = RtoC r1)
+        by (transitivity (Cadd (Csub z (RtoC r1)) (RtoC r1)); [ring | rewrite Hz1; ring]).
+      rewrite Hze; reflexivity.
+    + assert (Hze : z = RtoC r2)
+        by (transitivity (Cadd (Csub z (RtoC r2)) (RtoC r2)); [ring | rewrite Hz2; ring]).
+      rewrite Hze; reflexivity.
+  - assert (Hze : z = RtoC r3)
+      by (transitivity (Cadd (Csub z (RtoC r3)) (RtoC r3)); [ring | rewrite Hz3; ring]).
+    rewrite Hze; reflexivity.
+Qed.
+
+(** Casus irreducibilis presented by the three real roots.  If three reals have
+    rational elementary symmetric functions and none of them (nor any rational)
+    is a root -- the cubic is irreducible over Q -- then no root lies in any real
+    square+cube-root tower over Q. *)
+Corollary casus_irreducibilis_split :
+  forall (r1 r2 r3 : R),
+  is_rational (-(r1+r2+r3)) ->
+  is_rational (r1*r2 + r1*r3 + r2*r3) ->
+  is_rational (-(r1*r2*r3)) ->
+  (forall x, is_rational x ->
+     x ^ 3 + (-(r1+r2+r3)) * x ^ 2 + (r1*r2 + r1*r3 + r2*r3) * x + (-(r1*r2*r3)) <> 0) ->
+  forall F, RRTower F ->
+  forall w, F w ->
+    w ^ 3 + (-(r1+r2+r3)) * w ^ 2 + (r1*r2 + r1*r3 + r2*r3) * w + (-(r1*r2*r3)) <> 0.
+Proof.
+  intros r1 r2 r3 Q1 Q2 Q3 Hnorat F HT w Hw.
+  apply (casus_irreducibilis_tower _ _ _ Q1 Q2 Q3
+           (all_roots_real_of_split r1 r2 r3) Hnorat F HT w Hw).
+Qed.
