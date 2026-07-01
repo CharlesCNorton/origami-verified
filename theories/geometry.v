@@ -8505,7 +8505,7 @@ Theorem ngon_origami_iff : forall n, (3 <= n)%nat ->
   (OrigamiNum (cos (2 * PI / INR n)) <-> two_three_smooth (euler_phi n)).
 Proof.
   intros n Hn. split.
-  - intro HO. destruct (Classical_Prop.classic (two_three_smooth (euler_phi n))) as [Hs|Hns].
+  - intro HO. destruct (two_three_smooth_dec (euler_phi n)) as [Hs|Hns].
     + exact Hs.
     + exfalso. exact (cos_2pi_n_not_origami_clean n Hn Hns HO).
   - intro Hs. apply cos_2pi_n_origami_smooth; [lia | exact Hs].
@@ -9698,8 +9698,8 @@ Proof.
                          + B2*(p+q*s) + B3 = 0).
           { rewrite Hw in Hroot. rewrite <- Hroot. ring. }
           destruct (cubic_conj_vieta_step F B3 B2 B1 s p q
-                      HFsub H FB3 FB2 FB1 Fp Fq H0 Hqne Hcub) as [w' [Fw' Hw'root]].
-          apply (IHroot w' Fw'). rewrite <- Hw'root. ring.
+                      HFsub H FB3 FB2 FB1 Fp Fq Hqne Hcub) as [[w' [Fw' Hw'root]] | Hsin];
+            [apply (IHroot w' Fw'); rewrite <- Hw'root; ring | exfalso; exact (H0 Hsin)].
     - destruct IHHT as [HFsub IHroot]. split.
       + apply (CF_subfield F beta a); [exact HFsub | exact H | exact H0 | exact H1].
       + intros w [p [q [r [Fp [Fq [Fr Hw]]]]]] Hroot.

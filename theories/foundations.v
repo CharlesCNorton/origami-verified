@@ -7457,6 +7457,41 @@ Lemma Zlist_ex_notdiv_dec : forall p : Z, forall l : list Z,
   {exists k, ~ Z.divide p (nth k l 0%Z)} + {~ exists k, ~ Z.divide p (nth k l 0%Z)}.
 Proof. intros p l. exact (list_ex_nth_dec Z 0%Z (fun x => ~ Z.divide p x) (fun x => Zdiv_neg_dec p x) (fun h => h (Z.divide_0_r p)) l). Qed.
 
+Lemma list_ex_In_dec : forall (A : Type) (P : A -> Prop) (L : list A),
+  (forall x, {P x} + {~ P x}) ->
+  {exists a, In a L /\ P a} + {~ exists a, In a L /\ P a}.
+Proof.
+  intros A P L Pdec. destruct (Exists_dec P L Pdec) as [H|H].
+  - left. apply Exists_exists in H. exact H.
+  - right. intro Hex. apply H. apply Exists_exists. exact Hex.
+Qed.
+
+Lemma list_ex_ge_notdiv_dec : forall (p : Z) (l : list Z) (lb : nat),
+  {exists j, (lb <= j)%nat /\ ~ Z.divide p (nth j l 0%Z)} +
+  {~ exists j, (lb <= j)%nat /\ ~ Z.divide p (nth j l 0%Z)}.
+Proof.
+  intros p l lb.
+  destruct (Exists_dec (fun j => ~ Z.divide p (nth j l 0%Z)) (seq lb (length l - lb))
+              (fun j => Zdiv_neg_dec p (nth j l 0%Z))) as [H|H].
+  - left. apply Exists_exists in H. destruct H as [j [Hin Hj]].
+    apply in_seq in Hin. exists j. split; [lia | exact Hj].
+  - right. intros [j [Hjlb Hj]]. apply H. apply Exists_exists. exists j.
+    split; [| exact Hj]. apply in_seq.
+    destruct (Nat.lt_ge_cases j (length l)) as [Hlt|Hge]; [lia|].
+    exfalso. apply Hj. rewrite nth_overflow by exact Hge. apply Z.divide_0_r.
+Qed.
+
+Lemma bounded_ex_dec : forall (Q : nat -> Prop) (n : nat),
+  (forall k, {Q k} + {~ Q k}) ->
+  {exists k, (k < n)%nat /\ Q k} + {~ exists k, (k < n)%nat /\ Q k}.
+Proof.
+  intros Q n Qdec. destruct (Exists_dec Q (seq 0 n) Qdec) as [H|H].
+  - left. apply Exists_exists in H. destruct H as [k [Hin Hk]].
+    apply in_seq in Hin. exists k. split; [lia | exact Hk].
+  - right. intros [k [Hkn Hk]]. apply H. apply Exists_exists. exists k.
+    split; [apply in_seq; lia | exact Hk].
+Qed.
+
 Lemma QF_contains : forall F s x, is_subfield F -> F x -> QF F s x.
 Proof. intros F s x HF Hx. exists x, 0. repeat split; [exact Hx | apply subfield_0; auto | ring]. Qed.
 
@@ -7476,22 +7511,22 @@ Proof.
   - intros x y [px [qx [Hpx [Hqx Hx]]]] [py [qy [Hpy [Hqy Hy]]]].
     exists (px*py + qx*qy*(s*s)), (px*qy + qx*py). repeat split; [sfclose | sfclose | subst; ring].
   - intros x [px [qx [Hpx [Hqx Hx]]]] Hxne.
-    destruct (classic (F s)) as [HsF|HsF].
-    + assert (HxF : F x) by (subst x; sfclose).
-      apply QF_contains; [exact HF | apply subfield_inv; auto].
-    + set (D := px*px - qx*qx*(s*s)).
-      assert (HDF : F D) by (unfold D; sfclose).
-      assert (HDne : D <> 0).
-      { unfold D. intro HD0.
-        assert (Hfact : x * (px - qx*s) = 0)
-          by (subst x; replace ((px+qx*s)*(px-qx*s)) with (px*px - qx*qx*(s*s)) by ring; exact HD0).
+    set (D := px*px - qx*qx*(s*s)).
+    destruct (Req_dec_T D 0) as [HD0|HDne].
+    + assert (HsF : F s).
+      { assert (Hfact : x * (px - qx*s) = 0)
+          by (subst x; replace ((px+qx*s)*(px-qx*s)) with (px*px - qx*qx*(s*s)) by ring;
+              unfold D in HD0; exact HD0).
         apply Rmult_integral in Hfact. destruct Hfact as [Hc|Hc]; [contradiction|].
         destruct (Req_dec qx 0) as [Hqx0|Hqx0].
-        - subst qx. assert (px = 0) by lra. subst px. apply Hxne. subst x. ring.
-        - apply HsF. assert (Hs2 : s = px / qx).
+        - exfalso. subst qx. assert (px = 0) by lra. subst px. apply Hxne. subst x. ring.
+        - assert (Hs2 : s = px / qx).
           { apply (Rmult_eq_reg_r qx); [|exact Hqx0]. unfold Rdiv.
             rewrite Rmult_assoc, Rinv_l by exact Hqx0. rewrite Rmult_1_r. lra. }
           rewrite Hs2. apply subfield_div; auto. }
+      assert (HxF : F x) by (subst x; sfclose).
+      apply QF_contains; [exact HF | apply subfield_inv; auto].
+    + assert (HDF : F D) by (unfold D; sfclose).
       exists (px / D), (- qx / D). repeat split.
       * apply subfield_div; auto.
       * apply subfield_div; [exact HF | apply subfield_opp; auto | auto | auto].
@@ -7502,14 +7537,15 @@ Proof.
 Qed.
 
 (* ---------- cubic conjugate + Vieta descent step ----------
-   If a root of the monic cubic x^3 + c2 x^2 + c1 x + c0 (coeffs in F) lies in
-   the quadratic extension F(s) with s not in F, then SOME root lies in F. *)
+   For a root p + q*s (q <> 0) of the monic cubic x^3 + c2 x^2 + c1 x + c0
+   (coeffs in F, s^2 in F): a root lies in F, or s lies in F.  Split on whether
+   the s-component V of the expanded cubic vanishes. *)
 Lemma cubic_conj_vieta_step : forall (F:R->Prop) c0 c1 c2 s p q,
-  is_subfield F -> F (s*s) -> F c0 -> F c1 -> F c2 -> F p -> F q -> ~ F s -> q <> 0 ->
+  is_subfield F -> F (s*s) -> F c0 -> F c1 -> F c2 -> F p -> F q -> q <> 0 ->
   (p+q*s)*(p+q*s)*(p+q*s) + c2*((p+q*s)*(p+q*s)) + c1*(p+q*s) + c0 = 0 ->
-  exists w, F w /\ w*w*w + c2*(w*w) + c1*w + c0 = 0.
+  (exists w, F w /\ w*w*w + c2*(w*w) + c1*w + c0 = 0) \/ F s.
 Proof.
-  intros F c0 c1 c2 s p q HF Hss Hc0 Hc1 Hc2 Hp Hq Hs Hqne Hcubic.
+  intros F c0 c1 c2 s p q HF Hss Hc0 Hc1 Hc2 Hp Hq Hqne Hcubic.
   assert (F3 : F 3) by (apply subfield_3; auto).
   assert (F2 : F 2) by (apply subfield_2; auto).
   set (U := p*p*p + 3*p*q*q*(s*s) + c2*(p*p + q*q*(s*s)) + c1*p + c0).
@@ -7519,23 +7555,30 @@ Proof.
   assert (Hexp : (p+q*s)*(p+q*s)*(p+q*s) + c2*((p+q*s)*(p+q*s)) + c1*(p+q*s) + c0
                  = U + V*s) by (unfold U, V; ring).
   rewrite Hexp in Hcubic.
-  assert (HV0 : V = 0) by (apply (lin_indep_sqrt F U V s);
-    [exact HF | exact FU | exact FV | exact Hs | exact Hcubic]).
-  assert (HU0 : U = 0)
-    by (rewrite HV0, Rmult_0_l, Rplus_0_r in Hcubic; exact Hcubic).
-  set (w := - c2 - 2*p).
-  assert (Fw : F w) by (unfold w; sfclose).
-  exists w. split; [exact Fw|].
-  assert (HV' : 3*p*p + q*q*(s*s) + 2*c2*p + c1 = 0).
-  { apply (Rmult_eq_reg_r q); [|exact Hqne].
-    rewrite Rmult_0_l.
-    replace ((3*p*p + q*q*(s*s) + 2*c2*p + c1) * q) with V by (unfold V; ring).
-    exact HV0. }
-  assert (Hc1e : c1 = -(3*p*p + q*q*(s*s) + 2*c2*p)) by lra.
-  assert (Hc0e : c0 = -(p*p*p + 3*p*q*q*(s*s) + c2*(p*p + q*q*(s*s)) + c1*p)).
-  { unfold U in HU0. lra. }
-  rewrite Hc1e in Hc0e.
-  unfold w. subst c0. subst c1. ring.
+  destruct (Req_dec_T V 0) as [HV0|HVne].
+  - left.
+    assert (HU0 : U = 0)
+      by (rewrite HV0, Rmult_0_l, Rplus_0_r in Hcubic; exact Hcubic).
+    set (w := - c2 - 2*p).
+    assert (Fw : F w) by (unfold w; sfclose).
+    exists w. split; [exact Fw|].
+    assert (HV' : 3*p*p + q*q*(s*s) + 2*c2*p + c1 = 0).
+    { apply (Rmult_eq_reg_r q); [|exact Hqne].
+      rewrite Rmult_0_l.
+      replace ((3*p*p + q*q*(s*s) + 2*c2*p + c1) * q) with V by (unfold V; ring).
+      exact HV0. }
+    assert (Hc1e : c1 = -(3*p*p + q*q*(s*s) + 2*c2*p)) by lra.
+    assert (Hc0e : c0 = -(p*p*p + 3*p*q*q*(s*s) + c2*(p*p + q*q*(s*s)) + c1*p)).
+    { unfold U in HU0. lra. }
+    rewrite Hc1e in Hc0e.
+    unfold w. subst c0. subst c1. ring.
+  - right.
+    assert (HsV : V * s = - U) by lra.
+    assert (Hseq : s = (- U) / V).
+    { apply (Rmult_eq_reg_r V); [| exact HVne].
+      unfold Rdiv. rewrite Rmult_assoc, Rinv_l by exact HVne. rewrite Rmult_1_r.
+      rewrite Rmult_comm. exact HsV. }
+    rewrite Hseq. apply subfield_div; [exact HF | apply subfield_opp; auto | exact FV | exact HVne].
 Qed.
 
 (* ---------- real quadratic tower ---------- *)
@@ -7639,14 +7682,13 @@ Proof.
     + assert (Trp : tower L' r)
         by (rewrite Hr, Hq0; replace (p + 0*s) with p by ring; exact Tp).
       apply (IH Wf' r Trp Hroot).
-    + destruct (classic (tower L' s)) as [Hsin|Hsout].
+    + assert (Hroot2 : (p+q*s)*(p+q*s)*(p+q*s) + c2*((p+q*s)*(p+q*s)) + c1*(p+q*s) + c0 = 0)
+        by (rewrite <- Hr; exact Hroot).
+      destruct (cubic_conj_vieta_step (tower L') c0 c1 c2 s p q
+                 HsfL' Wss Tc0 Tc1 Tc2 Tp Tq Hq0 Hroot2) as [[w [Tw Hw]] | Hsin].
+      * apply (IH Wf' w Tw Hw).
       * assert (Trp : tower L' r) by (rewrite Hr; sfclose).
         apply (IH Wf' r Trp Hroot).
-      * assert (Hroot2 : (p+q*s)*(p+q*s)*(p+q*s) + c2*((p+q*s)*(p+q*s)) + c1*(p+q*s) + c0 = 0)
-          by (rewrite <- Hr; exact Hroot).
-        destruct (cubic_conj_vieta_step (tower L') c0 c1 c2 s p q
-                   HsfL' Wss Tc0 Tc1 Tc2 Tp Tq Hsout Hq0 Hroot2) as [w [Tw Hw]].
-        apply (IH Wf' w Tw Hw).
 Qed.
 
 Lemma not_EuclidNum_of_cubic_no_rat_root : forall c0 c1 c2 : R,
@@ -8747,6 +8789,13 @@ Fixpoint otower_basis (L : list ostep) : list R :=
   end.
 
 Definition two_three_smooth (m : nat) : Prop := exists a b, m = (2 ^ a * 3 ^ b)%nat.
+
+Lemma two_three_smooth_dec : forall m, {two_three_smooth m} + {~ two_three_smooth m}.
+Proof.
+  intro m. destruct (is_2_3_smooth_b m) eqn:E.
+  - left. apply is_2_3_smooth_b_reflects. exact E.
+  - right. intro H. rewrite (is_2_3_smooth_b_complete m H) in E. discriminate.
+Qed.
 
 Lemma otower_basis_smooth : forall L, two_three_smooth (length (otower_basis L)).
 Proof.
@@ -15603,7 +15652,7 @@ Proof.
         replace (nth k (@nil Z) 0) with 0 by (destruct k; reflexivity). ring. }
       rewrite Hz, Z.sub_0_r. apply Ha. lia.
     + intros j Hj. destruct j; apply Z.divide_0_r.
-  - destruct (Classical_Prop.classic (exists j, (db <= j)%nat /\ ~ (p | nth j a 0)))
+  - destruct (list_ex_ge_notdiv_dec p a db)
       as [Hbig | Hsmall].
     + assert (Hex : exists j, ~ (p | nth j a 0))
         by (destruct Hbig as [j [_ Hj]]; exists j; exact Hj).
@@ -15819,7 +15868,7 @@ Proof.
   assert (Hg : forall j, (length g <= j)%nat -> (P | nth j g 0))
     by (intros j Hj; rewrite nth_overflow by exact Hj; apply Z.divide_0_r).
   destruct (bezout_mod p Hp (length g) g f Hg) as [d [u [v [Hdbez [Hd_f Hd_g]]]]].
-  destruct (Classical_Prop.classic (exists j, (1 <= j)%nat /\ ~ (P | nth j d 0)))
+  destruct (list_ex_ge_notdiv_dec P d 1)
     as [Hdpos | Hdsmall].
   - assert (Hex : exists j, ~ (P | nth j d 0)) by (destruct Hdpos as [j [_ Hj]]; exists j; exact Hj).
     destruct (pdeg_mod_exists P d Hex) as [dd [Hdd_nd Hdd_top]].
@@ -17322,7 +17371,7 @@ Qed.
 Lemma sdiv_pnz_of_root : forall p c a, pnz p c -> (p | zev c a) -> pnz p (sdiv c a).
 Proof.
   intros p c a Hpnz Hr.
-  destruct (classic (pnz p (sdiv c a))) as [H|H]; [exact H|].
+  destruct (Zlist_ex_notdiv_dec p (sdiv c a)) as [H|H]; [exact H|].
   exfalso. destruct Hpnz as [k Hk]. apply Hk.
   exact (sdiv_pzero_back c p a (not_pnz_pzero p _ H) Hr k).
 Qed.
@@ -17386,7 +17435,8 @@ Theorem rootl_length : forall p c, Znumtheory.prime p -> pnz p c ->
 Proof.
   intros p c Hp. remember (length c) as L eqn:HL. revert c HL.
   induction L as [L IHL] using (well_founded_induction lt_wf). intros c HL Hpnz.
-  destruct (classic (exists a, In a (residues p) /\ (p | zev c a))) as [[a [Hain Hroot]] | Hno].
+  destruct (list_ex_In_dec Z (fun a => (p | zev c a)) (residues p)
+              (fun a => Znumtheory.Zdivide_dec p (zev c a))) as [[a [Hain Hroot]] | Hno].
   - assert (Hqpnz : pnz p (sdiv c a)) by (apply sdiv_pnz_of_root; assumption).
     assert (Hlenq : length (sdiv c a) = (length c - 1)%nat) by apply length_sdiv.
     assert (Hcne : c <> []) by (apply (pnz_nonnil p); exact Hpnz).
@@ -17502,11 +17552,11 @@ Qed.
 (* ===== multiplicative order ===== *)
 
 (* least element of a nonempty nat predicate *)
-Lemma least_exists : forall (Q : nat -> Prop) n, Q n ->
-  exists m, Q m /\ (forall k, (k < m)%nat -> ~ Q k).
+Lemma least_exists : forall (Q : nat -> Prop), (forall k, {Q k} + {~ Q k}) ->
+  forall n, Q n -> exists m, Q m /\ (forall k, (k < m)%nat -> ~ Q k).
 Proof.
-  intros Q n. induction n as [n IH] using (well_founded_induction lt_wf). intro Hn.
-  destruct (classic (exists k, (k < n)%nat /\ Q k)) as [[k [Hk Qk]] | Hno].
+  intros Q Qdec n. induction n as [n IH] using (well_founded_induction lt_wf). intro Hn.
+  destruct (bounded_ex_dec Q n Qdec) as [[k [Hk Qk]] | Hno].
   - exact (IH k Hk Qk).
   - exists n. split; [exact Hn|]. intros k Hk Qk. apply Hno. exists k. split; assumption.
 Qed.
@@ -17521,12 +17571,20 @@ Qed.
 Definition per (p : nat) (a : Z) (k : nat) : Prop :=
   (1 <= k)%nat /\ cg (Z.of_nat p) (zpn a k) 1.
 
+Lemma per_dec : forall p a k, {per p a k} + {~ per p a k}.
+Proof.
+  intros p a k. unfold per, cg.
+  destruct (le_dec 1 k) as [Hk|Hk]; [| right; intros [H _]; contradiction].
+  destruct (Znumtheory.Zdivide_dec (Z.of_nat p) (zpn a k - 1)) as [Hd|Hd];
+    [left; split; assumption | right; intros [_ H]; contradiction].
+Qed.
+
 (* the order: least positive period; exists for units by Fermat *)
 Lemma order_exists : forall p a, Znumtheory.prime (Z.of_nat p) -> ~ (Z.of_nat p | a) ->
   exists d, per p a d /\ (forall k, (k < d)%nat -> ~ per p a k).
 Proof.
   intros p a Hp Hna.
-  apply (least_exists (per p a) (p - 1)).
+  apply (least_exists (per p a) (per_dec p a) (p - 1)).
   split; [destruct Hp as [Hgt _]; lia | apply fermat_cg; assumption].
 Qed.
 
