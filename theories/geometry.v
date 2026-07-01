@@ -1288,6 +1288,15 @@ Proof.
   unfold line_perp. split; intro H; exact H.
 Qed.
 
+(** p ∈ perp_through(p,l) *)
+Lemma perp_through_incident : forall p l,
+  on_line p (perp_through p l).
+Proof.
+  intros [x y] l.
+  unfold on_line, perp_through.
+  destruct (Req_EM_T (A l) 0); simpl; ring.
+Qed.
+
 (** Alias for perp_through *)
 Definition construct_perp_line_at (p : Point) (l : Line) : Line :=
   perp_through p l.
@@ -1303,9 +1312,7 @@ Qed.
 Lemma construct_perp_line_at_incident : forall p l,
   on_line p (construct_perp_line_at p l).
 Proof.
-  intros [x y] l.
-  unfold construct_perp_line_at, on_line, perp_through.
-  destruct (Req_EM_T (A l) 0); simpl; ring.
+  intros p l. unfold construct_perp_line_at. apply perp_through_incident.
 Qed.
 
 (** p₁ ≠ p₂ → reflect(p₁, perp_bisector(p₁,p₂)) = p₂ *)
@@ -1408,15 +1415,7 @@ Qed.
 Theorem reflection_is_isometry : forall p1 p2 l,
   line_wf l -> dist2 p1 p2 = dist2 (reflect_point p1 l) (reflect_point p2 l).
 Proof.
-  intros [x1 y1] [x2 y2] l Hwf.
-  unfold dist2, reflect_point, sqr.
-  destruct l as [a b c]; simpl.
-  set (d1 := a * x1 + b * y1 + c).
-  set (d2 := a * x2 + b * y2 + c).
-  set (n := a * a + b * b).
-  unfold line_wf in Hwf. simpl in Hwf.
-  destruct Hwf as [Ha|Hb]; assert (Hn: n <> 0) by (unfold n; nra);
-  unfold d1, d2, n; field; exact Hn.
+  intros p1 p2 l Hwf. symmetry. apply reflect_point_isometry_dist2. exact Hwf.
 Qed.
 
 (** foot(p,l) ∈ l *)
@@ -1704,18 +1703,7 @@ Definition line_perp_through (p : Point) (l : Line) : Line :=
 Lemma perp_through_is_perp : forall p l,
   line_perp (perp_through p l) l.
 Proof.
-  intros [x y] l.
-  unfold line_perp, perp_through.
-  destruct (Req_EM_T (A l) 0); simpl; ring.
-Qed.
-
-(** p ∈ perp_through(p,l) *)
-Lemma perp_through_incident : forall p l,
-  on_line p (perp_through p l).
-Proof.
-  intros [x y] l.
-  unfold on_line, perp_through.
-  destruct (Req_EM_T (A l) 0); simpl; ring.
+  exact perp_through_perp.
 Qed.
 
 (** dist²(p₁, midpoint(p₁,p₂)) = dist²(p₂, midpoint(p₁,p₂)) *)
@@ -1897,9 +1885,7 @@ Qed.
 Lemma point_on_perp_through : forall p l,
   on_line p (perp_through p l).
 Proof.
-  intros [x y] l.
-  unfold perp_through, on_line. simpl.
-  destruct (Req_EM_T (A l) 0); simpl; ring.
+  exact perp_through_incident.
 Qed.
 
 (** l₁ ∥ l₂ ∧ p₁ ∈ l₁ → reflect(p₁, fold_O7) ∈ l₁ *)
@@ -1981,13 +1967,7 @@ Qed.
 Lemma perp_bisector_midpoint_on : forall p1 p2,
   on_line (midpoint p1 p2) (perp_bisector p1 p2).
 Proof.
-  intros [x1 y1] [x2 y2].
-  unfold on_line, midpoint, perp_bisector. simpl.
-  destruct (Req_EM_T x1 x2) as [Hx|Hx]; destruct (Req_EM_T y1 y2) as [Hy|Hy].
-  - subst. simpl. lra.
-  - subst. simpl. field.
-  - subst. simpl. field.
-  - simpl. field.
+  exact perp_bisector_midpoint.
 Qed.
 
 (** y₁ ≠ y₂ → reflect((x,y₁), perp_bisector) = (x,y₂) *)
@@ -5075,23 +5055,13 @@ Proof.
   - unfold Rdiv. field. lra.
 Qed.
 
-(** y-coord of O5 image: qy + √(dist(p,q)² - (lx-qx)²) *)
+(** O5_vert_image_y in unpacked-coordinate form *)
 Definition O5_image_y (px py qx qy lx : R) : R :=
-  let d := sqrt ((px - qx)^2 + (py - qy)^2) in
-  let dx := lx - qx in
-  qy + sqrt (d^2 - dx^2).
+  O5_vert_image_y (px, py) (qx, qy) lx.
 
-(** O5 fold for vertical line x = l_vertical_x *)
+(** The fold_O5_vert crease for the vertical target x = l_vertical_x *)
 Definition fold_O5_correct (p : Point) (l_vertical_x : R) (q : Point) : Line :=
-  let qx := fst q in
-  let qy := snd q in
-  let px := fst p in
-  let py := snd p in
-  let d := sqrt ((px - qx)^2 + (py - qy)^2) in
-  let dx := l_vertical_x - qx in
-  let p'y := qy + sqrt (d^2 - dx^2) in
-  let p' := (l_vertical_x, p'y) in
-  perp_bisector p p'.
+  fold_line (fold_O5_vert p q l_vertical_x).
 
 (** O5_image_y(0,0,1+x,0,2) = 2√x *)
 Lemma sqrt_O5_image_point : forall x,
@@ -5100,13 +5070,7 @@ Lemma sqrt_O5_image_point : forall x,
 Proof.
   intros x Hpos.
   unfold O5_image_y.
-  replace ((0 - (1 + x)) ^ 2 + (0 - 0) ^ 2) with ((1 + x) ^ 2) by ring.
-  rewrite sqrt_pow2 by lra.
-  replace (2 - (1 + x)) with (1 - x) by ring.
-  replace ((1 + x) ^ 2 - (1 - x) ^ 2) with (4 * x) by ring.
-  rewrite sqrt_mult by lra.
-  rewrite sqrt_4_eq.
-  ring.
+  exact (f_equal snd (O5_vert_image_sqrt_case x Hpos)).
 Qed.
 
 (** perp_bisector((0,0), (2, 2√x)) *)
@@ -5161,15 +5125,7 @@ Lemma O5_vert_image_eq_sqrt : forall x,
   0 < x ->
   O5_vert_image (0, 0) (1 + x, 0) 2 = (2, 2 * sqrt x).
 Proof.
-  intros x Hpos.
-  unfold O5_vert_image, O5_vert_image_y. simpl.
-  f_equal.
-  replace ((0 - (1 + x)) * ((0 - (1 + x)) * 1) + (0 - 0) * ((0 - 0) * 1))
-    with ((1 + x)^2) by ring.
-  replace ((2 - (1 + x)) * ((2 - (1 + x)) * 1)) with ((1 - x)^2) by ring.
-  replace ((1 + x) ^ 2 - (1 - x) ^ 2) with (4 * x) by ring.
-  rewrite sqrt_4x_eq by lra.
-  ring.
+  exact O5_vert_image_sqrt_case.
 Qed.
 
 (** x > 0 → fold_O5_vert = O5_sqrt_fold_line *)
