@@ -130,7 +130,7 @@ Proof. unfold line_perp. apply Req_EM_T. Defined.
 
 
 
-(** x² *)
+(** √((x₁-x₂)² + (y₁-y₂)²) *)
 Definition dist (p q : Point) : R :=
   let '(x1, y1) := p in
   let '(x2, y2) := q in
@@ -142,7 +142,7 @@ Definition dist2 (p q : Point) : R :=
   let '(x2, y2) := q in
   sqr (x1 - x2) + sqr (y1 - y2).
 
-(** x ≠ 0 → x² > 0 *)
+(** √(A² + B²) *)
 Definition line_norm (l : Line) : R :=
   sqrt (sqr (A l) + sqr (B l)).
 
@@ -276,7 +276,7 @@ Proof.
   - intro Heq. injection Heq. intros. lra.
 Qed.
 
-(** x-coordinate difference under reflection *)
+(** ((x₁+x₂)/2, (y₁+y₂)/2) *)
 Definition midpoint (p1 p2 : Point) : Point :=
   let '(x1, y1) := p1 in
   let '(x2, y2) := p2 in
@@ -1977,7 +1977,7 @@ Proof.
   - apply fold_O7_degenerate_perp; assumption.
 Qed.
 
-(** (a+b)/2 = (a+b)·(1/2) *)
+(** midpoint(p₁,p₂) ∈ perp_bisector(p₁,p₂) *)
 Lemma perp_bisector_midpoint_on : forall p1 p2,
   on_line (midpoint p1 p2) (perp_bisector p1 p2).
 Proof.
@@ -2002,7 +2002,7 @@ Proof.
   simpl. f_equal; field; intro; apply Hy; lra.
 Qed.
 
-(** a ≠ 0 → a² + b² ≠ 0 *)
+(** x₁ ≠ x₂ → fst(reflect((x₁,y₁), perp_bisector)) = x₂ *)
 Lemma refl_gen_bisector_horiz_x : forall x1 x2 y1 y2,
   x1 <> x2 ->
   fst (reflect_point (x1, y1) (perp_bisector (x1, y1) (x2, y2))) = x2.
@@ -2157,7 +2157,7 @@ Proof.
     lra.
 Qed.
 
-(** (x + ta, y + tb) = (x, y) → ta = 0 ∧ tb = 0 *)
+(** p₁ ∉ l₁ → p₁ ≠ q in fold_O7_corrected *)
 Lemma fold_O7_corrected_p1_neq_q : forall p1 l1 l2,
   line_wf l2 ->
   A l1 * B l2 - B l1 * A l2 <> 0 ->
@@ -2246,7 +2246,7 @@ Proof.
   exact H.
 Qed.
 
-(** t³ + pt + q *)
+(** map_point(f, p) *)
 Definition construct_reflection (p : Point) (f : Fold) : Point :=
   map_point f p.
 
@@ -3153,7 +3153,7 @@ Proof.
   apply perp_bisector_in_enum_S; assumption.
 Qed.
 
-(** -0 = 0 *)
+(** A(perp_through(p, {A:=0,B:=b,C:=c})) = b *)
 Lemma perp_through_A_when_a_zero : forall px py b c,
   A (perp_through (px, py) {| A := 0; B := b; C := c |}) = b.
 Proof.
@@ -4189,7 +4189,7 @@ Proof.
   exists 0. constructor.
 Qed.
 
-(** OrigamiNum closed under + *)
+(** Line through two constructible x-axis points is constructible *)
 Lemma line_through_x_axis : forall x1 x2,
   ConstructiblePoint (x1, 0) ->
   ConstructiblePoint (x2, 0) ->
@@ -4323,7 +4323,7 @@ Proof.
   apply constructible_R_implies_origami.
 Qed.
 
-(** x ∈ OrigamiNum ∧ x ≥ 0 → √x ∈ OrigamiNum *)
+(** reflect((0,0), line((0,0),(1,1))) = (0,0) *)
 Lemma reflect_across_diagonal_1_1 :
   reflect_point (0, 0) (line_through (0, 0) (1, 1)) = (0, 0).
 Proof.
@@ -4419,7 +4419,7 @@ Proof.
   split; intro; lra.
 Qed.
 
-(** Algebraic simplification of reflection x-coordinate *)
+(** reflect((0,0), perp_bisector((1,0),(2,0))) = (3,0) *)
 Lemma reflect_0_across_perp_12 : reflect_point (0, 0) (perp_bisector (1, 0) (2, 0)) = (3, 0).
 Proof.
   unfold reflect_point, perp_bisector. simpl.
@@ -4938,7 +4938,7 @@ Proof.
   apply line_through_on_line_snd.
 Qed.
 
-(** x > 0 → (1, √x) ≠ (1+x, 0) *)
+(** The geometric-mean line is well-formed *)
 Lemma geometric_mean_line_wf : forall x,
   0 < x -> line_wf (line_through (1 + x, 0) (1, sqrt x)).
 Proof.
@@ -5093,7 +5093,7 @@ Definition fold_O5_correct (p : Point) (l_vertical_x : R) (q : Point) : Line :=
   let p' := (l_vertical_x, p'y) in
   perp_bisector p p'.
 
-(** √4 = 2 *)
+(** O5_image_y(0,0,1+x,0,2) = 2√x *)
 Lemma sqrt_O5_image_point : forall x,
   0 < x ->
   O5_image_y 0 0 (1 + x) 0 2 = 2 * sqrt x.
@@ -5109,7 +5109,7 @@ Proof.
   ring.
 Qed.
 
-(** x > 0 → O5 fold image y-coordinate = 2√x *)
+(** perp_bisector((0,0), (2, 2√x)) *)
 Definition O5_sqrt_fold_line (x : R) : Line :=
   perp_bisector (0, 0) (2, 2 * sqrt x).
 
@@ -5358,7 +5358,7 @@ Proof.
   constructor.
 Qed.
 
-(** √2 ∈ OrigamiNum *)
+(** Intersection of the perpendiculars at X to the two axes *)
 Definition sqrt_2_point : Point :=
   line_intersection (fold_line (fold_O4 point_X line_xaxis))
                     (fold_line (fold_O4 point_X line_yaxis)).
@@ -5403,7 +5403,7 @@ Proof.
   - simpl. repeat split; ring.
 Qed.
 
-(** /(-1) = -1 *)
+(** fst(line_intersection) = 1 for the coefficient pattern below *)
 Lemma line_inter_fst_1 : forall l1 l2,
   A l1 = 1 -> B l1 = 0 -> C l1 = -1 ->
   A l2 = 0 -> B l2 = -1 -> C l2 = 0 ->
@@ -5417,7 +5417,7 @@ Proof.
   simpl. apply inter_x_coord.
 Qed.
 
-(** (1 · -0 - 0 · -(-1)) · /(1 · -1 - 0 · 0) = 0 *)
+(** snd(line_intersection) = 0 for the coefficient pattern below *)
 Lemma line_inter_snd_0 : forall l1 l2,
   A l1 = 1 -> B l1 = 0 -> C l1 = -1 ->
   A l2 = 0 -> B l2 = -1 -> C l2 = 0 ->
@@ -5470,7 +5470,7 @@ Proof.
   - apply GoodLine_xaxis.
 Qed.
 
-(** 1/2 ∈ OrigamiNum *)
+(** Alias for midpoint *)
 Definition compute_midpoint (p1 p2 : Point) : Point :=
   midpoint p1 p2.
 
@@ -5495,7 +5495,7 @@ Qed.
 
 (** Continuity of origami operations *)
 
-(** x = y → √x = √y *)
+(** dist p q = √(dist2 p q) *)
 Lemma dist_via_dist2 : forall p q : Point,
   dist p q = sqrt (dist2 p q).
 Proof.
@@ -5556,7 +5556,7 @@ Proof.
   - ring.
 Qed.
 
-(** r ≥ 0 ∧ √r ≠ 0 → r > 0 *)
+(** ∛2 ∉ ℚ(√r) for rational r ≥ 0 *)
 Lemma cbrt2_not_in_rational_quadratic_field : forall r,
   r >= 0 -> is_rational r -> ~ in_quadratic_field cbrt2 r.
 Proof.
@@ -5607,7 +5607,7 @@ Proof.
       lra.
 Qed.
 
-(** ∛2 ≠ √r for any rational r ≥ 0 *)
+(** ℚ(√r) closed under + *)
 Lemma quadratic_field_add : forall x y r,
   in_quadratic_field x r -> in_quadratic_field y r -> in_quadratic_field (x + y) r.
 Proof.
@@ -5649,7 +5649,7 @@ Proof.
       rewrite Hsq. ring.
 Qed.
 
-(** (p + q√r)(p - q√r) = p² - q²r *)
+(** O5_general_image(p,l,q) ∈ l *)
 Lemma O5_general_image_on_line : forall p l q,
   line_wf l -> on_line (O5_general_image p l q) l.
 Proof.
@@ -5662,7 +5662,7 @@ Proof.
   field. split; assumption.
 Qed.
 
-(** |x|² = x² *)
+(** O5 validity gives r² - d²·norm² ≥ 0 *)
 Lemma O5_general_valid_h2_nonneg : forall p l q,
   line_wf l -> O5_general_valid p l q ->
   let a := A l in let b := B l in let c := C l in
@@ -5731,7 +5731,7 @@ Proof.
   lra.
 Qed.
 
-(** (√x/√y)² = x/y *)
+(** The h² nonnegativity of O5 validity, in unfolded coordinates *)
 Lemma O5_h2_from_valid : forall px py qx qy l,
   line_wf l ->
   O5_general_valid (px, py) l (qx, qy) ->
@@ -5907,7 +5907,7 @@ Qed.
 
 
 
-(** x + y = y + x *)
+(** |Ax + By + C| / √(A² + B²) *)
 Definition point_line_dist (p : Point) (l : Line) : R :=
   Rabs (A l * fst p + B l * snd p + C l) / sqrt (A l * A l + B l * B l).
 
@@ -5974,7 +5974,7 @@ Proof.
   reflexivity.
 Qed.
 
-(** x,y ≥ 0 → (x² ≤ y² ⟺ x ≤ y) *)
+(** O5_general_valid ⟺ dist(q,l) ≤ dist(p,q) *)
 Theorem O5_valid_iff_dist : forall p l q,
   line_wf l ->
   O5_general_valid p l q <-> point_line_dist q l <= dist p q.
@@ -6250,10 +6250,10 @@ Qed.
 
 (** Root structure of depressed cubic t³ + pt + q *)
 
-(** t³ + pt + q *)
+(** The Beloch fold at a root t of t³ + pt + q *)
 Definition O6_fold_from_root (p q t : R) : Fold := fold_O6_beloch p q t.
 
-(** ∃! t with t³ + pt + q = 0 *)
+(** Pointwise continuity of a point map *)
 Definition point_continuous (f : Point -> Point) : Prop :=
   forall p eps, eps > 0 ->
     exists delta, delta > 0 /\
@@ -6283,8 +6283,7 @@ Qed.
 Definition two_fold_lines (l1 l2 : Line) : Prop :=
   line_wf l1 /\ line_wf l2.
 
-(** Quintisection: dividing an angle into five equal parts.
-    Requires solving a degree-5 Chebyshev polynomial. *)
+(** First vertex of the regular heptagon *)
 Definition heptagon_vertex_1 : Point := (cos_2pi_7, sin_2pi_7).
 
 (** Both coordinates of (cos(2π/7), sin(2π/7)) are in OrigamiNum *)
@@ -6305,7 +6304,7 @@ Definition heptagon_c_from_t (t : R) : R := t - tschirnhaus_shift.
 (** t = c + 1/6 *)
 Definition heptagon_t_from_c (c : R) : R := c + tschirnhaus_shift.
 
-(** Depressed cubic: t³ + pt + q *)
+(** heptagon_poly(c(t)) = 8 · heptagon_depressed(t) *)
 Lemma tschirnhaus_transformation : forall t,
   heptagon_poly (heptagon_c_from_t t) = 8 * heptagon_depressed t.
 Proof.
@@ -6318,7 +6317,7 @@ Qed.
 (** t₀ = cos(2π/7) + 1/6 is a root of the depressed cubic *)
 Definition heptagon_t0 : R := heptagon_t_from_c cos_2pi_7.
 
-(** Auxiliary: heptagon_depressed in expanded form *)
+(** heptagon_depressed(t₀) = 0 *)
 Theorem heptagon_t0_is_depressed_root : heptagon_depressed heptagon_t0 = 0.
 Proof.
   unfold heptagon_t0, heptagon_t_from_c, tschirnhaus_shift.
@@ -6331,7 +6330,7 @@ Proof.
   rewrite Hpoly. field.
 Qed.
 
-(** heptagon_depressed matches depressed_cubic *)
+(** is_cubic_root(heptagon_cubic_a, heptagon_cubic_b, t₀) *)
 Theorem heptagon_t0_is_cubic_root :
   is_cubic_root heptagon_cubic_a heptagon_cubic_b heptagon_t0.
 Proof.
