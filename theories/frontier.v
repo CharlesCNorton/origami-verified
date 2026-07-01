@@ -165,3 +165,274 @@ Proof.
   pose proof (Forall_inv (Forall_inv_tail (Forall_inv_tail Hzero))) as H1.
   lra.
 Qed.
+
+(** Real cube roots are unique: x^3 = y^3 forces x = y over R. *)
+Lemma cube_inj : forall x y : R, x ^ 3 = y ^ 3 -> x = y.
+Proof.
+  intros x y H.
+  destruct (Req_dec x y) as [He|Hne]; [exact He | exfalso].
+  assert (Hfac : (x - y) * (x^2 + x*y + y^2) = 0).
+  { replace ((x - y) * (x^2 + x*y + y^2)) with (x^3 - y^3) by ring.
+    rewrite H. ring. }
+  apply Rmult_integral in Hfac. destruct Hfac as [Hxy|Hq].
+  - apply Hne. lra.
+  - assert (Hsos : (x + y/2)^2 + 3/4*y^2 = 0)
+      by (replace ((x + y/2)^2 + 3/4*y^2) with (x^2 + x*y + y^2) by field; exact Hq).
+    assert (H1 : 0 <= (x + y/2)^2) by nra.
+    assert (H2 : 0 <= y^2) by nra.
+    assert (Hy2 : y ^ 2 = 0) by nra.
+    assert (Hy0 : y = 0) by nra.
+    assert (Hx0 : x = 0) by nra.
+    apply Hne; lra.
+Qed.
+
+(** Independence of 1, beta, beta^2 over F for a real cube root beta not in F.
+    The cube analog of lin_indep_sqrt: a nontrivial F-relation among 1, beta,
+    beta^2 would place beta itself in F. *)
+Lemma lin_indep_cube : forall (F : R -> Prop) (a beta : R),
+  is_subfield F -> F a -> beta ^ 3 = a -> ~ F beta ->
+  lin_indep F (powers beta 3).
+Proof.
+  intros F a beta HF Fa Hbeta Hnotin ks Hlen HFks Hcomb.
+  rewrite powers_length in Hlen.
+  destruct ks as [|k0 [|k1 [|k2 [|k3 ks']]]]; try discriminate Hlen.
+  pose proof (Forall_inv HFks) as Fk0.
+  pose proof (Forall_inv (Forall_inv_tail HFks)) as Fk1.
+  pose proof (Forall_inv (Forall_inv_tail (Forall_inv_tail HFks))) as Fk2.
+  assert (Hrel : k0 + k1 * beta + k2 * beta ^ 2 = 0)
+    by (transitivity (Fcomb (k0::k1::k2::nil) (powers beta 3));
+        [simpl; ring | exact Hcomb]).
+  assert (Hrel' : k0 * beta + k1 * beta ^ 2 + k2 * a = 0).
+  { transitivity (beta * (k0 + k1 * beta + k2 * beta ^ 2));
+      [ rewrite <- Hbeta; ring | rewrite Hrel; ring ]. }
+  assert (Hk2 : k2 = 0).
+  { destruct (Req_dec k2 0) as [H0|Hk2ne]; [exact H0 | exfalso].
+    set (N := k1 * k1 - k0 * k2).
+    assert (HNbeta : N * beta = a * k2 ^ 2 - k1 * k0).
+    { unfold N.
+      transitivity (k1 * (k0 + k1*beta + k2*beta^2)
+                    - k2 * (k0*beta + k1*beta^2 + k2*a) - k1*k0 + k2^2*a);
+        [ ring | rewrite Hrel, Hrel'; ring ]. }
+    destruct (Req_dec N 0) as [HN0|HNne].
+    - apply Hnotin.
+      assert (Hkk : k1 * k1 = k0 * k2) by (unfold N in HN0; lra).
+      assert (Hac : a * k2 ^ 2 = k1 * k0) by (rewrite HN0 in HNbeta; lra).
+      assert (Hak : a * k2 ^ 3 = k1 ^ 3).
+      { replace (a * k2 ^ 3) with (a * k2 ^ 2 * k2) by ring.
+        rewrite Hac. replace (k1 * k0 * k2) with (k1 * (k0 * k2)) by ring.
+        rewrite <- Hkk. ring. }
+      assert (Hcube : beta ^ 3 = (k1 / k2) ^ 3).
+      { rewrite Hbeta. apply (Rmult_eq_reg_r (k2 ^ 3));
+          [| apply pow_nonzero; exact Hk2ne].
+        rewrite Hak. field. exact Hk2ne. }
+      apply cube_inj in Hcube. rewrite Hcube.
+      apply subfield_div; auto.
+    - apply Hnotin.
+      assert (Hbe : beta = (a * k2 ^ 2 - k1 * k0) / N).
+      { apply (Rmult_eq_reg_l N); [| exact HNne].
+        rewrite HNbeta. field. exact HNne. }
+      rewrite Hbe. apply subfield_div; [exact HF | | unfold N; sfclose | exact HNne].
+      replace (k2 ^ 2) with (k2 * k2) by ring. sfclose. }
+  subst k2.
+  assert (Hrel2 : k0 + k1 * beta = 0)
+    by (replace (k0 + k1*beta) with (k0 + k1*beta + 0*beta^2) by ring; exact Hrel).
+  assert (Hk1 : k1 = 0).
+  { destruct (Req_dec k1 0) as [H0|Hk1ne]; [exact H0 | exfalso].
+    apply Hnotin.
+    assert (Hbe : beta = (- k0) / k1).
+    { apply (Rmult_eq_reg_r k1); [| exact Hk1ne].
+      unfold Rdiv. rewrite Rmult_assoc, Rinv_l by exact Hk1ne.
+      rewrite Rmult_1_r. rewrite Rmult_comm. lra. }
+    rewrite Hbe. apply subfield_div; [exact HF | apply subfield_opp; auto | auto | auto]. }
+  subst k1.
+  assert (Hk0 : k0 = 0) by lra.
+  subst k0.
+  repeat constructor.
+Qed.
+
+(** The cube extension F(beta), beta^3 = a in F: the F-span of 1, beta, beta^2. *)
+Definition CF (F : R -> Prop) (beta : R) (x : R) : Prop :=
+  exists c0 c1 c2, F c0 /\ F c1 /\ F c2 /\ x = c0 + c1 * beta + c2 * beta ^ 2.
+
+Lemma CF_contains : forall F beta x, is_subfield F -> F x -> CF F beta x.
+Proof.
+  intros F beta x HF Hx. exists x, 0, 0.
+  repeat split; [exact Hx | apply subfield_0; auto | apply subfield_0; auto | ring].
+Qed.
+
+Lemma CF_self : forall F beta, is_subfield F -> CF F beta beta.
+Proof.
+  intros F beta HF. exists 0, 1, 0.
+  repeat split; [apply subfield_0; auto | apply subfield_1; auto | apply subfield_0; auto | ring].
+Qed.
+
+(** F(beta) is a subfield when beta is a real cube root not already in F.
+    Sum/difference/product are span-closed (product reduced via beta^3 = a);
+    the inverse uses the norm N = c0^3 + a c1^3 + a^2 c2^3 - 3 a c0 c1 c2, whose
+    nonvanishing for a nonzero element follows from independence of 1, beta,
+    beta^2 (a vanishing norm-cofactor would make a a cube in F, i.e. beta in F). *)
+Lemma CF_subfield : forall F beta a,
+  is_subfield F -> F a -> beta ^ 3 = a -> ~ F beta -> is_subfield (CF F beta).
+Proof.
+  intros F beta a HF Fa Hbeta Hnotin.
+  pose proof (lin_indep_cube F a beta HF Fa Hbeta Hnotin) as Hindep.
+  assert (F3 : F 3) by (apply subfield_3; auto).
+  repeat split.
+  - apply CF_contains; [exact HF | apply subfield_0; auto].
+  - apply CF_contains; [exact HF | apply subfield_1; auto].
+  - intros x y [a0[a1[a2[Ha0[Ha1[Ha2 Hx]]]]]] [b0[b1[b2[Hb0[Hb1[Hb2 Hy]]]]]].
+    exists (a0+b0), (a1+b1), (a2+b2).
+    repeat split; [sfclose | sfclose | sfclose | subst; ring].
+  - intros x y [a0[a1[a2[Ha0[Ha1[Ha2 Hx]]]]]] [b0[b1[b2[Hb0[Hb1[Hb2 Hy]]]]]].
+    exists (a0-b0), (a1-b1), (a2-b2).
+    repeat split; [sfclose | sfclose | sfclose | subst; ring].
+  - intros x y [a0[a1[a2[Ha0[Ha1[Ha2 Hx]]]]]] [b0[b1[b2[Hb0[Hb1[Hb2 Hy]]]]]].
+    exists (a0*b0 + a*(a1*b2 + a2*b1)),
+           (a0*b1 + a1*b0 + a*(a2*b2)),
+           (a0*b2 + a1*b1 + a2*b0).
+    repeat split; [sfclose | sfclose | sfclose |].
+    subst x y. replace a with (beta^3) by (exact Hbeta). ring.
+  - intros x [c0[c1[c2[Fc0[Fc1[Fc2 Hx]]]]]] Hxne.
+    set (N := c0*c0*c0 + a*(c1*c1*c1) + a*a*(c2*c2*c2) - 3*(a*c0*c1*c2)).
+    set (m0 := c0*c0 - a*c1*c2).
+    set (m1 := a*(c2*c2) - c0*c1).
+    set (m2 := c1*c1 - c0*c2).
+    assert (FN : F N) by (unfold N; sfclose).
+    assert (Fm0 : F m0) by (unfold m0; sfclose).
+    assert (Fm1 : F m1) by (unfold m1; sfclose).
+    assert (Fm2 : F m2) by (unfold m2; sfclose).
+    assert (Hgm : x * (m0 + m1*beta + m2*beta^2) = N).
+    { rewrite Hx. unfold N, m0, m1, m2.
+      replace a with (beta^3) by (exact Hbeta). ring. }
+    assert (HNne : N <> 0).
+    { intro HN0. rewrite HN0 in Hgm.
+      apply Rmult_integral in Hgm. destruct Hgm as [Hc|HM].
+      - apply Hxne; exact Hc.
+      - assert (Hlen : length (m0::m1::m2::nil) = length (powers beta 3))
+          by (rewrite powers_length; reflexivity).
+        assert (HFm : Forall F (m0::m1::m2::nil))
+          by (constructor; [exact Fm0 | constructor; [exact Fm1 | constructor; [exact Fm2 | constructor]]]).
+        assert (Hcomb : Fcomb (m0::m1::m2::nil) (powers beta 3) = 0)
+          by (transitivity (m0 + m1*beta + m2*beta^2); [simpl; ring | exact HM]).
+        pose proof (Hindep _ Hlen HFm Hcomb) as HZ.
+        assert (Hm0z : m0 = 0) by exact (Forall_inv HZ).
+        assert (Hm1z : m1 = 0) by exact (Forall_inv (Forall_inv_tail HZ)).
+        assert (Hm2z : m2 = 0) by exact (Forall_inv (Forall_inv_tail (Forall_inv_tail HZ))).
+        destruct (Req_dec c2 0) as [Hc2z|Hc2ne].
+        + subst c2.
+          assert (Hc1z : c1 = 0) by (unfold m2 in Hm2z; nra).
+          assert (Hc0z : c0 = 0) by (unfold m0 in Hm0z; nra).
+          apply Hxne. rewrite Hx. subst c0 c1. ring.
+        + apply Hnotin.
+          assert (Hm1' : a*(c2*c2) = c0*c1) by (unfold m1 in Hm1z; lra).
+          assert (Hm2' : c0*c2 = c1*c1) by (unfold m2 in Hm2z; lra).
+          assert (Hac : a * c2^3 = c1^3).
+          { replace (a*c2^3) with (a*(c2*c2)*c2) by ring.
+            rewrite Hm1'. replace (c0*c1*c2) with (c1*(c0*c2)) by ring.
+            rewrite Hm2'. ring. }
+          assert (Hcube : beta^3 = (c1/c2)^3).
+          { rewrite Hbeta. apply (Rmult_eq_reg_r (c2^3));
+              [| apply pow_nonzero; exact Hc2ne].
+            rewrite Hac. field. exact Hc2ne. }
+          apply cube_inj in Hcube. rewrite Hcube.
+          apply subfield_div; auto. }
+    exists (m0/N), (m1/N), (m2/N).
+    repeat split.
+    + apply subfield_div; auto.
+    + apply subfield_div; auto.
+    + apply subfield_div; auto.
+    + apply (Rmult_eq_reg_l x); [| exact Hxne].
+      rewrite Rinv_r by exact Hxne.
+      replace (x * (m0/N + m1/N*beta + m2/N*beta^2))
+        with ((x * (m0 + m1*beta + m2*beta^2)) / N) by (field; exact HNne).
+      rewrite Hgm. field. exact HNne.
+Qed.
+
+(** Cube-step descent.  If a root of a monic cubic with three real roots and
+    coefficients in F lies in the cube extension F(beta) (beta a real cube root
+    not in F), then a root already lies in F.  This is the casus-irreducibilis
+    obstruction in descent form: casus_cube_heart forces the beta- and
+    beta^2-components of the root to vanish, so the root is its own F-part. *)
+Lemma cube_conj_vieta_step : forall (F : R -> Prop) (B1 B2 B3 beta a p q r : R),
+  is_subfield F -> F a -> F B1 -> F B2 -> F B3 -> F p -> F q -> F r ->
+  beta ^ 3 = a -> ~ F beta ->
+  (forall z : C, fC B1 B2 B3 z = C0 -> Cim z = 0) ->
+  (p + q*beta + r*beta^2) ^ 3 + B1 * (p + q*beta + r*beta^2) ^ 2
+    + B2 * (p + q*beta + r*beta^2) + B3 = 0 ->
+  exists w, F w /\ w ^ 3 + B1 * w ^ 2 + B2 * w + B3 = 0.
+Proof.
+  intros F B1 B2 B3 beta a p q r HF Fa FB1 FB2 FB3 Fp Fq Fr Hbeta Hnotin Hreal Hroot.
+  pose proof (lin_indep_cube F a beta HF Fa Hbeta Hnotin) as Hindep.
+  pose proof (casus_cube_heart F a p q r B1 B2 B3 beta
+                HF Fa Fp Fq Fr FB1 FB2 FB3 Hbeta Hindep Hreal Hroot) as [Hq0 Hr0].
+  exists p. split; [exact Fp|].
+  rewrite <- Hroot. rewrite Hq0, Hr0. ring.
+Qed.
+
+(** A real square+cube-root tower over Q: subfields reachable from the rationals
+    by adjoining real square roots (QF, quadratic extension) and real cube roots
+    (CF, cubic extension), each a genuine extension (the radicand's root not
+    already present). *)
+Inductive RRTower : (R -> Prop) -> Prop :=
+| RRT_base : RRTower is_rational
+| RRT_sqrt : forall (F : R -> Prop) (s : R),
+    RRTower F -> F (s * s) -> ~ F s -> RRTower (QF F s)
+| RRT_cube : forall (F : R -> Prop) (beta a : R),
+    RRTower F -> F a -> beta ^ 3 = a -> ~ F beta -> RRTower (CF F beta).
+
+Lemma RRTower_subfield : forall F, RRTower F -> is_subfield F.
+Proof.
+  intros F HT. induction HT.
+  - apply is_rational_subfield.
+  - apply QF_subfield; [exact IHHT | exact H].
+  - apply (CF_subfield F beta a); [exact IHHT | exact H | exact H0 | exact H1].
+Qed.
+
+(** Casus irreducibilis for real square+cube-root towers.  A monic cubic with
+    rational coefficients, three real roots (every complex root is real), and no
+    rational root -- i.e. irreducible over Q -- has no root in ANY real
+    square+cube-root tower over Q.  Cardano's formula solves it over C with
+    complex cube roots; this is the impossibility of doing so with real radicals,
+    the exact counterpart to origami solving every cubic. *)
+Theorem casus_irreducibilis_tower :
+  forall (B1 B2 B3 : R),
+  is_rational B1 -> is_rational B2 -> is_rational B3 ->
+  (forall z : C, fC B1 B2 B3 z = C0 -> Cim z = 0) ->
+  (forall x, is_rational x -> x ^ 3 + B1 * x ^ 2 + B2 * x + B3 <> 0) ->
+  forall (F : R -> Prop), RRTower F ->
+  forall w, F w -> w ^ 3 + B1 * w ^ 2 + B2 * w + B3 <> 0.
+Proof.
+  intros B1 B2 B3 QB1 QB2 QB3 Hreal Hnorat F HT.
+  assert (Hmain : is_subfield F /\
+                  (forall w, F w -> w ^ 3 + B1 * w ^ 2 + B2 * w + B3 <> 0)).
+  { induction HT.
+    - split; [apply is_rational_subfield | exact Hnorat].
+    - destruct IHHT as [HFsub IHroot]. split.
+      + apply QF_subfield; [exact HFsub | exact H].
+      + intros w [p [q [Fp [Fq Hw]]]] Hroot.
+        assert (FB1 : F B1) by (apply subfield_contains_rational; [exact HFsub | exact QB1]).
+        assert (FB2 : F B2) by (apply subfield_contains_rational; [exact HFsub | exact QB2]).
+        assert (FB3 : F B3) by (apply subfield_contains_rational; [exact HFsub | exact QB3]).
+        destruct (Req_dec q 0) as [Hq0|Hqne].
+        * assert (Hwp : w = p) by (rewrite Hw, Hq0; ring).
+          apply (IHroot p Fp). rewrite <- Hwp. exact Hroot.
+        * assert (Hcub : (p+q*s)*(p+q*s)*(p+q*s) + B1*((p+q*s)*(p+q*s))
+                         + B2*(p+q*s) + B3 = 0).
+          { rewrite Hw in Hroot. rewrite <- Hroot. ring. }
+          destruct (cubic_conj_vieta_step F B3 B2 B1 s p q
+                      HFsub H FB3 FB2 FB1 Fp Fq H0 Hqne Hcub) as [w' [Fw' Hw'root]].
+          apply (IHroot w' Fw'). rewrite <- Hw'root. ring.
+    - destruct IHHT as [HFsub IHroot]. split.
+      + apply (CF_subfield F beta a); [exact HFsub | exact H | exact H0 | exact H1].
+      + intros w [p [q [r [Fp [Fq [Fr Hw]]]]]] Hroot.
+        assert (FB1 : F B1) by (apply subfield_contains_rational; [exact HFsub | exact QB1]).
+        assert (FB2 : F B2) by (apply subfield_contains_rational; [exact HFsub | exact QB2]).
+        assert (FB3 : F B3) by (apply subfield_contains_rational; [exact HFsub | exact QB3]).
+        assert (Hcub : (p+q*beta+r*beta^2) ^ 3 + B1*(p+q*beta+r*beta^2) ^ 2
+                       + B2*(p+q*beta+r*beta^2) + B3 = 0)
+          by (rewrite Hw in Hroot; exact Hroot).
+        destruct (cube_conj_vieta_step F B1 B2 B3 beta a p q r
+                    HFsub H FB1 FB2 FB3 Fp Fq Fr H0 H1 Hreal Hcub) as [w' [Fw' Hw'root]].
+        exact (IHroot w' Fw' Hw'root). }
+  destruct Hmain as [_ Hroot]. exact Hroot.
+Qed.
