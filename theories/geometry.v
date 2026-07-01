@@ -2,7 +2,7 @@
    enumeration, the Gaussian-period tower, the regular n-gon iff, and casus
    irreducibilis for real square+cube-root towers.  Depends on foundations,
    cyclotomic. *)
-From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical ClassicalEpsilon Permutation Bool Arith.Wf_nat.
+From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
 Require Import foundations cyclotomic.
@@ -2487,12 +2487,12 @@ Qed.
 
 (** Enumeration-based decidability for bounded depth constructibility *)
 
-(** A canonical real root of the depressed cubic t^3 + p t + q (Hilbert choice
-    over the IVT-existence proved later), and the finite list of all its real
+(** A canonical real root of the depressed cubic t^3 + p t + q (the constructive
+    IVT witness depressed_cubic_root_sig), and the finite list of all its real
     roots: the canonical root plus the two quotient-quadratic roots when their
     discriminant is nonnegative.  Used to enumerate the Beloch (O6) creases. *)
 Definition some_cubic_root (p q : R) : R :=
-  epsilon (inhabits 0) (fun t => t ^ 3 + p * t + q = 0).
+  proj1_sig (depressed_cubic_root_sig p q).
 
 Definition cubic_root_list (p q : R) : list R :=
   let r0 := some_cubic_root p q in
@@ -6508,9 +6508,8 @@ Lemma some_cubic_root_is_root : forall p q,
   (some_cubic_root p q) ^ 3 + p * (some_cubic_root p q) + q = 0.
 Proof.
   intros p q. unfold some_cubic_root.
-  apply (epsilon_spec (inhabits 0) (fun t => t ^ 3 + p * t + q = 0)).
-  destruct (depressed_cubic_root_exists p q) as [r Hr].
-  exists r. unfold is_cubic_root, depressed_cubic in Hr. exact Hr.
+  pose proof (proj2_sig (depressed_cubic_root_sig p q)) as Hr.
+  unfold is_cubic_root, depressed_cubic in Hr. exact Hr.
 Qed.
 Close Scope R_scope.
 Open Scope R_scope.

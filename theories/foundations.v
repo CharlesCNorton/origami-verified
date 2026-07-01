@@ -1,7 +1,7 @@
 (* foundations.v -- algebra, analysis, number theory, polynomials, and linear
    algebra; complex numbers; the OrigamiNum algebraic core.  Foundational layer,
    depends on nothing else in the development. *)
-From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical ClassicalEpsilon Permutation Bool Arith.Wf_nat.
+From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
 Open Scope R_scope.
@@ -5986,27 +5986,41 @@ Proof.
   apply depressed_cubic_alt_sign. apply HM. exact Ht.
 Qed.
 
-(** ∀ p q, ∃ r, r³ + pr + q = 0 (via IVT) *)
-Theorem depressed_cubic_root_exists : forall p q,
-  exists r, is_cubic_root p q r.
+(** ∀ p q, {r | r³ + pr + q = 0}: a real root of the depressed cubic as a
+    constructive witness, carried out of IVT on the explicit bracket
+    [-(1+|p|+|q|), 1+|p|+|q|] where the cubic changes sign.  Because the root is
+    genuinely computed, the downstream Beloch-crease enumeration needs no choice
+    axiom. *)
+Theorem depressed_cubic_root_sig : forall p q,
+  {r | is_cubic_root p q r}.
 Proof.
   intros p q.
-  destruct (depressed_cubic_alt_neg_large p q) as [M1 HM1].
-  destruct (depressed_cubic_alt_pos_large p q) as [M2 HM2].
-  set (a := Rmin M1 M2 - 1).
-  set (b := Rmax M1 M2 + 1).
-  assert (Ha_lt_M1 : a < M1) by (unfold a, Rmin; destruct (Rle_dec M1 M2); lra).
-  assert (Hb_gt_M2 : b > M2) by (unfold b, Rmax; destruct (Rle_dec M1 M2); lra).
-  assert (Hab : a < b) by (unfold a, b, Rmin, Rmax; destruct (Rle_dec M1 M2); lra).
-  assert (Hfa : depressed_cubic_alt p q a < 0) by (apply HM1; exact Ha_lt_M1).
-  assert (Hfb : depressed_cubic_alt p q b > 0) by (apply HM2; exact Hb_gt_M2).
-  destruct (IVT (depressed_cubic_alt p q) a b
+  set (b := 1 + Rabs p + Rabs q).
+  pose proof (Rabs_pos p) as Hp0. pose proof (Rabs_pos q) as Hq0.
+  assert (Hp : - Rabs p <= p <= Rabs p).
+  { split; [ | apply Rle_abs ]. pose proof (Rle_abs (- p)) as H. rewrite Rabs_Ropp in H. lra. }
+  assert (Hq : - Rabs q <= q <= Rabs q).
+  { split; [ | apply Rle_abs ]. pose proof (Rle_abs (- q)) as H. rewrite Rabs_Ropp in H. lra. }
+  assert (Hb1 : 1 <= b) by (unfold b; lra).
+  assert (Hab : - b < b) by lra.
+  assert (Hfa : depressed_cubic_alt p q (- b) < 0)
+    by (unfold depressed_cubic_alt, cube_func, b in *; nra).
+  assert (Hfb : 0 < depressed_cubic_alt p q b)
+    by (unfold depressed_cubic_alt, cube_func, b in *; nra).
+  destruct (IVT (depressed_cubic_alt p q) (- b) b
                 (depressed_cubic_alt_continuous p q) Hab Hfa Hfb)
     as [r [[Har Hrb] Hr]].
   exists r.
   unfold is_cubic_root.
   rewrite depressed_cubic_alt_eq.
   exact Hr.
+Qed.
+
+(** ∀ p q, ∃ r, r³ + pr + q = 0 (the Prop form, projected from the sig). *)
+Theorem depressed_cubic_root_exists : forall p q,
+  exists r, is_cubic_root p q r.
+Proof.
+  intros p q. destruct (depressed_cubic_root_sig p q) as [r Hr]. exists r. exact Hr.
 Qed.
 
 (** Δ < 0 → ∃! r, r³ + pr + q = 0 *)

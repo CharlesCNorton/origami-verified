@@ -79,11 +79,16 @@ dependencies dictate, and matured frontier results migrate down the same way, le
 published core; `floatsound.v` sits above it, proving the extracted `FloatGeom`
 primitive-float operations sound against their real-number model via Flocq.
 
-The mathematical core is axiom-clean. `coqchk -R theories "" geometry` reports only
-the standard classical-analysis axioms — excluded middle, the description and choice
-operators, proof irrelevance, functional extensionality, and the two classical
-Dedekind-reals decidability axioms — with no type-in-type, no unsafe fixpoints, and
-no admitted proofs. The primitive machine-float and `Uint63` axioms used by the
+The mathematical core is axiom-clean. `Print Assumptions` reports exactly four
+standard classical-analysis axioms — excluded middle (`classic`), functional
+extensionality (`functional_extensionality_dep`), and the two classical
+Dedekind-reals decidability axioms (`sig_forall_dec`, `sig_not_dec`) that underlie
+`Coq.Reals` — with no type-in-type, no unsafe fixpoints, and no admitted proofs. The
+whole discrete layer (integers, `nat`, polynomials, the cyclotomic arithmetic) is
+outright axiom-free; the four axioms enter only through the real-analysis layer. The
+cube-root witness used by the Beloch-crease enumeration is the constructive IVT
+witness `depressed_cubic_root_sig`, so no choice operator is needed. The primitive
+machine-float and `Uint63` axioms used by the
 extracted numerics appear only in `extraction.v` and `floatsound.v` — the latter
 verifies those very primitive-float operations against Flocq's real model, so it
 necessarily rests on their defining spec axioms (`add_spec`, `mul_spec`, `div_spec`).

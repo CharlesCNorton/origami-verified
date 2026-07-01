@@ -16,7 +16,7 @@
    (OrigamiNum2_eq_TwoFold).  The {t,-1,-t^4} construction is a fresh derivation
    rather than a transcription, so it develops here; it can migrate to geometry.v
    once settled (mind the Cardano_C.C vs Line.C shadowing there). *)
-From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical ClassicalEpsilon Permutation Bool Arith.Wf_nat.
+From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
 Require Import foundations cyclotomic geometry.

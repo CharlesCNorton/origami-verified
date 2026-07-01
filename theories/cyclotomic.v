@@ -1,7 +1,7 @@
 (* cyclotomic.v -- roots of unity, the cyclotomic polynomial Phi_n over Z and C,
    Dedekind irreducibility, Chebyshev/Dickson, and the cos-degree theory
    [Q(2cos(2pi/n)):Q] = phi(n)/2.  Depends on foundations. *)
-From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical ClassicalEpsilon Permutation Bool Arith.Wf_nat.
+From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
 Require Import foundations.

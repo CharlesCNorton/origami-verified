@@ -1,7 +1,7 @@
 (* extraction.v -- demonstrations, density/classifier catalogs, the FloatGeom
    primitive-float layer, and the OCaml extraction of the certified library.
    Depends on foundations, cyclotomic, geometry. *)
-From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical ClassicalEpsilon Permutation Bool Arith.Wf_nat.
+From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
 Require Import foundations cyclotomic geometry.
