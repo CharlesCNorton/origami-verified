@@ -2487,10 +2487,10 @@ Qed.
 
 (** Enumeration-based decidability for bounded depth constructibility *)
 
-(** A canonical real root of the depressed cubic t^3 + p t + q (the constructive
-    IVT witness depressed_cubic_root_sig), and the finite list of all its real
-    roots: the canonical root plus the two quotient-quadratic roots when their
-    discriminant is nonnegative.  Used to enumerate the Beloch (O6) creases. *)
+(** A real root of the depressed cubic t^3 + p t + q (depressed_cubic_root_sig),
+    and the list of all its real roots: that root plus the two quotient-quadratic
+    roots when their discriminant is nonnegative.  Enumerates the Beloch (O6)
+    creases. *)
 Definition some_cubic_root (p q : R) : R :=
   proj1_sig (depressed_cubic_root_sig p q).
 

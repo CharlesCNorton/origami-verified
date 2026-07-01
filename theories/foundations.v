@@ -5986,11 +5986,8 @@ Proof.
   apply depressed_cubic_alt_sign. apply HM. exact Ht.
 Qed.
 
-(** ∀ p q, {r | r³ + pr + q = 0}: a real root of the depressed cubic as a
-    constructive witness, carried out of IVT on the explicit bracket
-    [-(1+|p|+|q|), 1+|p|+|q|] where the cubic changes sign.  Because the root is
-    genuinely computed, the downstream Beloch-crease enumeration needs no choice
-    axiom. *)
+(** A real root of the depressed cubic t³ + pt + q, from IVT on the bracket
+    [-(1+|p|+|q|), 1+|p|+|q|] where the cubic changes sign. *)
 Theorem depressed_cubic_root_sig : forall p q,
   {r | is_cubic_root p q r}.
 Proof.
@@ -6016,7 +6013,7 @@ Proof.
   exact Hr.
 Qed.
 
-(** ∀ p q, ∃ r, r³ + pr + q = 0 (the Prop form, projected from the sig). *)
+(** ∀ p q, ∃ r, r³ + pr + q = 0. *)
 Theorem depressed_cubic_root_exists : forall p q,
   exists r, is_cubic_root p q r.
 Proof.
@@ -7402,6 +7399,64 @@ Qed.
 Definition QF (F : R -> Prop) (s : R) (x : R) : Prop :=
   exists p q, F p /\ F q /\ x = p + q * s.
 
+(* Decidability of real disequality and of nat divisibility. *)
+Lemma Rneq_dec : forall x y : R, {x <> y} + {~ (x <> y)}.
+Proof.
+  intros x y. destruct (Req_dec_T x y) as [e|ne];
+    [right; intro H; exact (H e) | left; exact ne].
+Qed.
+
+Lemma Ndivide_dec : forall k d : nat, {Nat.divide k d} + {~ Nat.divide k d}.
+Proof.
+  intros [|k] d.
+  - destruct (Nat.eq_dec d 0) as [->|Hd];
+      [left; exists 0%nat; reflexivity | right; intros [x Hx]; simpl in Hx; lia].
+  - destruct (Nat.eq_dec (d mod (S k)) 0) as [H|H].
+    + left. apply Nat.mod_divide in H; [exact H | lia].
+    + right. intro Hdiv. apply H. apply Nat.mod_divide; [lia | exact Hdiv].
+Qed.
+
+Lemma Zneq_dec : forall x y : Z, {x <> y} + {~ (x <> y)}.
+Proof.
+  intros x y. destruct (Z.eq_dec x y) as [e|ne];
+    [right; intro H; exact (H e) | left; exact ne].
+Qed.
+
+(* Decidability of "some list entry, read with default d, satisfies P", for
+   decidable P with P d false. *)
+Lemma list_ex_nth_dec : forall (A : Type) (d : A) (P : A -> Prop),
+  (forall x, {P x} + {~ P x}) -> ~ P d ->
+  forall l, {exists k, P (nth k l d)} + {~ exists k, P (nth k l d)}.
+Proof.
+  intros A d P Pdec HPd l.
+  destruct (Exists_dec P l Pdec) as [H|H].
+  - left. apply Exists_exists in H. destruct H as [x [Hin Hx]].
+    apply (In_nth l x d) in Hin. destruct Hin as [k [Hk Hnth]].
+    exists k. rewrite Hnth. exact Hx.
+  - right. intros [k Hk]. apply H. apply Exists_exists.
+    destruct (Nat.lt_ge_cases k (length l)) as [Hlt|Hge].
+    + exists (nth k l d). split; [apply nth_In; exact Hlt | exact Hk].
+    + rewrite nth_overflow in Hk by exact Hge. contradiction.
+Qed.
+
+Lemma Zdiv_neg_dec : forall p x : Z, {~ Z.divide p x} + {~ ~ Z.divide p x}.
+Proof.
+  intros p x. destruct (Znumtheory.Zdivide_dec p x) as [d|nd];
+    [right; intro h; exact (h d) | left; exact nd].
+Qed.
+
+Lemma Rlist_ex_nonzero_dec : forall l : list R,
+  {exists k, nth k l 0 <> 0} + {~ exists k, nth k l 0 <> 0}.
+Proof. intro l. exact (list_ex_nth_dec R 0 (fun x => x <> 0) (fun x => Rneq_dec x 0) (fun h => h eq_refl) l). Qed.
+
+Lemma Zlist_ex_nonzero_dec : forall l : list Z,
+  {exists k, nth k l 0%Z <> 0%Z} + {~ exists k, nth k l 0%Z <> 0%Z}.
+Proof. intro l. exact (list_ex_nth_dec Z 0%Z (fun x => x <> 0%Z) (fun x => Zneq_dec x 0) (fun h => h eq_refl) l). Qed.
+
+Lemma Zlist_ex_notdiv_dec : forall p : Z, forall l : list Z,
+  {exists k, ~ Z.divide p (nth k l 0%Z)} + {~ exists k, ~ Z.divide p (nth k l 0%Z)}.
+Proof. intros p l. exact (list_ex_nth_dec Z 0%Z (fun x => ~ Z.divide p x) (fun x => Zdiv_neg_dec p x) (fun h => h (Z.divide_0_r p)) l). Qed.
+
 Lemma QF_contains : forall F s x, is_subfield F -> F x -> QF F s x.
 Proof. intros F s x HF Hx. exists x, 0. repeat split; [exact Hx | apply subfield_0; auto | ring]. Qed.
 
@@ -8306,12 +8361,13 @@ Proof.
     split.
     { apply Exists_cons. left. apply R1_neq_R0. }
     intros j Hj. lia.
-  - destruct (classic (Exists (fun r => nth 0 r 0 <> 0) rows)) as [Hex|Hnex].
+  - destruct (Exists_dec (fun r => nth 0 r 0 <> 0) rows
+                (fun r => Rneq_dec (nth 0 r 0) 0)) as [Hex|Hnex].
     + exact (wide_matrix_kernel_caseB F n' rows HF Hrows Hex
                (fun rows' Hr Hc => IH rows' HF Hr Hc) Hlt).
     + assert (Hall0 : Forall (fun r => nth 0 r 0 = 0) rows).
       { apply Forall_forall. intros r Hr.
-        destruct (classic (nth 0 r 0 = 0)) as [|Hne]; [assumption|].
+        destruct (Req_dec_T (nth 0 r 0) 0) as [|Hne]; [assumption|].
         exfalso. apply Hnex. apply Exists_exists. exists r. split; assumption. }
       set (tails := map (@tl R) rows).
       assert (Htails : Forall (fun r => length r = n' /\ Forall F r) tails).
@@ -8373,6 +8429,31 @@ Proof.
   { apply Hindep; [rewrite Hlamlen, Hlen; reflexivity | exact HlamF | exact Hdep]. }
   rewrite Exists_exists in Hlamnz. destruct Hlamnz as [x [Hx Hxne]].
   rewrite Forall_forall in Hall0. apply Hxne. apply Hall0; exact Hx.
+Qed.
+
+(* If more vectors than generators are each an F-combination of the generators,
+   they satisfy a nontrivial F-linear relation. *)
+Lemma lin_dep_of_spanned : forall F vs ws,
+  is_subfield F -> Forall (spans F vs) ws -> (length vs < length ws)%nat ->
+  exists cs, length cs = length ws /\ Forall F cs /\ Fcomb cs ws = 0 /\
+             ~ Forall (fun c => c = 0) cs.
+Proof.
+  intros F vs ws HF Hspan Hgt.
+  destruct (spans_all_matrix F vs ws Hspan) as [css [Hlen [Hcss Hmap]]].
+  assert (Hcnt : (length vs < length css)%nat) by (rewrite Hlen; lia).
+  destruct (wide_matrix_kernel F (length vs) css HF Hcss Hcnt)
+    as [lam [Hlamlen [HlamF [Hlamnz Hlamker]]]].
+  exists lam.
+  assert (Hdep : Fcomb lam (map (fun c => Fcomb c vs) css) = 0).
+  { apply kernel_gives_dep.
+    - apply Forall_forall. intros c Hc. rewrite Forall_forall in Hcss.
+      destruct (Hcss c Hc) as [Hl _]. exact Hl.
+    - exact Hlamker. }
+  rewrite Hmap in Hdep.
+  split; [rewrite Hlamlen, Hlen; reflexivity |].
+  split; [exact HlamF |]. split; [exact Hdep |].
+  rewrite Exists_exists in Hlamnz. destruct Hlamnz as [x [Hx Hxne]].
+  intro Hall0. rewrite Forall_forall in Hall0. apply Hxne. apply Hall0; exact Hx.
 Qed.
 
 (* ============================================================================
@@ -8500,9 +8581,9 @@ Proof.
   assert (HDne : IZR D <> 0) by (apply not_0_IZR; lia).
   exists zs. split; [|split].
   - unfold pnonzero. apply (Forall2_exists_nonzero D zs cs HDne HF2).
-    destruct (classic (Exists (fun c => c <> 0) cs)) as [He|He]; [exact He|].
+    destruct (Exists_dec (fun c => c <> 0) cs (fun c => Rneq_dec c 0)) as [He|He]; [exact He|].
     exfalso. apply Hnz. apply Forall_forall. intros c Hc.
-    destruct (classic (c = 0)) as [|Hcne]; [assumption|].
+    destruct (Req_dec_T c 0) as [|Hcne]; [assumption|].
     exfalso. apply He. apply Exists_exists. exists c. split; assumption.
   - rewrite Hzslen, Hlen. lia.
   - unfold is_poly_root. rewrite peval_Fcomb, Hzslen, Hlen.
@@ -8529,19 +8610,11 @@ Proof.
   { apply Forall_forall. intros y Hy. unfold powers in Hy. apply in_map_iff in Hy.
     destruct Hy as [i [Hy Hi]]. subst y.
     apply tower_spanned; [exact Wf|]. apply subfield_pow; [exact HsfT | exact Tx]. }
-  assert (Hnotli : ~ lin_indep is_rational (powers x (S (2 ^ length L)))).
-  { intro Hli.
-    pose proof (steinitz is_rational (tower_basis L) (powers x (S (2 ^ length L)))
-                  is_rational_subfield Hli Hspan) as Hle.
-    rewrite tower_basis_length in Hle.
-    assert (Hplen : length (powers x (S (2 ^ length L))) = S (2 ^ length L))
-      by (unfold powers; rewrite length_map, length_seq; reflexivity).
-    rewrite Hplen in Hle. lia. }
-  unfold lin_indep in Hnotli.
-  apply not_all_ex_not in Hnotli. destruct Hnotli as [cs Hcs].
-  apply imply_to_and in Hcs. destruct Hcs as [Hlencs Hcs].
-  apply imply_to_and in Hcs. destruct Hcs as [Hratcs Hcs].
-  apply imply_to_and in Hcs. destruct Hcs as [Hfccs Hnd].
+  assert (Hgt : (length (tower_basis L) < length (powers x (S (2 ^ length L))))%nat).
+  { rewrite tower_basis_length. unfold powers; rewrite length_map, length_seq. lia. }
+  destruct (lin_dep_of_spanned is_rational (tower_basis L)
+              (powers x (S (2 ^ length L))) is_rational_subfield Hspan Hgt)
+    as [cs [Hlencs [Hratcs [Hfccs Hnd]]]].
   assert (Hlen2 : length cs = S (2 ^ length L))
     by (rewrite Hlencs; unfold powers; rewrite length_map, length_seq; reflexivity).
   apply (rational_relation_alg_deg x cs (2 ^ length L) Hlen2 Hratcs Hnd Hfccs).
@@ -8808,7 +8881,7 @@ Proof.
     cbn [length] in Hrel. rewrite powers_S in Hrel. cbn [Fcomb] in Hrel.
     rewrite Fcomb_vscale_r in Hrel.
     set (P := Fcomb cs' (powers u (length cs'))) in *.
-    destruct (classic (c = 0)) as [Hc0 | Hcne].
+    destruct (Req_dec_T c 0) as [Hc0 | Hcne].
     + assert (HuP : u * P = 0) by (rewrite Hc0 in Hrel; lra).
       assert (HP0 : P = 0)
         by (apply (Rmult_eq_reg_l u); [rewrite Rmult_0_r; exact HuP | exact Hu]).
@@ -8845,15 +8918,10 @@ Proof.
       exists (p :: q :: s :: nil). split; [reflexivity|]. split.
       - constructor; [exact Hp | constructor; [exact Hq | constructor; [exact Hs | constructor]]].
       - simpl. rewrite Hue. ring. }
-    assert (Hnotli : ~ lin_indep F (powers u 4)).
-    { intro Hli.
-      pose proof (steinitz F (1 :: r :: (r*r) :: nil) (powers u 4) HF Hli Hspan) as Hle.
-      unfold powers in Hle. rewrite length_map, length_seq in Hle. simpl in Hle. lia. }
-    unfold lin_indep in Hnotli.
-    apply not_all_ex_not in Hnotli. destruct Hnotli as [cs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hlencs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hratcs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hfccs Hnd].
+    assert (Hgt : Nat.lt (length (1 :: r :: (r*r) :: nil)) (length (powers u 4))).
+    { unfold powers; rewrite length_map, length_seq; simpl; lia. }
+    destruct (lin_dep_of_spanned F (1 :: r :: (r*r) :: nil) (powers u 4) HF Hspan Hgt)
+      as [cs [Hlencs [Hratcs [Hfccs Hnd]]]].
     assert (Hlen4 : length cs = 4%nat)
       by (rewrite Hlencs; unfold powers; rewrite length_map, length_seq; reflexivity).
     assert (Hrel : Fcomb cs (powers u (length cs)) = 0) by (rewrite Hlen4; exact Hfccs).
@@ -8939,20 +9007,12 @@ Proof.
     destruct Hy as [i [Hyi Hi]]. subst y.
     apply otower_spanned; [exact Wf |].
     apply subring_pow; [apply subfield_is_subring; exact HsfT | exact Tx]. }
-  assert (Hnotli : ~ lin_indep is_rational (powers x (S (length (otower_basis L))))).
-  { intro Hli.
-    pose proof (steinitz is_rational (otower_basis L)
-                  (powers x (S (length (otower_basis L))))
-                  is_rational_subfield Hli Hspan) as Hle.
-    assert (Hplen : length (powers x (S (length (otower_basis L))))
-                  = S (length (otower_basis L)))
-      by (unfold powers; rewrite length_map, length_seq; reflexivity).
-    rewrite Hplen in Hle. lia. }
-  unfold lin_indep in Hnotli.
-  apply not_all_ex_not in Hnotli. destruct Hnotli as [cs Hcs].
-  apply imply_to_and in Hcs. destruct Hcs as [Hlencs Hcs].
-  apply imply_to_and in Hcs. destruct Hcs as [Hratcs Hcs].
-  apply imply_to_and in Hcs. destruct Hcs as [Hfccs Hnd].
+  assert (Hgt : (length (otower_basis L)
+                 < length (powers x (S (length (otower_basis L)))))%nat).
+  { unfold powers; rewrite length_map, length_seq. lia. }
+  destruct (lin_dep_of_spanned is_rational (otower_basis L)
+              (powers x (S (length (otower_basis L)))) is_rational_subfield Hspan Hgt)
+    as [cs [Hlencs [Hratcs [Hfccs Hnd]]]].
   assert (Hlen2 : length cs = S (length (otower_basis L)))
     by (rewrite Hlencs; unfold powers; rewrite length_map, length_seq; reflexivity).
   apply (rational_relation_alg_deg x cs (length (otower_basis L)) Hlen2 Hratcs Hnd Hfccs).
@@ -9018,7 +9078,7 @@ Proof.
   simpl in Hlen. injection Hlen as Hlen'. simpl in Hfc.
   apply Forall_inv in HFcs as Hc. apply Forall_inv_tail in HFcs as Hcs'.
   assert (Hc0 : c = 0).
-  { destruct (classic (c = 0)) as [|Hcne]; [assumption|]. exfalso. apply Hns.
+  { destruct (Req_dec_T c 0) as [|Hcne]; [assumption|]. exfalso. apply Hns.
     exists (map (Rmult (- / c)) cs'). split; [rewrite length_map; exact Hlen' |]. split.
     - apply Forall_forall. intros z Hz. apply in_map_iff in Hz. destruct Hz as [w [Hzw Hw]]. subst z.
       apply subfield_mul;
@@ -9361,18 +9421,10 @@ Proof.
     assert (Hspan : Forall (spans is_rational B) (powers u (S (length B)))).
     { apply Forall_forall. intros w Hw. unfold powers in Hw. apply in_map_iff in Hw.
       destruct Hw as [i [Hwi _]]. subst w. apply HspB. apply subfield_pow; [exact HF | exact HuF]. }
-    assert (Hnotli : ~ lin_indep is_rational (powers u (S (length B)))).
-    { intro Hli.
-      pose proof (indep_le_span is_rational (powers u (S (length B))) B F
-                    is_rational_subfield Hli HpowF HspB) as Hle.
-      assert (Hpl : length (powers u (S (length B))) = S (length B))
-        by (unfold powers; rewrite length_map, length_seq; reflexivity).
-      rewrite Hpl in Hle. lia. }
-    unfold lin_indep in Hnotli.
-    apply not_all_ex_not in Hnotli. destruct Hnotli as [cs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hlencs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hratcs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hfccs Hnd].
+    assert (Hgt : Nat.lt (length B) (length (powers u (S (length B))))).
+    { unfold powers; rewrite length_map, length_seq. lia. }
+    destruct (lin_dep_of_spanned is_rational B (powers u (S (length B)))
+                is_rational_subfield Hspan Hgt) as [cs [Hlencs [Hratcs [Hfccs Hnd]]]].
     assert (Hlen2 : length cs = S (length B))
       by (rewrite Hlencs; unfold powers; rewrite length_map, length_seq; reflexivity).
     assert (Hrel : Fcomb cs (powers u (length cs)) = 0) by (rewrite Hlen2; exact Hfccs).
@@ -9771,7 +9823,7 @@ Proof.
   induction k as [|k IH]; intros d Hd.
   - simpl in Hd. apply Nat.divide_1_r in Hd. subst. exists 0%nat. reflexivity.
   - rewrite Nat.pow_succ_r' in Hd.
-    destruct (classic (Nat.divide 3 d)) as [H3 | H3].
+    destruct (Ndivide_dec 3 d) as [H3 | H3].
     + destruct H3 as [e He]. subst d.
       assert (He2 : Nat.divide e (3 ^ k)%nat) by (destruct Hd as [c Hc]; exists c; nia).
       destruct (IH e He2) as [j Hj]. exists (S j). subst e. rewrite Nat.pow_succ_r'. lia.
@@ -9802,7 +9854,7 @@ Proof.
     rewrite Nat.pow_0_r, Nat.mul_1_l. exact He.
   - replace (2 ^ S a * 3 ^ b)%nat with (2 * (2 ^ a * 3 ^ b))%nat in Hd
       by (rewrite Nat.pow_succ_r'; ring).
-    destruct (classic (Nat.divide 2 d)) as [H2 | H2].
+    destruct (Ndivide_dec 2 d) as [H2 | H2].
     + destruct H2 as [e He]. subst d.
       assert (He2 : Nat.divide e (2 ^ a * 3 ^ b)%nat) by (destruct Hd as [c Hc]; exists c; nia).
       destruct (IH b e He2) as [c' [e' Hee]]. exists (S c'), e'.
@@ -11867,6 +11919,14 @@ Definition Cim (z : C) : R := snd z.
 Definition C0 : C := (0, 0).
 Definition C1 : C := (1, 0).
 Definition Ci : C := (0, 1).
+(* Decidability of complex equality. *)
+Lemma Ceq_dec : forall a b : C, {a = b} + {a <> b}.
+Proof.
+  intros [a1 a2] [b1 b2].
+  destruct (Req_dec_T a1 b1) as [E1|N1]; [| right; intro H; inversion H; contradiction].
+  destruct (Req_dec_T a2 b2) as [E2|N2]; [| right; intro H; inversion H; contradiction].
+  left; subst; reflexivity.
+Qed.
 Definition Cadd (a b : C) : C := (fst a + fst b, snd a + snd b).
 Definition Copp (a : C) : C := (- fst a, - snd a).
 Definition Csub (a b : C) : C := Cadd a (Copp b).
@@ -12065,7 +12125,7 @@ Proof. intros r Hr H. apply Hr. unfold RtoC, C0 in H. inversion H. reflexivity. 
 
 Lemma Cmul_integral : forall a b, Cmul a b = C0 -> a = C0 \/ b = C0.
 Proof.
-  intros a b H. destruct (classic (a = C0)) as [Ha | Ha]; [left; exact Ha | right].
+  intros a b H. destruct (Ceq_dec a C0) as [Ha | Ha]; [left; exact Ha | right].
   transitivity (Cdiv (Cmul a b) a); [ field; exact Ha | rewrite H; field; exact Ha ].
 Qed.
 
@@ -12102,7 +12162,7 @@ Proof.
   set (num := Cadd (Cdiv (Cmul q q) (Cmul (RtoC 2) (RtoC 2)))
                    (Cdiv (Ccube p) (Cmul (RtoC 3) (Cmul (RtoC 3) (RtoC 3))))).
   destruct (C_sqrt_exists num) as [d Hd].
-  destruct (classic (p = C0)) as [Hp0 | Hpn0].
+  destruct (Ceq_dec p C0) as [Hp0 | Hpn0].
   - destruct (C_cbrt_exists (Copp q)) as [u Hu].
     exists u, C0. split.
     + rewrite Hp0. ring.
@@ -12422,16 +12482,11 @@ Proof.
       exists (p0 :: p1 :: p2 :: p3 :: p4 :: nil). split; [reflexivity|]. split.
       - repeat (constructor; [assumption|]). constructor.
       - simpl. rewrite Hue. ring. }
-    assert (Hnotli : ~ lin_indep F (powers u 6)).
-    { intro Hli.
-      pose proof (steinitz F (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r) :: nil) (powers u 6)
-                    HF Hli Hspan) as Hle.
-      unfold powers in Hle. rewrite length_map, length_seq in Hle. simpl in Hle. lia. }
-    unfold lin_indep in Hnotli.
-    apply not_all_ex_not in Hnotli. destruct Hnotli as [cs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hlencs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hratcs Hcs].
-    apply imply_to_and in Hcs. destruct Hcs as [Hfccs Hnd].
+    assert (Hgt : Nat.lt (length (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r) :: nil))
+                   (length (powers u 6))).
+    { unfold powers; rewrite length_map, length_seq; simpl; lia. }
+    destruct (lin_dep_of_spanned F (1 :: r :: (r*r) :: (r*r*r) :: (r*r*r*r) :: nil)
+                (powers u 6) HF Hspan Hgt) as [cs [Hlencs [Hratcs [Hfccs Hnd]]]].
     assert (Hlen6 : length cs = 6%nat)
       by (rewrite Hlencs; unfold powers; rewrite length_map, length_seq; reflexivity).
     assert (Hrel : Fcomb cs (powers u (length cs)) = 0) by (rewrite Hlen6; exact Hfccs).
@@ -12771,7 +12826,7 @@ Proof.
   induction k as [|k IH]; intros d Hd.
   - simpl in Hd. apply Nat.divide_1_r in Hd. subst. exists 0%nat. reflexivity.
   - rewrite Nat.pow_succ_r' in Hd.
-    destruct (classic (Nat.divide 5 d)) as [H5 | H5].
+    destruct (Ndivide_dec 5 d) as [H5 | H5].
     + destruct H5 as [ee He]. subst d.
       assert (He2 : Nat.divide ee (5 ^ k)%nat) by (destruct Hd as [c Hc]; exists c; nia).
       destruct (IH ee He2) as [j Hj]. exists (S j). subst ee. rewrite Nat.pow_succ_r'. lia.
@@ -12789,7 +12844,7 @@ Proof.
     rewrite Nat.pow_0_r, Nat.mul_1_l. exact Hf.
   - replace (3 ^ S b * 5 ^ c)%nat with (3 * (3 ^ b * 5 ^ c))%nat in Hd
       by (rewrite Nat.pow_succ_r'; ring).
-    destruct (classic (Nat.divide 3 d)) as [H3 | H3].
+    destruct (Ndivide_dec 3 d) as [H3 | H3].
     + destruct H3 as [ee He]. subst d.
       assert (He2 : Nat.divide ee (3 ^ b * 5 ^ c)%nat) by (destruct Hd as [cc Hc]; exists cc; nia).
       destruct (IH c ee He2) as [e' [f' Hee]]. exists (S e'), f'. rewrite Nat.pow_succ_r'. nia.
@@ -12806,7 +12861,7 @@ Proof.
     rewrite Nat.pow_0_r, Nat.mul_1_l. exact He.
   - replace (2 ^ S a * 3 ^ b * 5 ^ c)%nat with (2 * (2 ^ a * 3 ^ b * 5 ^ c))%nat in Hd
       by (rewrite Nat.pow_succ_r'; ring).
-    destruct (classic (Nat.divide 2 d)) as [H2 | H2].
+    destruct (Ndivide_dec 2 d) as [H2 | H2].
     + destruct H2 as [ee He]. subst d.
       assert (He2 : Nat.divide ee (2 ^ a * 3 ^ b * 5 ^ c)%nat)
         by (destruct Hd as [cc Hc]; exists cc; nia).
@@ -14858,7 +14913,7 @@ Proof.
     - ring.
     - symmetry; exact HF. }
   assert (Hr0 : forall k, nth k r 0%Z = 0%Z).
-  { destruct (Classical_Prop.classic (exists k, nth k r 0%Z <> 0%Z)) as [Hex | Hnone].
+  { destruct (Zlist_ex_nonzero_dec r) as [Hex | Hnone].
     - exfalso. pose proof (cpe_roots_lt_length r rts Hex Hndrts Hrvan) as Hlt.
       rewrite Hlenrts in Hlt. lia.
     - intro k. destruct (Z.eq_dec (nth k r 0%Z) 0%Z) as [E|E];
@@ -15337,13 +15392,13 @@ Proof.
   intros pr f.
   induction f as [|a f IH]; intros [k Hk].
   - exfalso. apply Hk. destruct k; apply Z.divide_0_r.
-  - destruct (Classical_Prop.classic (exists m, ~ (pr | nth m f 0))) as [Hf | Hf].
+  - destruct (Zlist_ex_notdiv_dec pr f) as [Hf | Hf].
     + destruct (IH Hf) as [d' [Hd'1 Hd'2]].
       exists (S d'). split.
       * cbn [nth]. exact Hd'1.
       * intros j Hj. destruct j as [|j']; [lia|]. cbn [nth]. apply Hd'2. lia.
     + assert (Hfall : forall m, (pr | nth m f 0)).
-      { intro m. destruct (Classical_Prop.classic (pr | nth m f 0)) as [H|H]; [exact H|].
+      { intro m. destruct (Znumtheory.Zdivide_dec pr (nth m f 0)) as [H|H]; [exact H|].
         exfalso. apply Hf. exists m. exact H. }
       exists 0%nat. split.
       * destruct k as [|k'].
@@ -15396,7 +15451,7 @@ Lemma pdvd_mod_const_absurd : forall p d c dd,
 Proof.
   intros p d c dd Hp Hdd Hdtop Hdd1 Hc [q Hq].
   set (P := Z.of_nat p) in *.
-  destruct (Classical_Prop.classic (exists m, ~ (P | nth m q 0))) as [Hqnz | Hqz].
+  destruct (Zlist_ex_notdiv_dec P q) as [Hqnz | Hqz].
   - destruct (pdeg_mod_exists P q Hqnz) as [dq [Hdq Hqtop]].
     pose proof (Zconv_top_mod P d q dd dq Hdtop Hqtop) as Htop.
     specialize (Hq (dd + dq)%nat).
@@ -15413,7 +15468,7 @@ Proof.
     destruct (Znumtheory.prime_mult P Hp (nth dd d 0) (nth dq q 0) HPprod) as [H|H];
       [apply Hdd; exact H | apply Hdq; exact H].
   - assert (Hqall : forall m, (P | nth m q 0)).
-    { intro m. destruct (Classical_Prop.classic (P | nth m q 0)) as [H|H];
+    { intro m. destruct (Znumtheory.Zdivide_dec P (nth m q 0)) as [H|H];
         [exact H | exfalso; apply Hqz; exists m; exact H]. }
     specialize (Hq 0%nat).
     assert (Hc0 : nth 0 [c] 0 = c) by reflexivity.
@@ -15586,7 +15641,7 @@ Proof.
         exact Hid'.
       * exact Hr'.
     + assert (Hsm : forall j, (db <= j)%nat -> (p | nth j a 0)).
-      { intros j Hj. destruct (Classical_Prop.classic (p | nth j a 0)) as [H|H]; [exact H|].
+      { intros j Hj. destruct (Znumtheory.Zdivide_dec p (nth j a 0)) as [H|H]; [exact H|].
         exfalso. apply Hsmall. exists j. split; assumption. }
       exists nil, a. split.
       * intro k.
@@ -15661,7 +15716,7 @@ Proof.
     + exists [1%Z]. apply pcong_of_eq_nth. apply peval_eq_nth. intro y.
       rewrite peval_Zpmul, peval_one. ring.
     + apply pdvd_mod_zero. intros k. apply Hb. lia.
-  - destruct (Classical_Prop.classic (exists j, ~ (P | nth j b 0))) as [Hbnz | Hbz].
+  - destruct (Zlist_ex_notdiv_dec P b) as [Hbnz | Hbz].
     + destruct (pdeg_mod_exists P b Hbnz) as [db [Hdb1 Hdb2]].
       assert (Hdbm : (db <= m)%nat).
       { destruct (Nat.le_gt_cases db m) as [Hle|Hgt]; [exact Hle | exfalso; apply Hdb1; apply Hb; lia]. }
@@ -15691,7 +15746,7 @@ Proof.
         -- apply pdvd_mod_Zpadd; [apply pdvd_mod_Zpmul_r; exact Hd_b | exact Hd_r].
       * exact Hd_b.
     + assert (Hbz' : forall k, (P | nth k b 0)).
-      { intro k. destruct (Classical_Prop.classic (P | nth k b 0)) as [H|H];
+      { intro k. destruct (Znumtheory.Zdivide_dec P (nth k b 0)) as [H|H];
           [exact H | exfalso; apply Hbz; exists k; exact H]. }
       exists a, [1%Z], nil. split; [|split].
       * apply pcong_of_eq_nth. apply peval_eq_nth. intro y.
@@ -15774,9 +15829,9 @@ Proof.
         [lia | exfalso; apply Hjnd; apply Hdd_top; exact Hjgt]. }
     exact (no_positive_shared_factor p d f g n dd Hp Hn Hpn Hdd_nd Hdd_top Hdd1 Hd_f Hd_g Hfg).
   - assert (Hdsm : forall j, (1 <= j)%nat -> (P | nth j d 0)).
-    { intros j Hj. destruct (Classical_Prop.classic (P | nth j d 0)) as [H|H]; [exact H|].
+    { intros j Hj. destruct (Znumtheory.Zdivide_dec P (nth j d 0)) as [H|H]; [exact H|].
       exfalso. apply Hdsmall. exists j. split; assumption. }
-    destruct (Classical_Prop.classic (P | nth 0 d 0)) as [Hd0 | Hd0].
+    destruct (Znumtheory.Zdivide_dec P (nth 0 d 0)) as [Hd0 | Hd0].
     + exfalso. apply Hdf_nd.
       assert (Hdall : forall k, (P | nth k d 0))
         by (intro k; destruct k; [exact Hd0 | apply Hdsm; lia]).
@@ -15948,12 +16003,12 @@ Lemma real_deg_exists : forall (r : list R), (exists k, nth k r 0%R <> 0%R) ->
 Proof.
   induction r as [|a r IH]; intros [k Hk].
   - exfalso. apply Hk. destruct k; reflexivity.
-  - destruct (Classical_Prop.classic (exists m, nth m r 0%R <> 0%R)) as [Hr | Hr].
+  - destruct (Rlist_ex_nonzero_dec r) as [Hr | Hr].
     + destruct (IH Hr) as [e' [He'1 He'2]]. exists (S e'). split.
       * cbn [nth]. exact He'1.
       * intros j Hj. destruct j as [|j']; [lia|]. cbn [nth]. apply He'2; lia.
     + assert (Hrall : forall m, nth m r 0%R = 0%R).
-      { intro m. destruct (Classical_Prop.classic (nth m r 0%R = 0%R)) as [H|H];
+      { intro m. destruct (Req_dec_T (nth m r 0%R) 0%R) as [H|H];
           [exact H | exfalso; apply Hr; exists m; exact H]. }
       exists 0%nat. split.
       * destruct k as [|k'].
@@ -16136,14 +16191,14 @@ Proof.
     rewrite Hhz, rpe_padd, rpe_pmul, Hmz in Htrans.
     transitivity (Cadd (Cmul C0 (rpe q z)) (rpe r z)); [ring | symmetry; exact Htrans]. }
   assert (Hrcoeff : forall k, nth k r 0%R = 0%R).
-  { destruct (Classical_Prop.classic (exists k, nth k r 0%R <> 0%R)) as [Hex|Hno].
+  { destruct (Rlist_ex_nonzero_dec r) as [Hex|Hno].
     - exfalso. destruct (real_deg_exists r Hex) as [e' [He'1 He'2]].
       assert (He'len : (e' < length r)%nat).
       { destruct (Nat.lt_ge_cases e' (length r)) as [Hl|Hg];
           [exact Hl | exfalso; apply He'1; apply nth_overflow; exact Hg]. }
       assert (He'e : (e' < e)%nat) by lia.
       apply (Hmin e' He'e). apply (annih_normalize_z z r e' Hrrat Hrz He'1 He'2).
-    - intro k. destruct (Classical_Prop.classic (nth k r 0%R = 0%R)) as [H|H];
+    - intro k. destruct (Req_dec_T (nth k r 0%R) 0%R) as [H|H];
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro y. rewrite (Hid y), (pe_all0 r y Hrcoeff). ring.
 Qed.
@@ -16218,10 +16273,10 @@ Proof.
         rewrite cpe_Zpadd, cpe_Zpmul. reflexivity. }
       rewrite Hhz, Hmz in Hsp.
       transitivity (Cadd (Cmul C0 (cpe qq z)) (cpe rr z)); [ring | symmetry; exact Hsp]. }
-    destruct (Classical_Prop.classic (exists k, nth k rr 0 <> 0)) as [Hex|Hno].
+    destruct (Zlist_ex_nonzero_dec rr) as [Hex|Hno].
     - exfalso. apply (minpoly_min_no_smaller_z z e rr Hmin Hrrz Hex).
       intros j Hj. apply nth_overflow. lia.
-    - intro k. destruct (Classical_Prop.classic (nth k rr 0 = 0)) as [H|H];
+    - intro k. destruct (Z.eq_dec (nth k rr 0) 0) as [H|H];
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro k. rewrite (Hcoeff k), nth_Zpadd, Hrr0. lia.
 Qed.
@@ -17005,7 +17060,7 @@ Lemma ppart_exists : forall p n, 2 <= p -> 1 <= n ->
   exists e k, n = p ^ e * k /\ ~ Nat.divide p k.
 Proof.
   intros p n Hp. induction n as [n IH] using (well_founded_induction lt_wf). intro Hn.
-  destruct (Classical_Prop.classic (Nat.divide p n)) as [Hpn | Hpn].
+  destruct (Ndivide_dec p n) as [Hpn | Hpn].
   - destruct Hpn as [m Hm].
     assert (Hm1 : 1 <= m) by nia.
     assert (Hmlt : m < n) by nia.
@@ -17064,7 +17119,7 @@ Proof.
   - rewrite Nat.pow_0_r in Hd. apply Nat.divide_1_r in Hd. exists 0.
     split; [lia | rewrite Nat.pow_0_r; exact Hd].
   - rewrite Nat.pow_succ_r' in Hd.
-    destruct (Classical_Prop.classic (Nat.divide p d)) as [Hpd | Hpd].
+    destruct (Ndivide_dec p d) as [Hpd | Hpd].
     + destruct Hpd as [d' Hd']. subst d.
       assert (Hd'pe : Nat.divide d' (p ^ e)).
       { destruct Hd as [c Hc]. exists c.

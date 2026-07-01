@@ -1,21 +1,16 @@
-(* frontier.v -- reserved for results genuinely beyond established origami and
-   constructibility mathematics: open conjectures and theorems not yet proved on
-   paper, let alone mechanized.  A result that is already classical -- a theorem
-   in the literature -- does not belong here, even transiently: it goes straight
-   into the settled core (foundations / cyclotomic / geometry) at the file its
-   dependencies dictate.  Matured frontier results migrate DOWN the same way.
+(* frontier.v -- results beyond established origami and constructibility
+   mathematics: open conjectures and theorems not yet proved on paper.  A result
+   already in the literature belongs in the settled core (foundations / cyclotomic
+   / geometry) at the file its dependencies dictate; matured frontier results
+   migrate there.
 
    Sibling of extraction.v; both build on the settled core and neither depends on
    the other.  Never Require extraction: it rebinds sqrt to the primitive machine
    float.
 
-   Current campaign: TWO-FOLD ORIGAMI.  A genuine geometric two-fold quintic-
-   solving fold (the crease {t,-1,-t^4}, tangent to a quartic envelope, the
-   degree-5 analog of the single-fold Beloch cubic fold) grounding OrigamiNum2,
-   and the exact characterization OrigamiNum2 = the two-fold-constructible numbers
-   (OrigamiNum2_eq_TwoFold).  The {t,-1,-t^4} construction is a fresh derivation
-   rather than a transcription, so it develops here; it can migrate to geometry.v
-   once settled (mind the Cardano_C.C vs Line.C shadowing there). *)
+   Contents: two-fold origami -- the two-fold quintic fold (crease {t,-1,-t^4})
+   grounding OrigamiNum2, and OrigamiNum2 = the two-fold-constructible numbers
+   (OrigamiNum2_eq_TwoFold). *)
 From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
@@ -27,10 +22,10 @@ Open Scope R_scope.
 
    Single-fold O6 (Beloch) uses the crease {t, -1, -t^2}, tangent to a parabola,
    and reflecting (q,p) across it lands on {1,0,q} exactly when t^3 + p t + q = 0.
-   The two-fold crease {t, -1, -t^4} is tangent to a quartic envelope -- a genuine
-   two-fold construction -- and the same reflection lands on {1,0,q} exactly when
-   t^5 + p t + q = 0.  So two-fold origami solves the Bring-Jerrard quintic
-   geometrically, the degree-5 counterpart of Beloch's degree-3 fold.
+   The two-fold crease {t, -1, -t^4} is tangent to a quartic envelope, and the
+   same reflection lands on {1,0,q} exactly when t^5 + p t + q = 0: two-fold
+   origami solves the Bring-Jerrard quintic, the degree-5 counterpart of Beloch's
+   degree-3 fold.
    ============================================================================ *)
 
 (** The two-fold crease with parameter t (tangent to the quartic envelope). *)
@@ -80,12 +75,10 @@ Proof.
   apply ON2_mul; [apply ON2_mul; [apply ON2_mul; [exact Ht | exact Ht] | exact Ht] | exact Ht].
 Qed.
 
-(** Capstone: the two-fold origami quintic construction.  For p, q in OrigamiNum2
-    and a real root t of the Bring-Jerrard quintic t^5 + p t + q = 0, the crease
-    {t, -1, -t^4} is a genuine OrigamiNum2 line, reflecting (q,p) across it lands
-    on {1,0,q} (the two-fold incidence, the degree-5 analog of Beloch's O6), and
-    the constructed parameter t is itself in OrigamiNum2.  This grounds
-    OrigamiNum2's quintic-solving power in genuine two-fold origami geometry. *)
+(** For p, q in OrigamiNum2 and a root t of the Bring-Jerrard quintic
+    t^5 + p t + q = 0: the crease {t, -1, -t^4} is an OrigamiNum2 line, reflecting
+    (q,p) across it lands on {1,0,q} (the degree-5 analog of Beloch's O6), and t is
+    in OrigamiNum2. *)
 Theorem twofold_quintic_construction : forall p q t,
   OrigamiNum2 p -> OrigamiNum2 q -> t*t*t*t*t + p * t + q = 0 ->
   (OrigamiNum2 (A (twofold_crease t)) /\
@@ -162,10 +155,9 @@ Qed.
 (** The general two-fold incidence.  Reflecting (x0,y0) across the crease
     {t,-1,-t^4} lands on the line {1,b,c} exactly along the quintic
     2 t^5 - 2b t^4 + (b y0 + c - x0) t^2 + 2(b x0 + y0) t + (x0 - b y0 + c) = 0.
-    The two-fold fold thus solves every quintic with no t^3 term (the t^3
-    coefficient is structurally zero): a genuine geometric two-fold construction
-    covering the whole depressed-cubic-free quintic family, of which the
-    Bring-Jerrard t^5 + p t + q (b = 0, c = x0) is the special case. *)
+    The t^3 coefficient is structurally zero, so this covers every quintic with no
+    t^3 term; the Bring-Jerrard t^5 + p t + q (b = 0, c = x0) is the special
+    case. *)
 Lemma twofold_general_incidence : forall b c x0 y0 t,
   2*t^5 - 2*b*t^4 + (b*y0 + c - x0)*t^2 + 2*(b*x0 + y0)*t + (x0 - b*y0 + c) = 0 ->
   on_line (reflect_point (x0, y0) (twofold_crease t)) {| A := 1; B := b; C := c |}.

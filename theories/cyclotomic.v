@@ -2169,7 +2169,7 @@ Theorem Xn1_roots_iff : forall n w, (1 <= n)%nat ->
 Proof.
   intros n w Hn. split.
   - intro Hw.
-    destruct (Classical_Prop.classic (In w (roots_of_unity n))) as [Hin | Hnin];
+    destruct (In_dec Ceq_dec w (roots_of_unity n)) as [Hin | Hnin];
       [exact Hin |].
     exfalso.
     set (zs := w :: roots_of_unity n).
@@ -2717,14 +2717,14 @@ Proof.
     - ring.
     - symmetry. exact Htrans. }
   assert (Hrcoeff : forall k, nth k r 0%R = 0%R).
-  { destruct (Classical_Prop.classic (exists k, nth k r 0%R <> 0%R)) as [Hex|Hno].
+  { destruct (Rlist_ex_nonzero_dec r) as [Hex|Hno].
     - exfalso. destruct (real_deg_exists r Hex) as [e' [He'1 He'2]].
       assert (He'len : (e' < length r)%nat).
       { destruct (Nat.lt_ge_cases e' (length r)) as [Hl|Hg];
           [exact Hl | exfalso; apply He'1; apply nth_overflow; exact Hg]. }
       assert (He'e : (e' < e)%nat) by lia.
       apply (Hmin e' He'e). apply (annih_normalize n r e' Hrrat Hrz He'1 He'2).
-    - intro k. destruct (Classical_Prop.classic (nth k r 0%R = 0%R)) as [H|H];
+    - intro k. destruct (Req_dec_T (nth k r 0%R) 0%R) as [H|H];
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro y. rewrite (Hid y), (pe_all0 r y Hrcoeff). ring.
 Qed.
@@ -2840,10 +2840,10 @@ Proof.
       rewrite Hhz, Hmz in Hsp.
       transitivity (Cadd (Cmul C0 (cpe qq (zeta n))) (cpe rr (zeta n)));
         [ring | symmetry; exact Hsp]. }
-    destruct (Classical_Prop.classic (exists k, nth k rr 0 <> 0)) as [Hex|Hno].
+    destruct (Zlist_ex_nonzero_dec rr) as [Hex|Hno].
     - exfalso. apply (minpoly_min_no_smaller n e rr Hmin Hrrz Hex).
       intros j Hj. apply nth_overflow. lia.
-    - intro k. destruct (Classical_Prop.classic (nth k rr 0 = 0)) as [H|H];
+    - intro k. destruct (Z.eq_dec (nth k rr 0) 0) as [H|H];
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro k. rewrite (Hcoeff k), nth_Zpadd, Hrr0. lia.
 Qed.
@@ -2960,10 +2960,10 @@ Proof.
         rewrite cpe_Zpadd, cpe_Zpmul. reflexivity. }
       rewrite Hhw, Hmzw in Hsp.
       transitivity (Cadd (Cmul C0 (cpe qq w)) (cpe rr w)); [ring | symmetry; exact Hsp]. }
-    destruct (Classical_Prop.classic (exists k, nth k rr 0 <> 0)) as [Hex|Hno].
+    destruct (Zlist_ex_nonzero_dec rr) as [Hex|Hno].
     - exfalso. apply (minpoly_min_no_smaller_z w ew rr Hmwmin Hrrw Hex).
       intros j Hj. apply nth_overflow. lia.
-    - intro k. destruct (Classical_Prop.classic (nth k rr 0 = 0)) as [H|H];
+    - intro k. destruct (Z.eq_dec (nth k rr 0) 0) as [H|H];
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro k. rewrite (Hcoeff k), nth_Zpadd, Hrr0. lia.
 Qed.
@@ -3508,7 +3508,7 @@ Proof.
     destruct (Cmul_integral _ _ Hp) as [HM0|Hq0];
       [exfalso; apply (HMprim r Hr); exact HM0 | exact Hq0]. }
   assert (Hqnz' : exists k, nth k (map IZR q) 0%R <> 0%R).
-  { destruct (Classical_Prop.classic (exists k, nth k q 0%Z <> 0%Z)) as [[k Hk]|H].
+  { destruct (Zlist_ex_nonzero_dec q) as [[k Hk]|H].
     - exists k. rewrite nth_map_IZR. apply not_0_IZR. exact Hk.
     - exfalso. assert (Hq0 : forall k, nth k q 0%Z = 0%Z).
       { intro k. destruct (Z.eq_dec (nth k q 0%Z) 0%Z) as [E|E];
