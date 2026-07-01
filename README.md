@@ -61,8 +61,8 @@ without ingesting the whole corpus.
 | :--- | :--- | :--- |
 | `theories/foundations.v` | Algebra / analysis / number theory / polynomials / linear algebra; complex numbers; the `OrigamiNum` algebraic core | — |
 | `theories/cyclotomic.v` | Roots of unity, Φₙ over ℤ and ℂ, full Dedekind irreducibility, Chebyshev/Dickson, the cos-degree theory | foundations |
-| `theories/geometry.v` | Huzita O1-O7, folds, constructibility and enumeration, the Gaussian-period tower, the n-gon iff, casus irreducibilis for real square+cube-root towers | foundations, cyclotomic |
-| `theories/frontier.v` | Two-fold origami: the geometric quintic-solving fold grounding OrigamiNum2, and OrigamiNum2 = the two-fold-constructible numbers | foundations, cyclotomic, geometry |
+| `theories/geometry.v` | Huzita O1-O7, folds, constructibility and enumeration, the Gaussian-period towers (single-, two-, and three-fold), the n-gon characterizations, the two-fold quintic fold and `OrigamiNum2` = the two-fold-constructible numbers, casus irreducibilis for real square+cube-root towers | foundations, cyclotomic |
+| `theories/frontier.v` | Staging ground for open conjectures and theorems not yet proved on paper; empty between campaigns | foundations, cyclotomic, geometry |
 | `theories/extraction.v` | Demonstrations, density/classifier catalogs, `FloatGeom`, and the OCaml extraction | foundations, cyclotomic, geometry |
 | `theories/floatsound.v` | Soundness of the `FloatGeom` primitive-float layer against its real model via Flocq | extraction (+ Flocq) |
 
