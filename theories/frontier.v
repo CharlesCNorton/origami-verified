@@ -775,3 +775,156 @@ Proof.
   - apply ONK_sqrt; assumption.
   - apply (ONK_proot kk' d c r); [assumption | lia | assumption | assumption].
 Qed.
+
+(* ============================================================================
+   The unconditional primitive root.  Every prime p has a primitive root mod p:
+   element_order_unitary assembles it by strong induction over the unitary
+   divisors of p-1, taking one element per full prime power from
+   exists_order_ppow and combining coprime orders with order_coprime_mul.
+   primitive_root, primitive_root_5smooth, and primitive_root_7smooth are its
+   smoothness-restricted instances.
+   ============================================================================ *)
+
+Lemma prime_not_div_coprime : forall q r,
+  Znumtheory.prime (Z.of_nat q) -> ~ Nat.divide q r -> Nat.gcd q r = 1%nat.
+Proof.
+  intros q r Hq Hnd.
+  pose proof (is_prime_of_Z q Hq) as [Hq1 Hdd].
+  destruct (Nat.eq_dec (Nat.gcd q r) 0) as [Hg0 | Hgne].
+  - exfalso. pose proof (Nat.gcd_divide_l q r) as Hl. rewrite Hg0 in Hl.
+    apply Nat.divide_0_l in Hl. lia.
+  - destruct (Hdd (Nat.gcd q r) ltac:(lia) (Nat.gcd_divide_l q r)) as [E | E].
+    + exact E.
+    + exfalso. apply Hnd. rewrite <- E. apply Nat.gcd_divide_r.
+Qed.
+
+Lemma primes_distinct_coprime : forall q q',
+  Znumtheory.prime (Z.of_nat q) -> Znumtheory.prime (Z.of_nat q') -> q <> q' ->
+  Nat.gcd q q' = 1%nat.
+Proof.
+  intros q q' Hq Hq' Hne.
+  apply prime_not_div_coprime; [exact Hq |].
+  intro Hd. pose proof (is_prime_of_Z q' Hq') as [Hq'1 Hdd].
+  pose proof (is_prime_of_Z q Hq) as [Hq1 _].
+  destruct (Hdd q ltac:(lia) Hd) as [E|E]; [lia | exact (Hne E)].
+Qed.
+
+(** An element of any unitary-divisor order: k divides p-1 and contains each of
+    its primes to full multiplicity. *)
+Lemma element_order_unitary : forall p, Znumtheory.prime (Z.of_nat p) ->
+  forall k, (1 <= k)%nat ->
+  Nat.divide k (p - 1) ->
+  (forall q, Znumtheory.prime (Z.of_nat q) -> Nat.divide q k ->
+     exists e r, (p - 1 = q ^ e * r)%nat /\ Nat.gcd q r = 1%nat /\
+                 Nat.divide (q ^ e) k) ->
+  exists a, ~ (Z.of_nat p | a)%Z /\ is_order p a k.
+Proof.
+  intros p Hp.
+  induction k as [k IHk] using (well_founded_induction lt_wf).
+  intros Hk1 Hkdiv Hfull.
+  destruct (Nat.eq_dec k 1) as [-> | Hkne].
+  - exists 1%Z. split.
+    + intro Hd. destruct Hp as [Hp1 _].
+      pose proof (Znumtheory.Zdivide_le (Z.of_nat p) 1 ltac:(lia) ltac:(lia) Hd). lia.
+    + split.
+      * split; [lia |]. unfold cg. cbn [zpn].
+        replace (1 * 1 - 1)%Z with 0%Z by ring. apply Z.divide_0_r.
+      * intros k' Hk' [Hge _]. lia.
+  - assert (Hk2 : (2 <= k)%nat) by lia.
+    destruct (prime_factor_nat k Hk2) as [q [Hq Hqk]].
+    pose proof (is_prime_of_Z q Hq) as [Hq1 _].
+    destruct (Hfull q Hq Hqk) as [e [r [Hpr [Hgcd Hqek]]]].
+    assert (He1 : (1 <= e)%nat).
+    { destruct e as [|e']; [exfalso | lia].
+      rewrite Nat.pow_0_r, Nat.mul_1_l in Hpr.
+      assert (Hqr : Nat.divide q r).
+      { rewrite <- Hpr. eapply Nat.divide_trans; [exact Hqk | exact Hkdiv]. }
+      assert (Hqg : Nat.divide q (Nat.gcd q r))
+        by (apply Nat.gcd_greatest; [apply Nat.divide_refl | exact Hqr]).
+      rewrite Hgcd in Hqg. apply Nat.divide_1_r in Hqg. lia. }
+    assert (Hqe2 : (2 <= q ^ e)%nat).
+    { assert (Hmono : (q ^ 1 <= q ^ e)%nat) by (apply Nat.pow_le_mono_r; lia).
+      rewrite Nat.pow_1_r in Hmono. lia. }
+    set (k' := (k / q ^ e)%nat).
+    assert (Hkeq : (k = q ^ e * k')%nat).
+    { unfold k'. destruct Hqek as [z Hz]. rewrite Hz.
+      rewrite Nat.div_mul by lia. lia. }
+    assert (Hk'1 : (1 <= k')%nat) by nia.
+    assert (Hk'lt : (k' < k)%nat) by nia.
+    assert (Hqk' : ~ Nat.divide q k').
+    { intro Hd.
+      destruct Hkdiv as [m Hm].
+      assert (Hr : (q ^ e * r = q ^ e * (m * k'))%nat) by nia.
+      assert (Hr' : r = (m * k')%nat) by nia.
+      assert (Hqr : Nat.divide q r).
+      { rewrite Hr'. destruct Hd as [z Hz]. exists (m * z)%nat. lia. }
+      assert (Hqg : Nat.divide q (Nat.gcd q r))
+        by (apply Nat.gcd_greatest; [apply Nat.divide_refl | exact Hqr]).
+      rewrite Hgcd in Hqg. apply Nat.divide_1_r in Hqg. lia. }
+    assert (Hk'div : Nat.divide k' (p - 1)).
+    { eapply Nat.divide_trans; [| exact Hkdiv]. exists (q ^ e)%nat. lia. }
+    assert (Hfull' : forall q0, Znumtheory.prime (Z.of_nat q0) -> Nat.divide q0 k' ->
+        exists e0 r0, (p - 1 = q0 ^ e0 * r0)%nat /\ Nat.gcd q0 r0 = 1%nat /\
+                      Nat.divide (q0 ^ e0) k').
+    { intros q0 Hq0 Hq0k'.
+      assert (Hq0k : Nat.divide q0 k).
+      { eapply Nat.divide_trans; [exact Hq0k' |]. exists (q ^ e)%nat. lia. }
+      destruct (Hfull q0 Hq0 Hq0k) as [e0 [r0 [Hpr0 [Hgcd0 Hq0ek]]]].
+      exists e0, r0. split; [exact Hpr0 | split; [exact Hgcd0 |]].
+      assert (Hq0q : q0 <> q).
+      { intro E. subst q0. exact (Hqk' Hq0k'). }
+      assert (Hcop : Nat.gcd (q0 ^ e0) (q ^ e) = 1%nat).
+      { apply coprime_pow_l. apply coprime_pow_r.
+        apply primes_distinct_coprime; assumption. }
+      apply (nat_coprime_divmul (q0 ^ e0) (q ^ e) k' Hcop).
+      rewrite <- Hkeq. exact Hq0ek. }
+    destruct (IHk k' Hk'lt Hk'1 Hk'div Hfull') as [a' [Ha'nd Ha'ord]].
+    destruct (exists_order_ppow p q e r Hp Hq Hpr Hgcd) as [b [Hbnd Hbord]].
+    assert (Hcopk : Nat.gcd (q ^ e) k' = 1%nat).
+    { apply coprime_pow_l. apply prime_not_div_coprime; [exact Hq | exact Hqk']. }
+    exists (b * a')%Z. split.
+    + intro Hd. destruct (Znumtheory.prime_mult (Z.of_nat p) Hp b a' Hd) as [Hc|Hc];
+        [exact (Hbnd Hc) | exact (Ha'nd Hc)].
+    + rewrite Hkeq.
+      exact (order_coprime_mul p b a' (q ^ e) k' Hp Hbord Ha'ord Hcopk).
+Qed.
+
+(** THE UNCONDITIONAL PRIMITIVE ROOT: no smoothness hypothesis.  The lemmas
+    primitive_root, primitive_root_5smooth, primitive_root_7smooth all follow
+    by discarding their smoothness arguments. *)
+Theorem primitive_root_gen : forall p,
+  Znumtheory.prime (Z.of_nat p) -> (5 <= p)%nat ->
+  exists g, (1 <= g < Z.of_nat p)%Z /\ per p g (p - 1) /\
+    (forall k, (1 <= k < p - 1)%nat -> ~ cg (Z.of_nat p) (zpn g k) 1%Z).
+Proof.
+  intros p Hp Hp5.
+  assert (Hfull : forall q, Znumtheory.prime (Z.of_nat q) -> Nat.divide q (p - 1) ->
+      exists e r, (p - 1 = q ^ e * r)%nat /\ Nat.gcd q r = 1%nat /\
+                  Nat.divide (q ^ e) (p - 1)).
+  { intros q Hq Hqd.
+    pose proof (is_prime_of_Z q Hq) as [Hq1 _].
+    destruct (ppart_exists q (p - 1) ltac:(lia) ltac:(lia)) as [e [r [Hpr Hnd]]].
+    exists e, r. split; [exact Hpr | split].
+    - apply prime_not_div_coprime; [exact Hq | exact Hnd].
+    - exists r. lia. }
+  destruct (element_order_unitary p Hp (p - 1) ltac:(lia) (Nat.divide_refl _) Hfull)
+    as [G [HGnd HGord]].
+  set (g := (G mod Z.of_nat p)%Z).
+  assert (HpZ : (Z.of_nat p <> 0)%Z) by lia.
+  assert (Hgcg : cg (Z.of_nat p) G g).
+  { unfold cg, g. rewrite Z.mod_eq by exact HpZ.
+    exists (G / Z.of_nat p)%Z. ring. }
+  assert (Hgord : is_order p g (p - 1))
+    by (apply (is_order_cong p G g (p - 1) Hgcg HGord)).
+  assert (Hgnd : ~ (Z.of_nat p | g)%Z).
+  { intro Hd. apply HGnd. unfold cg in Hgcg.
+    replace G with ((G - g) + g)%Z by ring. apply Z.divide_add_r; assumption. }
+  assert (Hg0 : (g <> 0)%Z)
+    by (intro H0; apply Hgnd; rewrite H0; apply Z.divide_0_r).
+  assert (Hgrange : (1 <= g < Z.of_nat p)%Z).
+  { unfold g. pose proof (Z.mod_pos_bound G (Z.of_nat p) ltac:(lia)) as Hb.
+    unfold g in Hg0. lia. }
+  exists g. split; [exact Hgrange | split].
+  - exact (proj1 Hgord).
+  - intros k [Hk1 Hk2] Hc. apply (proj2 Hgord k Hk2). split; [exact Hk1 | exact Hc].
+Qed.
