@@ -9602,3 +9602,436 @@ Proof.
   assert (Q3 : is_rational 1) by apply is_rational_1.
   exact (casus_irreducibilis_tower 0 (-3) 1 Q0 Q2 Q3 Hallreal Hnorat).
 Qed.
+
+(* ============================================================================
+   The two-fold n-gon characterization: cos(2*PI/n) is two-fold-origami
+   constructible (in OrigamiNum2) iff phi(n) is {2,3,5}-smooth.  This is the
+   exact two-fold analogue of ngon_origami_iff_complete (the single-fold case,
+   2-3-smooth).  Impossibility (necessary) half first: an OrigamiNum2 number has
+   {2,3,5}-smooth field degree (OrigamiNum2_field_degree_smooth), and the degree
+   of 2cos(2*PI/n) over Q is exactly phi(n)/2 (cos_2pi_n_degree_exactly); so a
+   non-5-smooth phi(n) rules out two-fold constructibility.
+   ============================================================================ *)
+
+(* if phi(n) = 2k with k not 5-smooth, then cos(2*PI/n) is not two-fold origami *)
+Theorem cos_2pi_n_not_two_fold : forall n k, (3 <= n)%nat -> (euler_phi n = 2*k)%nat ->
+  ~ is_5_smooth k -> ~ OrigamiNum2 (cos (2 * PI / INR n)).
+Proof.
+  intros n k Hn Hphi Hns HO.
+  set (delta := 2 * cos (2 * PI / INR n)).
+  assert (Hdelta : OrigamiNum2 delta).
+  { unfold delta.
+    replace (2 * cos (2 * PI / INR n))
+      with (cos (2 * PI / INR n) + cos (2 * PI / INR n)) by ring.
+    apply ON2_add; exact HO. }
+  destruct (OrigamiNum2_field_degree_smooth delta Hdelta) as [d [Hbasis Hsmooth]].
+  pose proof (cos_2pi_n_degree_exactly n k Hn Hphi) as Hbasisk. fold delta in Hbasisk.
+  destruct Hbasis as [HBd [Hlid Hspd]].
+  destruct Hbasisk as [HBk [Hlik Hspk]].
+  assert (Hdk : (d <= k)%nat).
+  { pose proof (indep_le_span is_rational (powers delta d) (powers delta k) (Qx delta)
+                  is_rational_subfield Hlid HBd Hspk) as Hle.
+    rewrite !powers_length in Hle. exact Hle. }
+  assert (Hkd : (k <= d)%nat).
+  { pose proof (indep_le_span is_rational (powers delta k) (powers delta d) (Qx delta)
+                  is_rational_subfield Hlik HBk Hspd) as Hle.
+    rewrite !powers_length in Hle. exact Hle. }
+  assert (Hdeq : d = k) by lia. subst d. exact (Hns Hsmooth).
+Qed.
+
+(* clean form for all n >= 3: phi(n) not 5-smooth rules out two-fold origami *)
+Theorem cos_2pi_n_not_two_fold_clean : forall n, (3 <= n)%nat ->
+  ~ is_5_smooth (euler_phi n) -> ~ OrigamiNum2 (cos (2 * PI / INR n)).
+Proof.
+  intros n Hn Hns HO.
+  destruct (euler_phi_even n Hn) as [k Hk].
+  assert (Hk5 : is_5_smooth k).
+  { destruct (classic (is_5_smooth k)) as [Hs|Hns2]; [exact Hs|].
+    exfalso. exact (cos_2pi_n_not_two_fold n k Hn Hk Hns2 HO). }
+  apply Hns. rewrite Hk. exact (is_5_smooth_mul2 k Hk5).
+Qed.
+
+(* ============================================================================
+   Constructive half: the two-fold Gaussian-period tower.  For a prime P >= 5
+   with a primitive root g and 5-smooth P-1, cos(2*PI/P) lies in OrigamiNum2.
+   Mirrors the single-fold Section Tower, over OrigamiNum2, with a degree-5 rung
+   (step5) driven by the two-fold quintic fold (ON2_quint) and the degree-5
+   Newton identity (quintic_root_from_psums).  The 2- and 3-rungs are the
+   single-fold steps re-run over OrigamiNum2.  All power sums p2..p5 of the s
+   sub-periods collapse to the coarse level through one inductive lemma,
+   par_prod_pow_ON2, built on the reusable identity PerV_mul.
+   ============================================================================ *)
+
+(* a finite sum of OrigamiNum2 terms is OrigamiNum2 *)
+Lemma rsum_ON2 : forall (l : list nat) (f : nat -> R),
+  (forall k, OrigamiNum2 (f k)) -> OrigamiNum2 (rsum l f).
+Proof.
+  intros l f Hf. induction l as [|x l IH].
+  - rewrite (rsum_nilL f). apply ON2_0.
+  - rewrite (rsum_consL x l f). apply ON2_add; [apply Hf | exact IH].
+Qed.
+
+Lemma rsum_5 : forall phi,
+  rsum (seq 0 5) phi = phi 0%nat + phi 1%nat + phi 2%nat + phi 3%nat + phi 4%nat.
+Proof. intro phi. change (seq 0 5) with [0;1;2;3;4]%nat. rewrite !rsum_consL, rsum_nilL. ring. Qed.
+
+Section Tower2.
+
+Variable P : nat.
+Variable g : Z.
+Hypothesis HP : Znumtheory.prime (Z.of_nat P).
+Hypothesis HP5 : (5 <= P)%nat.
+Hypothesis Hg : per P g (P - 1).
+Hypothesis Hgord : forall k, (1 <= k < P - 1)%nat -> ~ cg (Z.of_nat P) (zpn g k) 1%Z.
+Hypothesis Hgr : (1 <= g < Z.of_nat P)%Z.
+Hypothesis Hsmooth5 : is_5_smooth (P - 1).
+
+Local Notation n := (P - 1)%nat.
+
+(* base level: the rational base period is two-fold origami *)
+Lemma base2 : forall v, OrigamiNum2 (PerV P g v 1).
+Proof. intro v. apply Origami_in_Origami2. exact (base P g HP HP5 Hgord Hgr v). Qed.
+
+(* the s sub-periods of a g^D-coset raised to a power and summed against another
+   sub-period family collapse to the coarse level: sum_l PerV(w g^Dl)^j * PerV(u g^Dl)
+   is OrigamiNum2.  Induction on j, reducing one factor pair via PerV_mul.  With
+   u = w this yields every power sum p_{j+1} = sum_l PerV(w g^Dl)^{j+1}. *)
+Lemma par_prod_pow_ON2 : forall (D s : nat) (w : Z),
+  (1 <= D)%nat -> (1 <= s)%nat -> Nat.divide (D * s) n ->
+  (forall v, OrigamiNum2 (PerV P g v D)) ->
+  forall j (u : Z),
+  OrigamiNum2 (rsum (seq 0 s) (fun l =>
+     (PerV P g (w * zpn g (D * l)) (D * s)) ^ j * PerV P g (u * zpn g (D * l)) (D * s))).
+Proof.
+  intros D s w HD Hs Hdiv IH.
+  assert (HE : (1 <= D * s)%nat) by nia.
+  induction j as [|j IHj]; intro u.
+  - assert (Heq : rsum (seq 0 s) (fun l =>
+        (PerV P g (w * zpn g (D * l)) (D * s)) ^ 0 * PerV P g (u * zpn g (D * l)) (D * s))
+      = PerV P g u D).
+    { transitivity (rsum (seq 0 s) (fun l => PerV P g (zpn g (D * l) * u)%Z (D * s))).
+      - apply rsum_ext. intro l. cbn [pow].
+        replace (u * zpn g (D * l))%Z with (zpn g (D * l) * u)%Z by ring. ring.
+      - exact (collapse P g HP5 D s u ltac:(lia) ltac:(lia) Hdiv). }
+    rewrite Heq. apply IH.
+  - set (RHS := rsum (seq 0 (n / (D * s))) (fun s' =>
+        rsum (seq 0 s) (fun l => (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+           * PerV P g ((w * zpn g (D * s * s') + u) * zpn g (D * l)) (D * s))
+      + rsum (seq 0 s) (fun l => (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+           * PerV P g ((w * zpn g (D * s * s') - u) * zpn g (D * l)) (D * s)))).
+    assert (Hstep : 2 * rsum (seq 0 s) (fun l =>
+          (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S j)
+        * PerV P g (u * zpn g (D * l)) (D * s)) = RHS).
+    { rewrite rsum_scale_l. unfold RHS.
+      transitivity (rsum (seq 0 s) (fun l =>
+          rsum (seq 0 (n / (D * s))) (fun s' =>
+             (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+               * PerV P g ((w * zpn g (D * s * s') + u) * zpn g (D * l)) (D * s)
+           + (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+               * PerV P g ((w * zpn g (D * s * s') - u) * zpn g (D * l)) (D * s)))).
+      - apply rsum_ext. intro l.
+        assert (Hmul : 2 * (PerV P g (w * zpn g (D * l)) (D * s)
+                          * PerV P g (u * zpn g (D * l)) (D * s))
+          = rsum (seq 0 (n / (D * s))) (fun s' =>
+              PerV P g ((w * zpn g (D * s * s') + u) * zpn g (D * l)) (D * s)
+            + PerV P g ((w * zpn g (D * s * s') - u) * zpn g (D * l)) (D * s))).
+        { rewrite (PerV_mul P g HP5 Hg (w * zpn g (D * l))%Z (u * zpn g (D * l))%Z (D * s) HE Hdiv).
+          apply rsum_ext. intro s'.
+          replace (w * zpn g (D * l) * zpn g (D * s * s') + u * zpn g (D * l))%Z
+            with ((w * zpn g (D * s * s') + u) * zpn g (D * l))%Z by ring.
+          replace (w * zpn g (D * l) * zpn g (D * s * s') - u * zpn g (D * l))%Z
+            with ((w * zpn g (D * s * s') - u) * zpn g (D * l))%Z by ring.
+          reflexivity. }
+        replace (2 * ((PerV P g (w * zpn g (D * l)) (D * s)) ^ (S j)
+                    * PerV P g (u * zpn g (D * l)) (D * s)))
+          with ((PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+              * (2 * (PerV P g (w * zpn g (D * l)) (D * s)
+                    * PerV P g (u * zpn g (D * l)) (D * s))))
+          by (cbn [pow]; ring).
+        rewrite Hmul, rsum_scale_l. apply rsum_ext. intro s'. ring.
+      - rewrite rsum_swap. apply rsum_ext. intro s'. apply rsum_plus. }
+    assert (HON : OrigamiNum2 RHS).
+    { unfold RHS. apply rsum_ON2. intro s'. apply ON2_add; apply IHj. }
+    assert (Hval : rsum (seq 0 s) (fun l =>
+          (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S j)
+        * PerV P g (u * zpn g (D * l)) (D * s)) = RHS / 2) by lra.
+    rewrite Hval. apply ON2_div; [exact HON | apply ON2_two | lra].
+Qed.
+
+(* power sum p_{k} = sum_l PerV(w g^Dl)^k is OrigamiNum2 (k >= 1), packaging
+   par_prod_pow_ON2 at u = w in the repeated-product form the step lemmas use *)
+Lemma psum_ON2 : forall (D s : nat) (w : Z) (k : nat),
+  (1 <= D)%nat -> (1 <= s)%nat -> Nat.divide (D * s) n ->
+  (forall v, OrigamiNum2 (PerV P g v D)) ->
+  OrigamiNum2 (rsum (seq 0 s) (fun l =>
+     (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S k))).
+Proof.
+  intros D s w k HD Hs Hdiv IH.
+  assert (Heq : rsum (seq 0 s) (fun l => (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S k))
+    = rsum (seq 0 s) (fun l =>
+        (PerV P g (w * zpn g (D * l)) (D * s)) ^ k * PerV P g (w * zpn g (D * l)) (D * s))).
+  { apply rsum_ext. intro l. cbn [pow]. ring. }
+  rewrite Heq. exact (par_prod_pow_ON2 D s w HD Hs Hdiv IH k w).
+Qed.
+
+(* tower step: degree-2 (square root), over OrigamiNum2 *)
+Lemma step2_ON2 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 2) n ->
+  (forall v, OrigamiNum2 (PerV P g v D)) ->
+  OrigamiNum2 (PerV P g w (D * 2)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 2) + PerV P g (w * zpn g (D * 1)) (D * 2)).
+  { rewrite (PerV_partition P g HP5 w D 2 ltac:(lia) ltac:(lia) Hdiv). apply rsum_2. }
+  assert (Hp2 : rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                       * PerV P g (w * zpn g (D * l)) (D * 2))
+    = PerV P g (w * zpn g (D * 0)) (D * 2) * PerV P g (w * zpn g (D * 0)) (D * 2)
+    + PerV P g (w * zpn g (D * 1)) (D * 2) * PerV P g (w * zpn g (D * 1)) (D * 2))
+    by apply rsum_2.
+  assert (Hp2ON : OrigamiNum2 (rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                       * PerV P g (w * zpn g (D * l)) (D * 2)))).
+  { assert (Hpe : rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                         * PerV P g (w * zpn g (D * l)) (D * 2))
+      = rsum (seq 0 2) (fun l => (PerV P g (w * zpn g (D * l)) (D * 2)) ^ (S 1))).
+    { apply rsum_ext. intro l. cbn [pow]. ring. }
+    rewrite Hpe. exact (psum_ON2 D 2 w 1 HD ltac:(lia) Hdiv IH). }
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                    * PerV P g (w * zpn g (D * l)) (D * 2))) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 2)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 2)) in *.
+  assert (He1ON : OrigamiNum2 e1) by (unfold e1; apply IH).
+  assert (Hx0 : PerV P g w (D * 2) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON2_general_quadratic (- e1) ((e1 * e1 - p2) / 2) x0).
+  - apply ON2_neg; exact He1ON.
+  - apply ON2_div; [apply ON2_sub; [apply ON2_mul; exact He1ON | exact Hp2ON]
+                  | apply ON2_two | lra].
+  - exact (quad_root_from_psums x0 x1 e1 p2 He1 Hp2).
+Qed.
+
+(* tower step: degree-3 (cube root / two-fold cubic fold), over OrigamiNum2 *)
+Lemma step3_ON2 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 3) n ->
+  (forall v, OrigamiNum2 (PerV P g v D)) ->
+  OrigamiNum2 (PerV P g w (D * 3)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 3)
+    + PerV P g (w * zpn g (D * 1)) (D * 3)
+    + PerV P g (w * zpn g (D * 2)) (D * 3)).
+  { rewrite (PerV_partition P g HP5 w D 3 ltac:(lia) ltac:(lia) Hdiv). apply rsum_3. }
+  assert (Hp2 : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3))
+    = PerV P g (w * zpn g (D * 0)) (D * 3) * PerV P g (w * zpn g (D * 0)) (D * 3)
+    + PerV P g (w * zpn g (D * 1)) (D * 3) * PerV P g (w * zpn g (D * 1)) (D * 3)
+    + PerV P g (w * zpn g (D * 2)) (D * 3) * PerV P g (w * zpn g (D * 2)) (D * 3))
+    by apply rsum_3.
+  assert (Hp3 : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3))
+    = PerV P g (w * zpn g (D * 0)) (D * 3) * PerV P g (w * zpn g (D * 0)) (D * 3) * PerV P g (w * zpn g (D * 0)) (D * 3)
+    + PerV P g (w * zpn g (D * 1)) (D * 3) * PerV P g (w * zpn g (D * 1)) (D * 3) * PerV P g (w * zpn g (D * 1)) (D * 3)
+    + PerV P g (w * zpn g (D * 2)) (D * 3) * PerV P g (w * zpn g (D * 2)) (D * 3) * PerV P g (w * zpn g (D * 2)) (D * 3))
+    by apply rsum_3.
+  assert (Hp2ON : OrigamiNum2 (rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)))).
+  { assert (Hpe : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                         * PerV P g (w * zpn g (D * l)) (D * 3))
+      = rsum (seq 0 3) (fun l => (PerV P g (w * zpn g (D * l)) (D * 3)) ^ (S 1))).
+    { apply rsum_ext. intro l. cbn [pow]. ring. }
+    rewrite Hpe. exact (psum_ON2 D 3 w 1 HD ltac:(lia) Hdiv IH). }
+  assert (Hp3ON : OrigamiNum2 (rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)))).
+  { assert (Hpe : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                         * PerV P g (w * zpn g (D * l)) (D * 3)
+                                         * PerV P g (w * zpn g (D * l)) (D * 3))
+      = rsum (seq 0 3) (fun l => (PerV P g (w * zpn g (D * l)) (D * 3)) ^ (S (S 1)))).
+    { apply rsum_ext. intro l. cbn [pow]. ring. }
+    rewrite Hpe. exact (psum_ON2 D 3 w 2 HD ltac:(lia) Hdiv IH). }
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                    * PerV P g (w * zpn g (D * l)) (D * 3))) in *.
+  set (p3 := rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                    * PerV P g (w * zpn g (D * l)) (D * 3)
+                                    * PerV P g (w * zpn g (D * l)) (D * 3))) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 3)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 3)) in *.
+  set (x2 := PerV P g (w * zpn g (D * 2)) (D * 3)) in *.
+  assert (He1ON : OrigamiNum2 e1) by (unfold e1; apply IH).
+  assert (He2ON : OrigamiNum2 ((e1 * e1 - p2) / 2)) by
+    (apply ON2_div; [ apply ON2_sub; [ apply ON2_mul; exact He1ON | exact Hp2ON ]
+                    | apply ON2_two | lra ]).
+  assert (Hx0 : PerV P g w (D * 3) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON2_general_cubic (- e1) ((e1 * e1 - p2) / 2)
+           (- ((p3 - e1 * p2 + ((e1 * e1 - p2) / 2) * e1) / 3)) x0).
+  - apply ON2_neg; exact He1ON.
+  - exact He2ON.
+  - apply ON2_neg. apply ON2_div.
+    + apply ON2_add.
+      * apply ON2_sub; [ exact Hp3ON | apply ON2_mul; [ exact He1ON | exact Hp2ON ] ].
+      * apply ON2_mul; [ exact He2ON | exact He1ON ].
+    + apply ON2_three.
+    + lra.
+  - exact (cubic_root_from_psums x0 x1 x2 e1 p2 p3 He1 Hp2 Hp3).
+Qed.
+
+(* tower step: degree-5 (two-fold Bring-Jerrard quintic fold), over OrigamiNum2.
+   The new rung: five sub-periods, power sums p2..p5, elementary symmetric
+   functions by Newton (quintic_root_from_psums), and the monic quintic solved by
+   the two-fold quintic fold ON2_quint. *)
+Lemma step5 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 5) n ->
+  (forall v, OrigamiNum2 (PerV P g v D)) ->
+  OrigamiNum2 (PerV P g w (D * 5)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (ON2_4 : OrigamiNum2 4) by (replace 4 with (2 + 2) by ring; apply ON2_add; apply ON2_two).
+  assert (ON2_5 : OrigamiNum2 5)
+    by (replace 5 with (2 + 3) by ring; apply ON2_add; [apply ON2_two | apply ON2_three]).
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 5)
+    + PerV P g (w * zpn g (D * 1)) (D * 5)
+    + PerV P g (w * zpn g (D * 2)) (D * 5)
+    + PerV P g (w * zpn g (D * 3)) (D * 5)
+    + PerV P g (w * zpn g (D * 4)) (D * 5)).
+  { rewrite (PerV_partition P g HP5 w D 5 ltac:(lia) ltac:(lia) Hdiv). apply rsum_5. }
+  assert (Hp2 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 2)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 2
+    + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 2
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 2
+    + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 2
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 2) by (rewrite rsum_5; reflexivity).
+  assert (Hp3 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 3)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 3
+    + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 3
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 3
+    + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 3
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 3) by (rewrite rsum_5; reflexivity).
+  assert (Hp4 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 4)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 4
+    + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 4
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 4
+    + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 4
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 4) by (rewrite rsum_5; reflexivity).
+  assert (Hp5 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 5)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 5
+    + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 5
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 5
+    + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 5
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 5) by (rewrite rsum_5; reflexivity).
+  assert (Hp2ON : OrigamiNum2 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 2)))
+    by exact (psum_ON2 D 5 w 1 HD ltac:(lia) Hdiv IH).
+  assert (Hp3ON : OrigamiNum2 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 3)))
+    by exact (psum_ON2 D 5 w 2 HD ltac:(lia) Hdiv IH).
+  assert (Hp4ON : OrigamiNum2 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 4)))
+    by exact (psum_ON2 D 5 w 3 HD ltac:(lia) Hdiv IH).
+  assert (Hp5ON : OrigamiNum2 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 5)))
+    by exact (psum_ON2 D 5 w 4 HD ltac:(lia) Hdiv IH).
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 2)) in *.
+  set (p3 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 3)) in *.
+  set (p4 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 4)) in *.
+  set (p5 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 5)) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 5)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 5)) in *.
+  set (x2 := PerV P g (w * zpn g (D * 2)) (D * 5)) in *.
+  set (x3 := PerV P g (w * zpn g (D * 3)) (D * 5)) in *.
+  set (x4 := PerV P g (w * zpn g (D * 4)) (D * 5)) in *.
+  assert (He1ON : OrigamiNum2 e1) by (unfold e1; apply IH).
+  set (E2 := (e1 * e1 - p2) / 2) in *.
+  set (E3 := (E2 * e1 - e1 * p2 + p3) / 3) in *.
+  set (E4 := (E3 * e1 - E2 * p2 + e1 * p3 - p4) / 4) in *.
+  set (E5 := (E4 * e1 - E3 * p2 + E2 * p3 - e1 * p4 + p5) / 5) in *.
+  assert (HE2 : OrigamiNum2 E2) by
+    (unfold E2; apply ON2_div; [apply ON2_sub; [apply ON2_mul; exact He1ON | exact Hp2ON]
+                              | apply ON2_two | lra]).
+  assert (HE3 : OrigamiNum2 E3) by
+    (unfold E3; apply ON2_div;
+       [apply ON2_add; [apply ON2_sub; [apply ON2_mul; [exact HE2 | exact He1ON]
+                                       | apply ON2_mul; [exact He1ON | exact Hp2ON]] | exact Hp3ON]
+        | apply ON2_three | lra]).
+  assert (HE4 : OrigamiNum2 E4) by
+    (unfold E4; apply ON2_div;
+       [apply ON2_sub; [apply ON2_add; [apply ON2_sub; [apply ON2_mul; [exact HE3 | exact He1ON]
+                                                       | apply ON2_mul; [exact HE2 | exact Hp2ON]]
+                                       | apply ON2_mul; [exact He1ON | exact Hp3ON]] | exact Hp4ON]
+        | exact ON2_4 | lra]).
+  assert (HE5 : OrigamiNum2 E5) by
+    (unfold E5; apply ON2_div;
+       [apply ON2_add; [apply ON2_sub; [apply ON2_add; [apply ON2_sub; [apply ON2_mul; [exact HE4 | exact He1ON]
+                                                                       | apply ON2_mul; [exact HE3 | exact Hp2ON]]
+                                                       | apply ON2_mul; [exact HE2 | exact Hp3ON]]
+                                       | apply ON2_mul; [exact He1ON | exact Hp4ON]] | exact Hp5ON]
+        | exact ON2_5 | lra]).
+  assert (Hx0 : PerV P g w (D * 5) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON2_quint (- e1) E2 (- E3) E4 (- E5) x0).
+  - apply ON2_neg; exact He1ON.
+  - exact HE2.
+  - apply ON2_neg; exact HE3.
+  - exact HE4.
+  - apply ON2_neg; exact HE5.
+  - pose proof (quintic_root_from_psums x0 x1 x2 x3 x4 e1 p2 p3 p4 p5 He1 Hp2 Hp3 Hp4 Hp5) as Hq.
+    cbv zeta in Hq. exact Hq.
+Qed.
+
+(* the two-fold tower: every period at every divisor level of P-1 is OrigamiNum2,
+   branching on the prime factor 2/3/5 of the level (P-1 is 5-smooth) *)
+Lemma period_tower2 : forall D, Nat.divide D n -> forall v, OrigamiNum2 (PerV P g v D).
+Proof.
+  intro D. induction D as [D IHD] using (well_founded_induction lt_wf). intros Hdiv v.
+  destruct (Nat.eq_dec D 1) as [HD1 | HDne].
+  - subst D. apply base2.
+  - assert (HDpos : (1 <= D)%nat).
+    { destruct (Nat.eq_dec D 0) as [HD0|HD0].
+      - subst D. destruct Hdiv as [z Hz]. rewrite Nat.mul_0_r in Hz. lia.
+      - lia. }
+    assert (HD2 : (2 <= D)%nat) by lia.
+    destruct (prime_factor_nat D HD2) as [q [Hqprime Hqdvd]].
+    assert (Hq0 : q <> 0%nat) by (destruct Hqprime as [Hqg _]; lia).
+    destruct Hsmooth5 as [a [b [c Hab]]].
+    assert (Hq235 : q = 2%nat \/ q = 3%nat \/ q = 5%nat).
+    { apply (prime_dvd_2a3b5c q a b c Hqprime). rewrite <- Hab.
+      apply (Nat.divide_trans q D (P - 1) Hqdvd Hdiv). }
+    assert (HqD : (D / q * q)%nat = D) by (apply divides_div_mul; [exact Hq0 | exact Hqdvd]).
+    set (D' := (D / q)%nat) in *.
+    assert (HD'pos : (1 <= D')%nat) by nia.
+    assert (HD'lt : (D' < D)%nat) by nia.
+    assert (HD'div : Nat.divide D' (P - 1)).
+    { apply (Nat.divide_trans D' D (P - 1)); [ exists q; lia | exact Hdiv ]. }
+    assert (IHD' : forall v0, OrigamiNum2 (PerV P g v0 D')) by exact (IHD D' HD'lt HD'div).
+    destruct Hq235 as [Hq2 | [Hq3 | Hq5]].
+    + subst q.
+      assert (Hd2div : Nat.divide (D' * 2) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step2_ON2 D' v HD'pos Hd2div IHD').
+    + subst q.
+      assert (Hd3div : Nat.divide (D' * 3) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step3_ON2 D' v HD'pos Hd3div IHD').
+    + subst q.
+      assert (Hd5div : Nat.divide (D' * 5) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step5 D' v HD'pos Hd5div IHD').
+Qed.
+
+(* target: cos(2*PI/P) is the finest period, hence two-fold origami *)
+Lemma cos_ON2_section2 : OrigamiNum2 (cos (2 * PI / INR P)).
+Proof.
+  assert (Hnn : Nat.divide n n) by apply Nat.divide_refl.
+  pose proof (period_tower2 n Hnn 1%Z) as HPer.
+  assert (Hval : PerV P g 1 n = cos (2 * PI / INR P)).
+  { rewrite (PerV_rsum P g 1 n).
+    assert (Hnn1 : (n / n = 1)%nat) by (apply Nat.div_same; lia).
+    rewrite Hnn1.
+    assert (Hseq : seq 0 1 = [0%nat]) by reflexivity.
+    rewrite Hseq, rsum_single. cbn beta.
+    rewrite Nat.mul_0_r. cbn [zpn].
+    replace (1 * 1)%Z with 1%Z by ring.
+    exact (ca_one P HP5). }
+  rewrite <- Hval. exact HPer.
+Qed.
+
+End Tower2.

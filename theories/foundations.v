@@ -15655,6 +15655,98 @@ Proof.
   rewrite Hx. apply Origami_div; [apply ON_sub; [exact Hwon|exact Hc1] | apply Origami_two | lra].
 Qed.
 
+(* ===== OrigamiNum2 field helpers and general low-degree closures, mirroring
+   the single-fold Origami_neg/two/three/div and origami_general_quadratic/cubic,
+   used to build the two-fold Gaussian-period tower. ===== *)
+Lemma ON2_neg : forall x, OrigamiNum2 x -> OrigamiNum2 (- x).
+Proof. intros x H. replace (- x) with (0 - x) by ring. apply ON2_sub; [apply ON2_0 | exact H]. Qed.
+
+Lemma ON2_two : OrigamiNum2 2.
+Proof. replace 2 with (1 + 1) by ring. apply ON2_add; apply ON2_1. Qed.
+
+Lemma ON2_three : OrigamiNum2 3.
+Proof. replace 3 with (1 + (1 + 1)) by ring. apply ON2_add; [apply ON2_1 | apply ON2_add; apply ON2_1]. Qed.
+
+Lemma ON2_div : forall x y, OrigamiNum2 x -> OrigamiNum2 y -> y <> 0 -> OrigamiNum2 (x / y).
+Proof.
+  intros x y Hx Hy Hne. unfold Rdiv.
+  apply ON2_mul; [exact Hx | apply ON2_inv; [exact Hy | exact Hne]].
+Qed.
+
+Lemma ON2_general_quadratic : forall c1 c0 x,
+  OrigamiNum2 c1 -> OrigamiNum2 c0 -> x*x + c1*x + c0 = 0 -> OrigamiNum2 x.
+Proof.
+  intros c1 c0 x Hc1 Hc0 Heq.
+  set (qw := 2*x + c1).
+  set (qd := c1*c1 - 4*c0).
+  assert (Hwd : qw*qw = qd) by (unfold qw, qd; nra).
+  assert (Hdon : OrigamiNum2 qd).
+  { unfold qd. apply ON2_sub; [apply ON2_mul; [exact Hc1|exact Hc1]|].
+    apply ON2_mul; [|exact Hc0].
+    replace (4:R) with (2*2) by lra. apply ON2_mul; apply ON2_two. }
+  assert (Hdnn : 0 <= qd) by (rewrite <- Hwd; nra).
+  assert (Hson : OrigamiNum2 (sqrt qd)) by (apply ON2_sqrt; assumption).
+  assert (Hwon : OrigamiNum2 qw).
+  { destruct (Rle_dec 0 qw) as [Hge|Hlt].
+    - replace qw with (sqrt qd); [exact Hson|].
+      rewrite <- Hwd, sqrt_square by exact Hge. reflexivity.
+    - replace qw with (- sqrt qd); [apply ON2_neg; exact Hson|].
+      rewrite <- Hwd. replace (qw*qw) with ((-qw)*(-qw)) by ring.
+      rewrite sqrt_square by lra. ring. }
+  assert (Hx : x = (qw - c1)/2) by (unfold qw; field).
+  rewrite Hx. apply ON2_div; [apply ON2_sub; [exact Hwon|exact Hc1] | apply ON2_two | lra].
+Qed.
+
+Lemma ON2_general_cubic : forall c2 c1 c0 x,
+  OrigamiNum2 c2 -> OrigamiNum2 c1 -> OrigamiNum2 c0 ->
+  x*x*x + c2*(x*x) + c1*x + c0 = 0 -> OrigamiNum2 x.
+Proof.
+  intros c2 c1 c0 x Hc2 Hc1 Hc0 Heq.
+  assert (H3ne : (3:R) <> 0) by lra.
+  assert (H27ne : (27:R) <> 0) by lra.
+  set (p := c1 - c2*c2/3).
+  set (q := c0 - c1*c2/3 + 2*(c2*c2*c2)/27).
+  set (t := x + c2/3).
+  assert (Hp : OrigamiNum2 p).
+  { unfold p. apply ON2_sub; [exact Hc1|].
+    apply ON2_div; [apply ON2_mul; [exact Hc2|exact Hc2] | apply ON2_three | exact H3ne]. }
+  assert (Hq : OrigamiNum2 q).
+  { unfold q. apply ON2_add.
+    - apply ON2_sub; [exact Hc0|].
+      apply ON2_div; [apply ON2_mul; [exact Hc1|exact Hc2] | apply ON2_three | exact H3ne].
+    - apply ON2_div.
+      + apply ON2_mul; [apply ON2_two | apply ON2_mul; [apply ON2_mul; [exact Hc2|exact Hc2]|exact Hc2]].
+      + replace (27:R) with (3*3*3) by lra.
+        apply ON2_mul; [apply ON2_mul; [apply ON2_three|apply ON2_three]|apply ON2_three].
+      + exact H27ne. }
+  assert (Ht : t*t*t + p*t + q = 0).
+  { replace (t*t*t + p*t + q) with (x*x*x + c2*(x*x) + c1*x + c0)
+      by (unfold t, p, q; field). exact Heq. }
+  assert (Htn : OrigamiNum2 t) by (apply (ON2_cbrt p q t Hp Hq Ht)).
+  assert (Hx : x = t - c2/3) by (unfold t; field).
+  rewrite Hx. apply ON2_sub; [exact Htn | apply ON2_div; [exact Hc2 | apply ON2_three | exact H3ne]].
+Qed.
+
+(* degree-5 Newton's identities: a root a of the monic quintic whose coefficients
+   are the elementary symmetric functions e1..e5 recovered from the power sums
+   p1 = e1, p2..p5 of the five roots a,b,c,d,f.  The degree-5 analogue of
+   cubic_root_from_psums, the algebraic heart of the two-fold tower step. *)
+Lemma quintic_root_from_psums : forall a b c d f e1 p2 p3 p4 p5 : R,
+  e1 = a+b+c+d+f ->
+  p2 = a^2+b^2+c^2+d^2+f^2 ->
+  p3 = a^3+b^3+c^3+d^3+f^3 ->
+  p4 = a^4+b^4+c^4+d^4+f^4 ->
+  p5 = a^5+b^5+c^5+d^5+f^5 ->
+  let e2 := (e1*e1 - p2)/2 in
+  let e3 := (e2*e1 - e1*p2 + p3)/3 in
+  let e4 := (e3*e1 - e2*p2 + e1*p3 - p4)/4 in
+  let e5 := (e4*e1 - e3*p2 + e2*p3 - e1*p4 + p5)/5 in
+  a^5 + (- e1)*a^4 + e2*a^3 + (- e3)*a^2 + e4*a + (- e5) = 0.
+Proof.
+  intros a b c d f e1 p2 p3 p4 p5 H1 H2 H3 H4 H5.
+  subst e1 p2 p3 p4 p5. cbv zeta. field.
+Qed.
+
 (* Constructive direction, degree-2 case: when phi(n) = 4, cos(2pi/n) is origami
    (e.g. n = 5, 8, 10, 12). *)
 Open Scope R_scope.
@@ -15815,6 +15907,23 @@ Proof.
     assert (Hge : 2 <= p) by (destruct Hp; lia).
     assert (E : p = 2 \/ p = 3) by lia. destruct E as [E|E]; [| exact E].
     exfalso. subst p. destruct H3 as [c Hc]. lia.
+Qed.
+
+(* a prime dividing 2^a * 3^b * 5^c is one of 2, 3, 5 *)
+Lemma prime_dvd_2a3b5c : forall p a b c, Znumtheory.prime (Z.of_nat p) ->
+  Nat.divide p (2 ^ a * 3 ^ b * 5 ^ c) -> p = 2 \/ p = 3 \/ p = 5.
+Proof.
+  intros p a b c Hp Hd.
+  destruct (nat_prime_mult p (2 ^ a * 3 ^ b) (5 ^ c) Hp Hd) as [H23 | H5].
+  - destruct (prime_dvd_2a3b p a b Hp H23) as [E2 | E3];
+      [left; exact E2 | right; left; exact E3].
+  - right; right.
+    apply (prime_dvd_pow p 5 c Hp) in H5.
+    assert (Hge : 2 <= p) by (destruct Hp; lia).
+    assert (Hle : p <= 5) by (apply Nat.divide_pos_le; [lia | exact H5]).
+    destruct H5 as [q Hq].
+    assert (Hcase : p = 2 \/ p = 3 \/ p = 4 \/ p = 5) by lia.
+    destruct Hcase as [E|[E|[E|E]]]; rewrite E in *; [lia | lia | lia | reflexivity].
 Qed.
 
 Lemma pow_inj : forall p i j, 2 <= p -> p ^ i = p ^ j -> i = j.
