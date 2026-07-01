@@ -12646,6 +12646,94 @@ Proof.
       apply (IH b c d). apply (Nat.gauss d 2 (2 ^ a * 3 ^ b * 5 ^ c)%nat Hd Hcop).
 Qed.
 
+(* divisor chain for 7-smooth numbers, mirroring divisor_pow5 / divisor_35_smooth /
+   divisor_5_smooth; a divisor of 2^a*3^b*5^c*7^e is itself 7-smooth. *)
+Lemma gcd_d_7_eq_1 : forall d, ~ Nat.divide 7 d -> Nat.gcd d 7 = 1%nat.
+Proof.
+  intros d H7.
+  pose proof (Nat.gcd_divide_r d 7) as Hg7.
+  pose proof (Nat.gcd_divide_l d 7) as Hgd.
+  pose proof (Nat.divide_pos_le (Nat.gcd d 7) 7 ltac:(lia) Hg7) as Hle.
+  remember (Nat.gcd d 7) as g eqn:Eg.
+  destruct g as [|[|[|[|[|[|[|[|g']]]]]]]].
+  - destruct Hg7 as [c Hc]. lia.
+  - reflexivity.
+  - destruct Hg7 as [c Hc]. lia.
+  - destruct Hg7 as [c Hc]. lia.
+  - destruct Hg7 as [c Hc]. lia.
+  - destruct Hg7 as [c Hc]. lia.
+  - destruct Hg7 as [c Hc]. lia.
+  - exfalso. apply H7. exact Hgd.
+  - lia.
+Qed.
+
+Lemma divisor_pow7 : forall k d, Nat.divide d (7 ^ k)%nat -> exists e, d = (7 ^ e)%nat.
+Proof.
+  induction k as [|k IH]; intros d Hd.
+  - simpl in Hd. apply Nat.divide_1_r in Hd. subst. exists 0%nat. reflexivity.
+  - rewrite Nat.pow_succ_r' in Hd.
+    destruct (Ndivide_dec 7 d) as [H7 | H7].
+    + destruct H7 as [ee He]. subst d.
+      assert (He2 : Nat.divide ee (7 ^ k)%nat) by (destruct Hd as [c Hc]; exists c; nia).
+      destruct (IH ee He2) as [j Hj]. exists (S j). subst ee. rewrite Nat.pow_succ_r'. lia.
+    + assert (Hcop : Nat.gcd d 7 = 1%nat) by (apply gcd_d_7_eq_1; exact H7).
+      apply IH. apply (Nat.gauss d 7 (7 ^ k) Hd Hcop).
+Qed.
+
+Lemma divisor_57_smooth : forall c e d, Nat.divide d (5 ^ c * 7 ^ e)%nat ->
+  exists k l, d = (5 ^ k * 7 ^ l)%nat.
+Proof.
+  induction c as [|c IH]; intros e d Hd.
+  - replace (5 ^ 0 * 7 ^ e)%nat with (7 ^ e)%nat in Hd
+      by (rewrite Nat.pow_0_r, Nat.mul_1_l; reflexivity).
+    destruct (divisor_pow7 e d Hd) as [l Hl]. exists 0%nat, l.
+    rewrite Nat.pow_0_r, Nat.mul_1_l. exact Hl.
+  - replace (5 ^ S c * 7 ^ e)%nat with (5 * (5 ^ c * 7 ^ e))%nat in Hd
+      by (rewrite Nat.pow_succ_r'; ring).
+    destruct (Ndivide_dec 5 d) as [H5 | H5].
+    + destruct H5 as [ee He]. subst d.
+      assert (He2 : Nat.divide ee (5 ^ c * 7 ^ e)%nat) by (destruct Hd as [cc Hc]; exists cc; nia).
+      destruct (IH e ee He2) as [k' [l' Hee]]. exists (S k'), l'. rewrite Nat.pow_succ_r'. nia.
+    + assert (Hcop : Nat.gcd d 5 = 1%nat) by (apply gcd_d_5_eq_1; exact H5).
+      apply (IH e d). apply (Nat.gauss d 5 (5 ^ c * 7 ^ e)%nat Hd Hcop).
+Qed.
+
+Lemma divisor_357_smooth : forall b c e d, Nat.divide d (3 ^ b * 5 ^ c * 7 ^ e)%nat ->
+  exists j k l, d = (3 ^ j * 5 ^ k * 7 ^ l)%nat.
+Proof.
+  induction b as [|b IH]; intros c e d Hd.
+  - replace (3 ^ 0 * 5 ^ c * 7 ^ e)%nat with (5 ^ c * 7 ^ e)%nat in Hd
+      by (rewrite Nat.pow_0_r, Nat.mul_1_l; reflexivity).
+    destruct (divisor_57_smooth c e d Hd) as [k [l Hkl]]. exists 0%nat, k, l.
+    rewrite Nat.pow_0_r, Nat.mul_1_l. exact Hkl.
+  - replace (3 ^ S b * 5 ^ c * 7 ^ e)%nat with (3 * (3 ^ b * 5 ^ c * 7 ^ e))%nat in Hd
+      by (rewrite Nat.pow_succ_r'; ring).
+    destruct (Ndivide_dec 3 d) as [H3 | H3].
+    + destruct H3 as [ee He]. subst d.
+      assert (He2 : Nat.divide ee (3 ^ b * 5 ^ c * 7 ^ e)%nat) by (destruct Hd as [cc Hc]; exists cc; nia).
+      destruct (IH c e ee He2) as [j' [k' [l' Hee]]]. exists (S j'), k', l'. rewrite Nat.pow_succ_r'. nia.
+    + assert (Hcop : Nat.gcd d 3 = 1%nat) by (apply gcd_d_3_eq_1; exact H3).
+      apply (IH c e d). apply (Nat.gauss d 3 (3 ^ b * 5 ^ c * 7 ^ e)%nat Hd Hcop).
+Qed.
+
+Lemma divisor_7_smooth : forall a b c e d, Nat.divide d (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ e)%nat ->
+  exists i j k l, d = (2 ^ i * 3 ^ j * 5 ^ k * 7 ^ l)%nat.
+Proof.
+  induction a as [|a IH]; intros b c e d Hd.
+  - replace (2 ^ 0 * 3 ^ b * 5 ^ c * 7 ^ e)%nat with (3 ^ b * 5 ^ c * 7 ^ e)%nat in Hd
+      by (rewrite Nat.pow_0_r, Nat.mul_1_l; reflexivity).
+    destruct (divisor_357_smooth b c e d Hd) as [j [k [l Hjkl]]]. exists 0%nat, j, k, l.
+    rewrite Nat.pow_0_r, Nat.mul_1_l. exact Hjkl.
+  - replace (2 ^ S a * 3 ^ b * 5 ^ c * 7 ^ e)%nat with (2 * (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ e))%nat in Hd
+      by (rewrite Nat.pow_succ_r'; ring).
+    destruct (Ndivide_dec 2 d) as [H2 | H2].
+    + destruct H2 as [ee He]. subst d.
+      assert (He2 : Nat.divide ee (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ e)%nat) by (destruct Hd as [cc Hc]; exists cc; nia).
+      destruct (IH b c e ee He2) as [i' [j' [k' [l' Hee]]]]. exists (S i'), j', k', l'. rewrite Nat.pow_succ_r'. nia.
+    + assert (Hcop : Nat.gcd d 2 = 1%nat) by (apply gcd_d_2_eq_1; exact H2).
+      apply (IH b c e d). apply (Nat.gauss d 2 (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ e)%nat Hd Hcop).
+Qed.
+
 (* ===== item 7: every two-fold origami number has algebraic degree 2^a*3^b*5^c ===== *)
 Theorem OrigamiNum2_field_degree_smooth : forall x, OrigamiNum2 x ->
   exists d, basis is_rational (powers x d) (Qx x) /\ is_5_smooth d.
