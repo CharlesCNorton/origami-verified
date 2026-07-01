@@ -332,3 +332,166 @@ Proof.
   - left. apply cos_2pi_n_two_fold_smooth; [lia |].
     apply small_phi_5_smooth; [exact Hm | exact Hne].
 Qed.
+
+(* ============================================================================
+   The parametric prime rung.  Newton's identities (newton_esym_step) turn the
+   K-known power sums of the rho sub-periods into K-known elementary symmetric
+   functions; the Vieta polynomial presents the finest period as a root of a
+   monic degree-rho polynomial with K coefficients, which one abstract
+   degree-rho solver closes.  step2_K, step3_K, step5_K, step7_K are the
+   rho = 2, 3, 5, 7 instances of this single rung.
+   ============================================================================ *)
+
+Lemma tops_embed : forall K, tower_ops K -> forall x, OrigamiNum x -> K x.
+Proof. intros K HK; destruct HK; assumption. Qed.
+Lemma tops_add : forall K, tower_ops K -> forall x y, K x -> K y -> K (x + y).
+Proof. intros K HK; destruct HK; assumption. Qed.
+Lemma tops_sub : forall K, tower_ops K -> forall x y, K x -> K y -> K (x - y).
+Proof. intros K HK; destruct HK; assumption. Qed.
+Lemma tops_mul : forall K, tower_ops K -> forall x y, K x -> K y -> K (x * y).
+Proof. intros K HK; destruct HK; assumption. Qed.
+Lemma tops_div : forall K, tower_ops K -> forall x y, K x -> K y -> y <> 0 -> K (x / y).
+Proof. intros K HK; destruct HK; assumption. Qed.
+Lemma tops_neg : forall K, tower_ops K -> forall x, K x -> K (- x).
+Proof. intros K HK; destruct HK; assumption. Qed.
+
+Lemma fsum_K : forall (K : R -> Prop), tower_ops K ->
+  forall (m : nat) (f : nat -> R),
+  (forall i, (i < m)%nat -> K (f i)) -> K (fsum m f).
+Proof.
+  intros K HK m f. induction m as [|m IH]; intro H; cbn [fsum].
+  - apply (tops_embed K HK), ON_0.
+  - apply (tops_add K HK); [apply IH; intros i Hi; apply H; lia | apply H; lia].
+Qed.
+
+Lemma pow_m1_cases : forall j, (-1) ^ j = 1 \/ (-1) ^ j = -1.
+Proof.
+  induction j as [|j IH].
+  - left. reflexivity.
+  - cbn [pow]. destruct IH as [E|E]; rewrite E; [right | left]; ring.
+Qed.
+
+Lemma K_pow_m1 : forall (K : R -> Prop), tower_ops K -> forall j, K ((-1) ^ j).
+Proof.
+  intros K HK j. destruct (pow_m1_cases j) as [E|E]; rewrite E.
+  - apply (tops_embed K HK), ON_1.
+  - replace (-1) with (0 - 1) by ring.
+    apply (tops_sub K HK); apply (tops_embed K HK); [apply ON_0 | apply ON_1].
+Qed.
+
+(** Every elementary symmetric function of a list with K-known power sums is
+    itself K-known, by the Newton recurrence in characteristic zero. *)
+Lemma esym_K : forall (K : R -> Prop), tower_ops K ->
+  forall xs, (forall j, (1 <= j)%nat -> K (powsum xs j)) ->
+  forall k, K (esym k xs).
+Proof.
+  intros K HK xs Hpow k.
+  induction k as [k IHk] using (well_founded_induction lt_wf).
+  destruct k as [|k'].
+  - rewrite esym_0. apply (tops_embed K HK), ON_1.
+  - pose proof (newton_esym_step xs (S k') ltac:(lia)) as HN.
+    assert (HkR : INR (S k') <> 0) by (apply not_0_INR; lia).
+    assert (Heq : esym (S k') xs
+      = - (-1) ^ S k'
+        * fsum (S k') (fun i => (-1) ^ i * esym i xs * powsum xs (S k' - i))
+        / INR (S k')).
+    { apply (Rmult_eq_reg_l (INR (S k'))); [| exact HkR].
+      rewrite HN. field. exact HkR. }
+    rewrite Heq.
+    apply (tops_div K HK);
+      [| apply (tops_embed K HK), Origami_nat | exact HkR].
+    apply (tops_mul K HK).
+    + replace (- (-1) ^ S k') with ((-1) ^ S (S k')) by (cbn [pow]; ring).
+      apply K_pow_m1; exact HK.
+    + apply fsum_K; [exact HK |]. intros i Hi.
+      apply (tops_mul K HK);
+        [apply (tops_mul K HK); [apply K_pow_m1; exact HK | apply IHk; lia] |].
+      apply Hpow. lia.
+Qed.
+
+Lemma powsum_map : forall (f : nat -> R) (L : list nat) (k : nat),
+  powsum (map f L) k = rsum L (fun l => f l ^ k).
+Proof.
+  intros f L k. induction L as [|x L IH].
+  - reflexivity.
+  - cbn [map powsum]. rewrite IH, rsum_consL. reflexivity.
+Qed.
+
+Lemma pevalR_nth_sum : forall (ps : list R) (x : R),
+  pevalR ps x = fsum (length ps) (fun i => nth i ps 0 * x ^ i).
+Proof.
+  induction ps as [|c ps' IH]; intro x.
+  - reflexivity.
+  - cbn [pevalR length]. rewrite fsum_S_shift.
+    cbn [nth pow].
+    rewrite (fsum_ext (length ps')
+               (fun i => nth i ps' 0 * (x * x ^ i))
+               (fun i => x * (nth i ps' 0 * x ^ i)))
+      by (intros; ring).
+    rewrite fsum_scale. rewrite <- IH. ring.
+Qed.
+
+(** THE PARAMETRIC PRIME RUNG: one abstract degree-rho solver drives the tower
+    step for every prime rung at once. *)
+Lemma step_prime_K : forall (P : nat) (g : Z),
+  (5 <= P)%nat -> per P g (P - 1) ->
+  forall (K : R -> Prop), tower_ops K ->
+  forall (rho : nat), (2 <= rho)%nat ->
+  (forall (c : nat -> R) (r : R),
+     (forall i, (i < rho)%nat -> K (c i)) ->
+     fsum rho (fun i => c i * r ^ i) + r ^ rho = 0 -> K r) ->
+  forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * rho) (P - 1) ->
+  (forall v, K (PerV P g v D)) ->
+  K (PerV P g w (D * rho)).
+Proof.
+  intros P g HP5 Hg K HK rho Hrho Hsolver D w HD Hdiv IH.
+  set (xs := map (fun l => PerV P g (w * zpn g (D * l))%Z (D * rho)) (seq 0 rho)).
+  assert (Hlen : length xs = rho)
+    by (unfold xs; rewrite length_map, length_seq; reflexivity).
+  assert (Hpow : forall j, (1 <= j)%nat -> K (powsum xs j)).
+  { intros j Hj. unfold xs. rewrite powsum_map.
+    destruct j as [|j']; [lia |].
+    exact (psum_K P g HP5 Hg K HK D rho w j' HD ltac:(lia) Hdiv IH). }
+  assert (Hesym : forall k, K (esym k xs)) by (apply esym_K; assumption).
+  assert (Hx0in : In (PerV P g (w * zpn g (D * 0))%Z (D * rho)) xs).
+  { unfold xs.
+    apply (in_map (fun l => PerV P g (w * zpn g (D * l))%Z (D * rho))
+             (seq 0 rho) 0%nat).
+    apply in_seq. lia. }
+  assert (Hx0eq : PerV P g (w * zpn g (D * 0))%Z (D * rho) = PerV P g w (D * rho)).
+  { f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  set (x0 := PerV P g (w * zpn g (D * 0))%Z (D * rho)) in *.
+  pose proof (vieta_root xs x0 Hx0in) as Hroot.
+  rewrite pevalR_nth_sum in Hroot.
+  rewrite vieta_length, Hlen in Hroot.
+  cbn [fsum] in Hroot.
+  assert (Htop : nth rho (vieta xs) 0 = 1) by (rewrite <- Hlen; apply vieta_top).
+  rewrite Htop in Hroot.
+  rewrite <- Hx0eq.
+  apply (Hsolver (fun i => nth i (vieta xs) 0) x0).
+  - intros i Hi.
+    rewrite (vieta_nth xs i) by lia.
+    apply (tops_mul K HK); [apply K_pow_m1; exact HK | apply Hesym].
+  - cbn beta. lra.
+Qed.
+
+(** tower_cos_K driven entirely by the parametric rung: one solver family, one
+    per prime divisor of P - 1, closes cos(2*PI/P). *)
+Lemma tower_cos_prime_rungs : forall (P : nat) (g : Z),
+  Znumtheory.prime (Z.of_nat P) -> (5 <= P)%nat ->
+  per P g (P - 1) ->
+  (forall k, (1 <= k < P - 1)%nat -> ~ cg (Z.of_nat P) (zpn g k) 1%Z) ->
+  (1 <= g < Z.of_nat P)%Z ->
+  forall (K : R -> Prop), tower_ops K ->
+  (forall rho, Znumtheory.prime (Z.of_nat rho) -> Nat.divide rho (P - 1) ->
+     forall (c : nat -> R) (r : R),
+       (forall i, (i < rho)%nat -> K (c i)) ->
+       fsum rho (fun i => c i * r ^ i) + r ^ rho = 0 -> K r) ->
+  K (cos (2 * PI / INR P)).
+Proof.
+  intros P g HP HP5 Hg Hgord Hgr K HK Hsolvers.
+  apply (tower_cos_K P g HP HP5 Hgord Hgr K HK).
+  intros q D w Hq Hqn HD HDdiv IHq.
+  assert (Hq2 : (2 <= q)%nat) by (destruct Hq as [Hq1 _]; lia).
+  exact (step_prime_K P g HP5 Hg K HK q Hq2 (Hsolvers q Hq Hqn) D w HD HDdiv IHq).
+Qed.
