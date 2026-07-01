@@ -215,3 +215,66 @@ Proof.
   exfalso. destruct (float_line_intersection_defined l1 l2 Fd Hne) as [p Hp].
   rewrite Hp in Hnone. discriminate.
 Qed.
+
+(** float_beloch_crease t = ((t, -1), -(t*t)): the O6 Beloch crease.  Its slope
+    is exact, the constant -1 exact, and the -(t*t) entry correctly rounded. *)
+Lemma float_beloch_crease_sound : forall t,
+  fin t -> no_ovf (f2r t * f2r t) ->
+  f2r (fla (float_beloch_crease t)) = f2r t /\
+  f2r (flb (float_beloch_crease t)) = -1 /\
+  f2r (flc (float_beloch_crease t)) = - rnd (f2r t * f2r t).
+Proof.
+  intros t Ft Ott.
+  destruct (mul_sound t t Ft Ft Ott) as [Ett Ftt].
+  destruct (opp_sound _ Ftt) as [Eopp _].
+  unfold float_beloch_crease, fla, flb, flc. simpl.
+  split; [reflexivity | split].
+  - unfold f2r. vm_compute. lra.
+  - rewrite Eopp, Ett. reflexivity.
+Qed.
+
+(** float_depressed_cubic p q t = t^3 + p t + q, evaluated left-to-right with
+    correct rounding at each of the four multiplications/additions. *)
+Lemma float_depressed_cubic_sound : forall p q t,
+  fin p -> fin q -> fin t ->
+  no_ovf (f2r t * f2r t) ->
+  no_ovf (rnd (f2r t * f2r t) * f2r t) ->
+  no_ovf (f2r p * f2r t) ->
+  no_ovf (rnd (rnd (f2r t * f2r t) * f2r t) + rnd (f2r p * f2r t)) ->
+  no_ovf (rnd (rnd (rnd (f2r t * f2r t) * f2r t) + rnd (f2r p * f2r t)) + f2r q) ->
+  f2r (float_depressed_cubic p q t)
+    = rnd (rnd (rnd (rnd (f2r t * f2r t) * f2r t) + rnd (f2r p * f2r t)) + f2r q).
+Proof.
+  intros p q t Fp Fq Ft Ott Ottt Opt Os1 Os2.
+  destruct (mul_sound t t Ft Ft Ott) as [Ett Ftt].
+  destruct (mul_sound _ t Ftt Ft ltac:(rewrite Ett; exact Ottt)) as [Ettt Fttt].
+  destruct (mul_sound p t Fp Ft Opt) as [Ept Fpt].
+  destruct (add_sound _ _ Fttt Fpt ltac:(rewrite Ettt, Ett, Ept; exact Os1)) as [Es1 Fs1].
+  destruct (add_sound _ q Fs1 Fq ltac:(rewrite Es1, Ettt, Ett, Ept; exact Os2)) as [Es2 _].
+  unfold float_depressed_cubic.
+  rewrite Es2, Es1, Ettt, Ett, Ept. reflexivity.
+Qed.
+
+(** Explicit per-operation error bounds: each primitive float operation is
+    within half an ulp of its exact real-number result.  For composite ops the
+    faithful-rounding theorems above localize the error to one such bound per
+    primitive step. *)
+Lemma add_err : forall x y, fin x -> fin y -> no_ovf (f2r x + f2r y) ->
+  Rabs (f2r (x + y)%float - (f2r x + f2r y))
+    <= /2 * Ulp.ulp radix2 (fexp prec emax) (f2r x + f2r y).
+Proof. intros x y Fx Fy Ho. destruct (add_sound x y Fx Fy Ho) as [E _]. rewrite E. apply rnd_err. Qed.
+
+Lemma sub_err : forall x y, fin x -> fin y -> no_ovf (f2r x - f2r y) ->
+  Rabs (f2r (x - y)%float - (f2r x - f2r y))
+    <= /2 * Ulp.ulp radix2 (fexp prec emax) (f2r x - f2r y).
+Proof. intros x y Fx Fy Ho. destruct (sub_sound x y Fx Fy Ho) as [E _]. rewrite E. apply rnd_err. Qed.
+
+Lemma mul_err : forall x y, fin x -> fin y -> no_ovf (f2r x * f2r y) ->
+  Rabs (f2r (x * y)%float - (f2r x * f2r y))
+    <= /2 * Ulp.ulp radix2 (fexp prec emax) (f2r x * f2r y).
+Proof. intros x y Fx Fy Ho. destruct (mul_sound x y Fx Fy Ho) as [E _]. rewrite E. apply rnd_err. Qed.
+
+Lemma div_err : forall x y, fin x -> fin y -> f2r y <> 0 -> no_ovf (f2r x / f2r y) ->
+  Rabs (f2r (x / y)%float - (f2r x / f2r y))
+    <= /2 * Ulp.ulp radix2 (fexp prec emax) (f2r x / f2r y).
+Proof. intros x y Fx Fy Hy Ho. destruct (div_sound x y Fx Fy Hy Ho) as [E _]. rewrite E. apply rnd_err. Qed.
