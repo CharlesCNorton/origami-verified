@@ -10252,3 +10252,521 @@ Proof.
     + exfalso. exact (cos_2pi_n_not_two_fold_clean n Hn Hns HO).
   - intro Hs. apply cos_2pi_n_two_fold_smooth; [lia | exact Hs].
 Qed.
+
+(* ============================================================================
+   Three-fold origami: cos(2*PI/n) in OrigamiNum3 iff phi(n) is {2,3,5,7}-smooth.
+   The three-fold analogue of the two-fold development, over OrigamiNum3, with a
+   degree-7 rung step7 driven by the three-fold septic fold ON3_sept and the
+   degree-7 Newton identity septic_root_from_psums.  Primitive roots for 7-smooth
+   primes come from primitive_root_7smooth (the same maximal-order cyclicity).
+   ============================================================================ *)
+
+Lemma rsum_ON3 : forall (l : list nat) (f : nat -> R),
+  (forall k, OrigamiNum3 (f k)) -> OrigamiNum3 (rsum l f).
+Proof.
+  intros l f Hf. induction l as [|x l IH].
+  - rewrite (rsum_nilL f). apply ON3_0.
+  - rewrite (rsum_consL x l f). apply ON3_add; [apply Hf | exact IH].
+Qed.
+
+Lemma rsum_7 : forall phi,
+  rsum (seq 0 7) phi = phi 0%nat + phi 1%nat + phi 2%nat + phi 3%nat + phi 4%nat + phi 5%nat + phi 6%nat.
+Proof. intro phi. change (seq 0 7) with [0;1;2;3;4;5;6]%nat. rewrite !rsum_consL, rsum_nilL. ring. Qed.
+
+Section Tower3.
+
+Variable P : nat.
+Variable g : Z.
+Hypothesis HP : Znumtheory.prime (Z.of_nat P).
+Hypothesis HP5 : (5 <= P)%nat.
+Hypothesis Hg : per P g (P - 1).
+Hypothesis Hgord : forall k, (1 <= k < P - 1)%nat -> ~ cg (Z.of_nat P) (zpn g k) 1%Z.
+Hypothesis Hgr : (1 <= g < Z.of_nat P)%Z.
+Hypothesis Hsmooth7 : is_7_smooth (P - 1).
+
+Local Notation n := (P - 1)%nat.
+
+Lemma base3 : forall v, OrigamiNum3 (PerV P g v 1).
+Proof.
+  intro v. apply Origami2_in_Origami3. apply Origami_in_Origami2.
+  exact (base P g HP HP5 Hgord Hgr v).
+Qed.
+
+Lemma par_prod_pow_ON3 : forall (D s : nat) (w : Z),
+  (1 <= D)%nat -> (1 <= s)%nat -> Nat.divide (D * s) n ->
+  (forall v, OrigamiNum3 (PerV P g v D)) ->
+  forall j (u : Z),
+  OrigamiNum3 (rsum (seq 0 s) (fun l =>
+     (PerV P g (w * zpn g (D * l)) (D * s)) ^ j * PerV P g (u * zpn g (D * l)) (D * s))).
+Proof.
+  intros D s w HD Hs Hdiv IH.
+  assert (HE : (1 <= D * s)%nat) by nia.
+  induction j as [|j IHj]; intro u.
+  - assert (Heq : rsum (seq 0 s) (fun l =>
+        (PerV P g (w * zpn g (D * l)) (D * s)) ^ 0 * PerV P g (u * zpn g (D * l)) (D * s))
+      = PerV P g u D).
+    { transitivity (rsum (seq 0 s) (fun l => PerV P g (zpn g (D * l) * u)%Z (D * s))).
+      - apply rsum_ext. intro l. cbn [pow].
+        replace (u * zpn g (D * l))%Z with (zpn g (D * l) * u)%Z by ring. ring.
+      - exact (collapse P g HP5 D s u ltac:(lia) ltac:(lia) Hdiv). }
+    rewrite Heq. apply IH.
+  - set (RHS := rsum (seq 0 (n / (D * s))) (fun s' =>
+        rsum (seq 0 s) (fun l => (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+           * PerV P g ((w * zpn g (D * s * s') + u) * zpn g (D * l)) (D * s))
+      + rsum (seq 0 s) (fun l => (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+           * PerV P g ((w * zpn g (D * s * s') - u) * zpn g (D * l)) (D * s)))).
+    assert (Hstep : 2 * rsum (seq 0 s) (fun l =>
+          (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S j)
+        * PerV P g (u * zpn g (D * l)) (D * s)) = RHS).
+    { rewrite rsum_scale_l. unfold RHS.
+      transitivity (rsum (seq 0 s) (fun l =>
+          rsum (seq 0 (n / (D * s))) (fun s' =>
+             (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+               * PerV P g ((w * zpn g (D * s * s') + u) * zpn g (D * l)) (D * s)
+           + (PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+               * PerV P g ((w * zpn g (D * s * s') - u) * zpn g (D * l)) (D * s)))).
+      - apply rsum_ext. intro l.
+        assert (Hmul : 2 * (PerV P g (w * zpn g (D * l)) (D * s)
+                          * PerV P g (u * zpn g (D * l)) (D * s))
+          = rsum (seq 0 (n / (D * s))) (fun s' =>
+              PerV P g ((w * zpn g (D * s * s') + u) * zpn g (D * l)) (D * s)
+            + PerV P g ((w * zpn g (D * s * s') - u) * zpn g (D * l)) (D * s))).
+        { rewrite (PerV_mul P g HP5 Hg (w * zpn g (D * l))%Z (u * zpn g (D * l))%Z (D * s) HE Hdiv).
+          apply rsum_ext. intro s'.
+          replace (w * zpn g (D * l) * zpn g (D * s * s') + u * zpn g (D * l))%Z
+            with ((w * zpn g (D * s * s') + u) * zpn g (D * l))%Z by ring.
+          replace (w * zpn g (D * l) * zpn g (D * s * s') - u * zpn g (D * l))%Z
+            with ((w * zpn g (D * s * s') - u) * zpn g (D * l))%Z by ring.
+          reflexivity. }
+        replace (2 * ((PerV P g (w * zpn g (D * l)) (D * s)) ^ (S j)
+                    * PerV P g (u * zpn g (D * l)) (D * s)))
+          with ((PerV P g (w * zpn g (D * l)) (D * s)) ^ j
+              * (2 * (PerV P g (w * zpn g (D * l)) (D * s)
+                    * PerV P g (u * zpn g (D * l)) (D * s))))
+          by (cbn [pow]; ring).
+        rewrite Hmul, rsum_scale_l. apply rsum_ext. intro s'. ring.
+      - rewrite rsum_swap. apply rsum_ext. intro s'. apply rsum_plus. }
+    assert (HON : OrigamiNum3 RHS).
+    { unfold RHS. apply rsum_ON3. intro s'. apply ON3_add; apply IHj. }
+    assert (Hval : rsum (seq 0 s) (fun l =>
+          (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S j)
+        * PerV P g (u * zpn g (D * l)) (D * s)) = RHS / 2) by lra.
+    rewrite Hval. apply ON3_div; [exact HON | apply ON3_two | lra].
+Qed.
+
+Lemma psum_ON3 : forall (D s : nat) (w : Z) (k : nat),
+  (1 <= D)%nat -> (1 <= s)%nat -> Nat.divide (D * s) n ->
+  (forall v, OrigamiNum3 (PerV P g v D)) ->
+  OrigamiNum3 (rsum (seq 0 s) (fun l =>
+     (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S k))).
+Proof.
+  intros D s w k HD Hs Hdiv IH.
+  assert (Heq : rsum (seq 0 s) (fun l => (PerV P g (w * zpn g (D * l)) (D * s)) ^ (S k))
+    = rsum (seq 0 s) (fun l =>
+        (PerV P g (w * zpn g (D * l)) (D * s)) ^ k * PerV P g (w * zpn g (D * l)) (D * s))).
+  { apply rsum_ext. intro l. cbn [pow]. ring. }
+  rewrite Heq. exact (par_prod_pow_ON3 D s w HD Hs Hdiv IH k w).
+Qed.
+
+Lemma step2_ON3 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 2) n ->
+  (forall v, OrigamiNum3 (PerV P g v D)) ->
+  OrigamiNum3 (PerV P g w (D * 2)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 2) + PerV P g (w * zpn g (D * 1)) (D * 2)).
+  { rewrite (PerV_partition P g HP5 w D 2 ltac:(lia) ltac:(lia) Hdiv). apply rsum_2. }
+  assert (Hp2 : rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                       * PerV P g (w * zpn g (D * l)) (D * 2))
+    = PerV P g (w * zpn g (D * 0)) (D * 2) * PerV P g (w * zpn g (D * 0)) (D * 2)
+    + PerV P g (w * zpn g (D * 1)) (D * 2) * PerV P g (w * zpn g (D * 1)) (D * 2))
+    by apply rsum_2.
+  assert (Hp2ON : OrigamiNum3 (rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                       * PerV P g (w * zpn g (D * l)) (D * 2)))).
+  { assert (Hpe : rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                         * PerV P g (w * zpn g (D * l)) (D * 2))
+      = rsum (seq 0 2) (fun l => (PerV P g (w * zpn g (D * l)) (D * 2)) ^ (S 1))).
+    { apply rsum_ext. intro l. cbn [pow]. ring. }
+    rewrite Hpe. exact (psum_ON3 D 2 w 1 HD ltac:(lia) Hdiv IH). }
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 2) (fun l => PerV P g (w * zpn g (D * l)) (D * 2)
+                                    * PerV P g (w * zpn g (D * l)) (D * 2))) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 2)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 2)) in *.
+  assert (He1ON : OrigamiNum3 e1) by (unfold e1; apply IH).
+  assert (Hx0 : PerV P g w (D * 2) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON3_general_quadratic (- e1) ((e1 * e1 - p2) / 2) x0).
+  - apply ON3_neg; exact He1ON.
+  - apply ON3_div; [apply ON3_sub; [apply ON3_mul; exact He1ON | exact Hp2ON]
+                  | apply ON3_two | lra].
+  - exact (quad_root_from_psums x0 x1 e1 p2 He1 Hp2).
+Qed.
+
+Lemma step3_ON3 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 3) n ->
+  (forall v, OrigamiNum3 (PerV P g v D)) ->
+  OrigamiNum3 (PerV P g w (D * 3)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 3)
+    + PerV P g (w * zpn g (D * 1)) (D * 3)
+    + PerV P g (w * zpn g (D * 2)) (D * 3)).
+  { rewrite (PerV_partition P g HP5 w D 3 ltac:(lia) ltac:(lia) Hdiv). apply rsum_3. }
+  assert (Hp2 : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3))
+    = PerV P g (w * zpn g (D * 0)) (D * 3) * PerV P g (w * zpn g (D * 0)) (D * 3)
+    + PerV P g (w * zpn g (D * 1)) (D * 3) * PerV P g (w * zpn g (D * 1)) (D * 3)
+    + PerV P g (w * zpn g (D * 2)) (D * 3) * PerV P g (w * zpn g (D * 2)) (D * 3))
+    by apply rsum_3.
+  assert (Hp3 : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3))
+    = PerV P g (w * zpn g (D * 0)) (D * 3) * PerV P g (w * zpn g (D * 0)) (D * 3) * PerV P g (w * zpn g (D * 0)) (D * 3)
+    + PerV P g (w * zpn g (D * 1)) (D * 3) * PerV P g (w * zpn g (D * 1)) (D * 3) * PerV P g (w * zpn g (D * 1)) (D * 3)
+    + PerV P g (w * zpn g (D * 2)) (D * 3) * PerV P g (w * zpn g (D * 2)) (D * 3) * PerV P g (w * zpn g (D * 2)) (D * 3))
+    by apply rsum_3.
+  assert (Hp2ON : OrigamiNum3 (rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)))).
+  { assert (Hpe : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                         * PerV P g (w * zpn g (D * l)) (D * 3))
+      = rsum (seq 0 3) (fun l => (PerV P g (w * zpn g (D * l)) (D * 3)) ^ (S 1))).
+    { apply rsum_ext. intro l. cbn [pow]. ring. }
+    rewrite Hpe. exact (psum_ON3 D 3 w 1 HD ltac:(lia) Hdiv IH). }
+  assert (Hp3ON : OrigamiNum3 (rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)
+                                       * PerV P g (w * zpn g (D * l)) (D * 3)))).
+  { assert (Hpe : rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                         * PerV P g (w * zpn g (D * l)) (D * 3)
+                                         * PerV P g (w * zpn g (D * l)) (D * 3))
+      = rsum (seq 0 3) (fun l => (PerV P g (w * zpn g (D * l)) (D * 3)) ^ (S (S 1)))).
+    { apply rsum_ext. intro l. cbn [pow]. ring. }
+    rewrite Hpe. exact (psum_ON3 D 3 w 2 HD ltac:(lia) Hdiv IH). }
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                    * PerV P g (w * zpn g (D * l)) (D * 3))) in *.
+  set (p3 := rsum (seq 0 3) (fun l => PerV P g (w * zpn g (D * l)) (D * 3)
+                                    * PerV P g (w * zpn g (D * l)) (D * 3)
+                                    * PerV P g (w * zpn g (D * l)) (D * 3))) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 3)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 3)) in *.
+  set (x2 := PerV P g (w * zpn g (D * 2)) (D * 3)) in *.
+  assert (He1ON : OrigamiNum3 e1) by (unfold e1; apply IH).
+  assert (He2ON : OrigamiNum3 ((e1 * e1 - p2) / 2)) by
+    (apply ON3_div; [ apply ON3_sub; [ apply ON3_mul; exact He1ON | exact Hp2ON ]
+                    | apply ON3_two | lra ]).
+  assert (Hx0 : PerV P g w (D * 3) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON3_general_cubic (- e1) ((e1 * e1 - p2) / 2)
+           (- ((p3 - e1 * p2 + ((e1 * e1 - p2) / 2) * e1) / 3)) x0).
+  - apply ON3_neg; exact He1ON.
+  - exact He2ON.
+  - apply ON3_neg. apply ON3_div.
+    + apply ON3_add.
+      * apply ON3_sub; [ exact Hp3ON | apply ON3_mul; [ exact He1ON | exact Hp2ON ] ].
+      * apply ON3_mul; [ exact He2ON | exact He1ON ].
+    + apply ON3_three.
+    + lra.
+  - exact (cubic_root_from_psums x0 x1 x2 e1 p2 p3 He1 Hp2 Hp3).
+Qed.
+
+Lemma step5_ON3 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 5) n ->
+  (forall v, OrigamiNum3 (PerV P g v D)) ->
+  OrigamiNum3 (PerV P g w (D * 5)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (ON3_4 : OrigamiNum3 4) by (replace 4 with (2 + 2) by ring; apply ON3_add; apply ON3_two).
+  assert (ON3_5 : OrigamiNum3 5)
+    by (replace 5 with (2 + 3) by ring; apply ON3_add; [apply ON3_two | apply ON3_three]).
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 5)
+    + PerV P g (w * zpn g (D * 1)) (D * 5)
+    + PerV P g (w * zpn g (D * 2)) (D * 5)
+    + PerV P g (w * zpn g (D * 3)) (D * 5)
+    + PerV P g (w * zpn g (D * 4)) (D * 5)).
+  { rewrite (PerV_partition P g HP5 w D 5 ltac:(lia) ltac:(lia) Hdiv). apply rsum_5. }
+  assert (Hp2 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 2)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 2 + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 2
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 2 + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 2
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 2) by (rewrite rsum_5; reflexivity).
+  assert (Hp3 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 3)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 3 + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 3
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 3 + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 3
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 3) by (rewrite rsum_5; reflexivity).
+  assert (Hp4 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 4)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 4 + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 4
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 4 + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 4
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 4) by (rewrite rsum_5; reflexivity).
+  assert (Hp5 : rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 5)
+    = (PerV P g (w * zpn g (D * 0)) (D * 5)) ^ 5 + (PerV P g (w * zpn g (D * 1)) (D * 5)) ^ 5
+    + (PerV P g (w * zpn g (D * 2)) (D * 5)) ^ 5 + (PerV P g (w * zpn g (D * 3)) (D * 5)) ^ 5
+    + (PerV P g (w * zpn g (D * 4)) (D * 5)) ^ 5) by (rewrite rsum_5; reflexivity).
+  assert (Hp2ON : OrigamiNum3 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 2)))
+    by exact (psum_ON3 D 5 w 1 HD ltac:(lia) Hdiv IH).
+  assert (Hp3ON : OrigamiNum3 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 3)))
+    by exact (psum_ON3 D 5 w 2 HD ltac:(lia) Hdiv IH).
+  assert (Hp4ON : OrigamiNum3 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 4)))
+    by exact (psum_ON3 D 5 w 3 HD ltac:(lia) Hdiv IH).
+  assert (Hp5ON : OrigamiNum3 (rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 5)))
+    by exact (psum_ON3 D 5 w 4 HD ltac:(lia) Hdiv IH).
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 2)) in *.
+  set (p3 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 3)) in *.
+  set (p4 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 4)) in *.
+  set (p5 := rsum (seq 0 5) (fun l => (PerV P g (w * zpn g (D * l)) (D * 5)) ^ 5)) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 5)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 5)) in *.
+  set (x2 := PerV P g (w * zpn g (D * 2)) (D * 5)) in *.
+  set (x3 := PerV P g (w * zpn g (D * 3)) (D * 5)) in *.
+  set (x4 := PerV P g (w * zpn g (D * 4)) (D * 5)) in *.
+  assert (He1ON : OrigamiNum3 e1) by (unfold e1; apply IH).
+  set (E2 := (e1 * e1 - p2) / 2) in *.
+  set (E3 := (E2 * e1 - e1 * p2 + p3) / 3) in *.
+  set (E4 := (E3 * e1 - E2 * p2 + e1 * p3 - p4) / 4) in *.
+  set (E5 := (E4 * e1 - E3 * p2 + E2 * p3 - e1 * p4 + p5) / 5) in *.
+  assert (HE2 : OrigamiNum3 E2) by
+    (unfold E2; apply ON3_div; [apply ON3_sub; [apply ON3_mul; exact He1ON | exact Hp2ON]
+                              | apply ON3_two | lra]).
+  assert (HE3 : OrigamiNum3 E3) by
+    (unfold E3; apply ON3_div;
+       [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE2 | exact He1ON]
+                                       | apply ON3_mul; [exact He1ON | exact Hp2ON]] | exact Hp3ON]
+        | apply ON3_three | lra]).
+  assert (HE4 : OrigamiNum3 E4) by
+    (unfold E4; apply ON3_div;
+       [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE3 | exact He1ON]
+                                                       | apply ON3_mul; [exact HE2 | exact Hp2ON]]
+                                       | apply ON3_mul; [exact He1ON | exact Hp3ON]] | exact Hp4ON]
+        | exact ON3_4 | lra]).
+  assert (HE5 : OrigamiNum3 E5) by
+    (unfold E5; apply ON3_div;
+       [apply ON3_add; [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE4 | exact He1ON]
+                                                                       | apply ON3_mul; [exact HE3 | exact Hp2ON]]
+                                                       | apply ON3_mul; [exact HE2 | exact Hp3ON]]
+                                       | apply ON3_mul; [exact He1ON | exact Hp4ON]] | exact Hp5ON]
+        | exact ON3_5 | lra]).
+  assert (Hx0 : PerV P g w (D * 5) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON3_quint (- e1) E2 (- E3) E4 (- E5) x0).
+  - apply ON3_neg; exact He1ON.
+  - exact HE2.
+  - apply ON3_neg; exact HE3.
+  - exact HE4.
+  - apply ON3_neg; exact HE5.
+  - pose proof (quintic_root_from_psums x0 x1 x2 x3 x4 e1 p2 p3 p4 p5 He1 Hp2 Hp3 Hp4 Hp5) as Hq.
+    cbv zeta in Hq. exact Hq.
+Qed.
+
+Lemma step7 : forall (D : nat) (w : Z), (1 <= D)%nat -> Nat.divide (D * 7) n ->
+  (forall v, OrigamiNum3 (PerV P g v D)) ->
+  OrigamiNum3 (PerV P g w (D * 7)).
+Proof.
+  intros D w HD Hdiv IH.
+  assert (ON3_4 : OrigamiNum3 4) by (replace 4 with (2 + 2) by ring; apply ON3_add; apply ON3_two).
+  assert (ON3_5 : OrigamiNum3 5)
+    by (replace 5 with (2 + 3) by ring; apply ON3_add; [apply ON3_two | apply ON3_three]).
+  assert (ON3_6 : OrigamiNum3 6) by (replace 6 with (3 + 3) by ring; apply ON3_add; apply ON3_three).
+  assert (ON3_7 : OrigamiNum3 7)
+    by (replace 7 with (3 + 4) by ring; apply ON3_add; [apply ON3_three | exact ON3_4]).
+  assert (He1 : PerV P g w D
+    = PerV P g (w * zpn g (D * 0)) (D * 7) + PerV P g (w * zpn g (D * 1)) (D * 7)
+    + PerV P g (w * zpn g (D * 2)) (D * 7) + PerV P g (w * zpn g (D * 3)) (D * 7)
+    + PerV P g (w * zpn g (D * 4)) (D * 7) + PerV P g (w * zpn g (D * 5)) (D * 7)
+    + PerV P g (w * zpn g (D * 6)) (D * 7)).
+  { rewrite (PerV_partition P g HP5 w D 7 ltac:(lia) ltac:(lia) Hdiv). apply rsum_7. }
+  assert (Hp2 : rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 2)
+    = (PerV P g (w * zpn g (D * 0)) (D * 7)) ^ 2 + (PerV P g (w * zpn g (D * 1)) (D * 7)) ^ 2
+    + (PerV P g (w * zpn g (D * 2)) (D * 7)) ^ 2 + (PerV P g (w * zpn g (D * 3)) (D * 7)) ^ 2
+    + (PerV P g (w * zpn g (D * 4)) (D * 7)) ^ 2 + (PerV P g (w * zpn g (D * 5)) (D * 7)) ^ 2
+    + (PerV P g (w * zpn g (D * 6)) (D * 7)) ^ 2) by (rewrite rsum_7; reflexivity).
+  assert (Hp3 : rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 3)
+    = (PerV P g (w * zpn g (D * 0)) (D * 7)) ^ 3 + (PerV P g (w * zpn g (D * 1)) (D * 7)) ^ 3
+    + (PerV P g (w * zpn g (D * 2)) (D * 7)) ^ 3 + (PerV P g (w * zpn g (D * 3)) (D * 7)) ^ 3
+    + (PerV P g (w * zpn g (D * 4)) (D * 7)) ^ 3 + (PerV P g (w * zpn g (D * 5)) (D * 7)) ^ 3
+    + (PerV P g (w * zpn g (D * 6)) (D * 7)) ^ 3) by (rewrite rsum_7; reflexivity).
+  assert (Hp4 : rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 4)
+    = (PerV P g (w * zpn g (D * 0)) (D * 7)) ^ 4 + (PerV P g (w * zpn g (D * 1)) (D * 7)) ^ 4
+    + (PerV P g (w * zpn g (D * 2)) (D * 7)) ^ 4 + (PerV P g (w * zpn g (D * 3)) (D * 7)) ^ 4
+    + (PerV P g (w * zpn g (D * 4)) (D * 7)) ^ 4 + (PerV P g (w * zpn g (D * 5)) (D * 7)) ^ 4
+    + (PerV P g (w * zpn g (D * 6)) (D * 7)) ^ 4) by (rewrite rsum_7; reflexivity).
+  assert (Hp5 : rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 5)
+    = (PerV P g (w * zpn g (D * 0)) (D * 7)) ^ 5 + (PerV P g (w * zpn g (D * 1)) (D * 7)) ^ 5
+    + (PerV P g (w * zpn g (D * 2)) (D * 7)) ^ 5 + (PerV P g (w * zpn g (D * 3)) (D * 7)) ^ 5
+    + (PerV P g (w * zpn g (D * 4)) (D * 7)) ^ 5 + (PerV P g (w * zpn g (D * 5)) (D * 7)) ^ 5
+    + (PerV P g (w * zpn g (D * 6)) (D * 7)) ^ 5) by (rewrite rsum_7; reflexivity).
+  assert (Hp6 : rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 6)
+    = (PerV P g (w * zpn g (D * 0)) (D * 7)) ^ 6 + (PerV P g (w * zpn g (D * 1)) (D * 7)) ^ 6
+    + (PerV P g (w * zpn g (D * 2)) (D * 7)) ^ 6 + (PerV P g (w * zpn g (D * 3)) (D * 7)) ^ 6
+    + (PerV P g (w * zpn g (D * 4)) (D * 7)) ^ 6 + (PerV P g (w * zpn g (D * 5)) (D * 7)) ^ 6
+    + (PerV P g (w * zpn g (D * 6)) (D * 7)) ^ 6) by (rewrite rsum_7; reflexivity).
+  assert (Hp7 : rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 7)
+    = (PerV P g (w * zpn g (D * 0)) (D * 7)) ^ 7 + (PerV P g (w * zpn g (D * 1)) (D * 7)) ^ 7
+    + (PerV P g (w * zpn g (D * 2)) (D * 7)) ^ 7 + (PerV P g (w * zpn g (D * 3)) (D * 7)) ^ 7
+    + (PerV P g (w * zpn g (D * 4)) (D * 7)) ^ 7 + (PerV P g (w * zpn g (D * 5)) (D * 7)) ^ 7
+    + (PerV P g (w * zpn g (D * 6)) (D * 7)) ^ 7) by (rewrite rsum_7; reflexivity).
+  assert (Hp2ON : OrigamiNum3 (rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 2)))
+    by exact (psum_ON3 D 7 w 1 HD ltac:(lia) Hdiv IH).
+  assert (Hp3ON : OrigamiNum3 (rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 3)))
+    by exact (psum_ON3 D 7 w 2 HD ltac:(lia) Hdiv IH).
+  assert (Hp4ON : OrigamiNum3 (rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 4)))
+    by exact (psum_ON3 D 7 w 3 HD ltac:(lia) Hdiv IH).
+  assert (Hp5ON : OrigamiNum3 (rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 5)))
+    by exact (psum_ON3 D 7 w 4 HD ltac:(lia) Hdiv IH).
+  assert (Hp6ON : OrigamiNum3 (rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 6)))
+    by exact (psum_ON3 D 7 w 5 HD ltac:(lia) Hdiv IH).
+  assert (Hp7ON : OrigamiNum3 (rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 7)))
+    by exact (psum_ON3 D 7 w 6 HD ltac:(lia) Hdiv IH).
+  set (e1 := PerV P g w D) in *.
+  set (p2 := rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 2)) in *.
+  set (p3 := rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 3)) in *.
+  set (p4 := rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 4)) in *.
+  set (p5 := rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 5)) in *.
+  set (p6 := rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 6)) in *.
+  set (p7 := rsum (seq 0 7) (fun l => (PerV P g (w * zpn g (D * l)) (D * 7)) ^ 7)) in *.
+  set (x0 := PerV P g (w * zpn g (D * 0)) (D * 7)) in *.
+  set (x1 := PerV P g (w * zpn g (D * 1)) (D * 7)) in *.
+  set (x2 := PerV P g (w * zpn g (D * 2)) (D * 7)) in *.
+  set (x3 := PerV P g (w * zpn g (D * 3)) (D * 7)) in *.
+  set (x4 := PerV P g (w * zpn g (D * 4)) (D * 7)) in *.
+  set (x5 := PerV P g (w * zpn g (D * 5)) (D * 7)) in *.
+  set (x6 := PerV P g (w * zpn g (D * 6)) (D * 7)) in *.
+  assert (He1ON : OrigamiNum3 e1) by (unfold e1; apply IH).
+  set (E2 := (e1 * e1 - p2) / 2) in *.
+  set (E3 := (E2 * e1 - e1 * p2 + p3) / 3) in *.
+  set (E4 := (E3 * e1 - E2 * p2 + e1 * p3 - p4) / 4) in *.
+  set (E5 := (E4 * e1 - E3 * p2 + E2 * p3 - e1 * p4 + p5) / 5) in *.
+  set (E6 := (E5 * e1 - E4 * p2 + E3 * p3 - E2 * p4 + e1 * p5 - p6) / 6) in *.
+  set (E7 := (E6 * e1 - E5 * p2 + E4 * p3 - E3 * p4 + E2 * p5 - e1 * p6 + p7) / 7) in *.
+  assert (HE2 : OrigamiNum3 E2) by
+    (unfold E2; apply ON3_div; [apply ON3_sub; [apply ON3_mul; exact He1ON | exact Hp2ON]
+                              | apply ON3_two | lra]).
+  assert (HE3 : OrigamiNum3 E3) by
+    (unfold E3; apply ON3_div;
+       [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE2 | exact He1ON]
+                                       | apply ON3_mul; [exact He1ON | exact Hp2ON]] | exact Hp3ON]
+        | apply ON3_three | lra]).
+  assert (HE4 : OrigamiNum3 E4) by
+    (unfold E4; apply ON3_div;
+       [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE3 | exact He1ON]
+                                                       | apply ON3_mul; [exact HE2 | exact Hp2ON]]
+                                       | apply ON3_mul; [exact He1ON | exact Hp3ON]] | exact Hp4ON]
+        | exact ON3_4 | lra]).
+  assert (HE5 : OrigamiNum3 E5) by
+    (unfold E5; apply ON3_div;
+       [apply ON3_add; [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE4 | exact He1ON]
+                                                                       | apply ON3_mul; [exact HE3 | exact Hp2ON]]
+                                                       | apply ON3_mul; [exact HE2 | exact Hp3ON]]
+                                       | apply ON3_mul; [exact He1ON | exact Hp4ON]] | exact Hp5ON]
+        | exact ON3_5 | lra]).
+  assert (HE6 : OrigamiNum3 E6) by
+    (unfold E6; apply ON3_div;
+       [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE5 | exact He1ON]
+                                                                                       | apply ON3_mul; [exact HE4 | exact Hp2ON]]
+                                                                       | apply ON3_mul; [exact HE3 | exact Hp3ON]]
+                                                       | apply ON3_mul; [exact HE2 | exact Hp4ON]]
+                                       | apply ON3_mul; [exact He1ON | exact Hp5ON]] | exact Hp6ON]
+        | exact ON3_6 | lra]).
+  assert (HE7 : OrigamiNum3 E7) by
+    (unfold E7; apply ON3_div;
+       [apply ON3_add; [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_add; [apply ON3_sub; [apply ON3_mul; [exact HE6 | exact He1ON]
+                                                                                                       | apply ON3_mul; [exact HE5 | exact Hp2ON]]
+                                                                                       | apply ON3_mul; [exact HE4 | exact Hp3ON]]
+                                                                       | apply ON3_mul; [exact HE3 | exact Hp4ON]]
+                                                       | apply ON3_mul; [exact HE2 | exact Hp5ON]]
+                                       | apply ON3_mul; [exact He1ON | exact Hp6ON]] | exact Hp7ON]
+        | exact ON3_7 | lra]).
+  assert (Hx0 : PerV P g w (D * 7) = x0).
+  { unfold x0. f_equal. rewrite Nat.mul_0_r. cbn [zpn]. ring. }
+  rewrite Hx0.
+  apply (ON3_sept (- e1) E2 (- E3) E4 (- E5) E6 (- E7) x0).
+  - apply ON3_neg; exact He1ON.
+  - exact HE2.
+  - apply ON3_neg; exact HE3.
+  - exact HE4.
+  - apply ON3_neg; exact HE5.
+  - exact HE6.
+  - apply ON3_neg; exact HE7.
+  - pose proof (septic_root_from_psums x0 x1 x2 x3 x4 x5 x6 e1 p2 p3 p4 p5 p6 p7
+                  He1 Hp2 Hp3 Hp4 Hp5 Hp6 Hp7) as Hq.
+    cbv zeta in Hq. exact Hq.
+Qed.
+
+Lemma period_tower3 : forall D, Nat.divide D n -> forall v, OrigamiNum3 (PerV P g v D).
+Proof.
+  intro D. induction D as [D IHD] using (well_founded_induction lt_wf). intros Hdiv v.
+  destruct (Nat.eq_dec D 1) as [HD1 | HDne].
+  - subst D. apply base3.
+  - assert (HDpos : (1 <= D)%nat).
+    { destruct (Nat.eq_dec D 0) as [HD0|HD0].
+      - subst D. destruct Hdiv as [z Hz]. rewrite Nat.mul_0_r in Hz. lia.
+      - lia. }
+    assert (HD2 : (2 <= D)%nat) by lia.
+    destruct (prime_factor_nat D HD2) as [q [Hqprime Hqdvd]].
+    assert (Hq0 : q <> 0%nat) by (destruct Hqprime as [Hqg _]; lia).
+    destruct Hsmooth7 as [a [b [c [dd Habcd]]]].
+    assert (Hq2357 : q = 2%nat \/ q = 3%nat \/ q = 5%nat \/ q = 7%nat).
+    { apply (prime_dvd_2a3b5c7d q a b c dd Hqprime). rewrite <- Habcd.
+      apply (Nat.divide_trans q D (P - 1) Hqdvd Hdiv). }
+    assert (HqD : (D / q * q)%nat = D) by (apply divides_div_mul; [exact Hq0 | exact Hqdvd]).
+    set (D' := (D / q)%nat) in *.
+    assert (HD'pos : (1 <= D')%nat) by nia.
+    assert (HD'lt : (D' < D)%nat) by nia.
+    assert (HD'div : Nat.divide D' (P - 1)).
+    { apply (Nat.divide_trans D' D (P - 1)); [ exists q; lia | exact Hdiv ]. }
+    assert (IHD' : forall v0, OrigamiNum3 (PerV P g v0 D')) by exact (IHD D' HD'lt HD'div).
+    destruct Hq2357 as [Hq2 | [Hq3 | [Hq5 | Hq7]]].
+    + subst q. assert (Hd2 : Nat.divide (D' * 2) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step2_ON3 D' v HD'pos Hd2 IHD').
+    + subst q. assert (Hd3 : Nat.divide (D' * 3) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step3_ON3 D' v HD'pos Hd3 IHD').
+    + subst q. assert (Hd5 : Nat.divide (D' * 5) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step5_ON3 D' v HD'pos Hd5 IHD').
+    + subst q. assert (Hd7 : Nat.divide (D' * 7) (P - 1)) by (rewrite HqD; exact Hdiv).
+      rewrite <- HqD. exact (step7 D' v HD'pos Hd7 IHD').
+Qed.
+
+Lemma cos_ON3_section3 : OrigamiNum3 (cos (2 * PI / INR P)).
+Proof.
+  assert (Hnn : Nat.divide n n) by apply Nat.divide_refl.
+  pose proof (period_tower3 n Hnn 1%Z) as HPer.
+  assert (Hval : PerV P g 1 n = cos (2 * PI / INR P)).
+  { rewrite (PerV_rsum P g 1 n).
+    assert (Hnn1 : (n / n = 1)%nat) by (apply Nat.div_same; lia).
+    rewrite Hnn1.
+    assert (Hseq : seq 0 1 = [0%nat]) by reflexivity.
+    rewrite Hseq, rsum_single. cbn beta.
+    rewrite Nat.mul_0_r. cbn [zpn].
+    replace (1 * 1)%Z with 1%Z by ring.
+    exact (ca_one P HP5). }
+  rewrite <- Hval. exact HPer.
+Qed.
+
+End Tower3.
+
+Lemma Hcore3_ge7 : forall p, Znumtheory.prime (Z.of_nat p) ->
+  is_7_smooth (euler_phi p) -> (5 <= p)%nat ->
+  OrigamiNum3 (cos (2 * PI / INR p)).
+Proof.
+  intros p Hp Hsm Hp5.
+  destruct (primitive_root_7smooth p Hp Hsm Hp5) as [g [Hgr [Hper Hgord]]].
+  assert (Hsm' : is_7_smooth (p - 1)) by (rewrite <- (euler_phi_prime p Hp); exact Hsm).
+  exact (cos_ON3_section3 p g Hp Hp5 Hper Hgord Hgr Hsm').
+Qed.
+
+Theorem Hcore3 : forall p, Znumtheory.prime (Z.of_nat p) ->
+  is_7_smooth (euler_phi p) -> OrigamiNum3 (cos (2 * PI / INR p)).
+Proof.
+  intros p Hp Hsm.
+  destruct (le_lt_dec 5 p) as [Hge | Hlt].
+  - exact (Hcore3_ge7 p Hp Hsm Hge).
+  - apply Origami2_in_Origami3. apply Origami_in_Origami2.
+    assert (Hp2 : (2 <= p)%nat) by (destruct Hp as [Hgt _]; lia).
+    destruct (Nat.eq_dec p 2) as [E2|N2]; [ subst p; exact (cos_2pi_2a3b_origami 1 0) |].
+    destruct (Nat.eq_dec p 3) as [E3|N3]; [ subst p; exact (cos_2pi_2a3b_origami 0 1) |].
+    exfalso. assert (E4 : p = 4%nat) by lia.
+    pose proof (is_prime_of_Z p Hp) as Hisp. rewrite E4 in Hisp. destruct Hisp as [_ Hd].
+    destruct (Hd 2%nat ltac:(lia) ltac:(exists 2%nat; reflexivity)) as [H|H]; lia.
+Qed.
