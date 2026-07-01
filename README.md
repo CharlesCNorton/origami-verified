@@ -35,7 +35,9 @@ The formalization establishes the Huzita-Hatori axioms O1-O7 with existence proo
 
 **Casus irreducibilis.** The real-radical counterpart to origami solving every cubic is also established (`casus_irreducibilis_tower`): a monic cubic with rational coefficients, three real roots, and no rational root has no root in any real square+cube-root tower over ℚ. Cardano's formula produces the roots over ℂ through complex cube roots; this is the impossibility of reaching them with real radicals alone. The proof descends through the tower — square steps by Vieta conjugation, cube steps by `casus_cube_heart`, which reduces a candidate root modulo β³ = a and forces the complex conjugate root's imaginary part √3/2·(c₁β − c₂β²) to vanish. The two underlying obstructions are `casus_cube_heart` (the complex-conjugate argument, why a real cube-root tower cannot help) and `casus_sqrt_obstruction` (three elements 1, ρ, ρ² cannot be independent in a two-dimensional square-root extension), and `casus_irreducibilis_split` discharges the three-real-roots hypothesis for any cubic presented by its real roots.
 
-The mathematical core is axiom-clean: it assumes only the standard axioms of classical real analysis, with no admitted proofs (the primitive machine-float axioms used for the extracted numerics are confined to the extraction file). The Organization section below records the exact axiom base.
+The mathematical core is axiom-clean: it assumes only the standard axioms of classical real analysis, with no admitted proofs (the primitive machine-float axioms used for the extracted numerics are confined to the extraction and float-soundness files). The Organization section below records the exact axiom base.
+
+The extracted `FloatGeom` primitive-float layer is itself verified against its real-number model in `theories/floatsound.v` via Flocq: each float operation (distance, midpoint, line-through, reflection, perpendicular bisector, the Beloch crease, the depressed cubic and its discriminants, the fold constructors O1/O2, the n-gon angle) is proved to compute the IEEE-754 round-to-nearest value of its exact real model at every primitive step — hence within half an ulp per step, with explicit per-operation error bounds — and the line-intersection routine is proved to decide the real "two lines meet in a point" predicate whenever the determinant does not round to zero.
 
 ## Extraction
 
@@ -60,6 +62,7 @@ without ingesting the whole corpus.
 | `theories/geometry.v` | Huzita O1-O7, folds, constructibility and enumeration, the Gaussian-period tower, the n-gon iff, casus irreducibilis for real square+cube-root towers | foundations, cyclotomic |
 | `theories/frontier.v` | Reserved for results beyond established origami/constructibility mathematics; currently empty | foundations, cyclotomic, geometry |
 | `theories/extraction.v` | Demonstrations, density/classifier catalogs, `FloatGeom`, and the OCaml extraction | foundations, cyclotomic, geometry |
+| `theories/floatsound.v` | Soundness of the `FloatGeom` primitive-float layer against its real model via Flocq | extraction (+ Flocq) |
 
 Placement is by dependency, not physical location — number-theoretic machinery
 (`primitive_root`, the reduction-mod-p apparatus, the Gaussian-period backbone) lives
@@ -71,14 +74,17 @@ is reserved for genuinely new mathematics — open problems and theorems not yet
 on paper; anything classical belongs directly in the settled core at the file its
 dependencies dictate, and matured frontier results migrate down the same way, leaving
 `frontier.v` empty between campaigns. `extraction.v` only showcases and extracts the
-published core.
+published core; `floatsound.v` sits above it, proving the extracted `FloatGeom`
+primitive-float operations sound against their real-number model via Flocq.
 
 The mathematical core is axiom-clean. `coqchk -R theories "" geometry` reports only
 the standard classical-analysis axioms — excluded middle, the description and choice
 operators, proof irrelevance, functional extensionality, and the two classical
 Dedekind-reals decidability axioms — with no type-in-type, no unsafe fixpoints, and
 no admitted proofs. The primitive machine-float and `Uint63` axioms used by the
-extracted numerics appear only in `extraction.v`.
+extracted numerics appear only in `extraction.v` and `floatsound.v` — the latter
+verifies those very primitive-float operations against Flocq's real model, so it
+necessarily rests on their defining spec axioms (`add_spec`, `mul_spec`, `div_spec`).
 
 Beyond `theories/`, `origami_main.ml` is the OCaml demo driver and `todo.md` lists
 the open theorems. Compiling `theories/extraction.v` (via `make`) extracts the

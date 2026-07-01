@@ -356,3 +356,89 @@ Proof.
   - rewrite Erx, Eka, Ekv. reflexivity.
   - rewrite Ery, Ekb, Ekv. reflexivity.
 Qed.
+
+(** The Huzita fold constructors O1 and O2 are exactly the (sound) line-through
+    and perpendicular-bisector operations. *)
+Lemma float_fold_O1_eq : forall p1 p2, float_fold_O1 p1 p2 = float_line_through p1 p2.
+Proof. reflexivity. Qed.
+Lemma float_fold_O2_eq : forall p1 p2, float_fold_O2 p1 p2 = float_perp_bisector p1 p2.
+Proof. reflexivity. Qed.
+
+Lemma f2r_m4 : f2r (-4)%float = -4. Proof. unfold f2r. vm_compute. lra. Qed.
+Lemma f2r_27 : f2r 27%float = 27. Proof. unfold f2r. vm_compute. lra. Qed.
+Lemma f2r_4  : f2r 4%float = 4.   Proof. unfold f2r. vm_compute. lra. Qed.
+
+(** float_cubic_discriminant p q = -4 p^3 - 27 q^2, faithfully rounded. *)
+Lemma float_cubic_discriminant_sound : forall p q,
+  fin p -> fin q ->
+  no_ovf (-4 * f2r p) ->
+  no_ovf (rnd (-4 * f2r p) * f2r p) ->
+  no_ovf (rnd (rnd (-4 * f2r p) * f2r p) * f2r p) ->
+  no_ovf (27 * f2r q) ->
+  no_ovf (rnd (27 * f2r q) * f2r q) ->
+  no_ovf (rnd (rnd (rnd (-4 * f2r p) * f2r p) * f2r p) - rnd (rnd (27 * f2r q) * f2r q)) ->
+  f2r (float_cubic_discriminant p q)
+    = rnd (rnd (rnd (rnd (-4 * f2r p) * f2r p) * f2r p) - rnd (rnd (27 * f2r q) * f2r q)).
+Proof.
+  intros p q Fp Fq O1 O2 O3 On1 On2 Osub.
+  assert (H4 : fin (-4)%float) by (unfold fin; vm_compute; reflexivity).
+  assert (H27 : fin 27%float) by (unfold fin; vm_compute; reflexivity).
+  destruct (mul_sound _ p H4 Fp ltac:(rewrite f2r_m4; exact O1)) as [E1 F1].
+  destruct (mul_sound _ p F1 Fp ltac:(rewrite E1, f2r_m4; exact O2)) as [E2 F2].
+  destruct (mul_sound _ p F2 Fp ltac:(rewrite E2, E1, f2r_m4; exact O3)) as [E3 F3].
+  destruct (mul_sound _ q H27 Fq ltac:(rewrite f2r_27; exact On1)) as [En1 Fn1].
+  destruct (mul_sound _ q Fn1 Fq ltac:(rewrite En1, f2r_27; exact On2)) as [En2 Fn2].
+  destruct (sub_sound _ _ F3 Fn2
+    ltac:(rewrite E3, E2, E1, En2, En1, f2r_m4, f2r_27; exact Osub)) as [Esub _].
+  unfold float_cubic_discriminant.
+  rewrite Esub, E3, E2, E1, En2, En1, f2r_m4, f2r_27. reflexivity.
+Qed.
+
+(** float_cardano_discriminant p q = q^2/4 + p^3/27, faithfully rounded. *)
+Lemma float_cardano_discriminant_sound : forall p q,
+  fin p -> fin q ->
+  no_ovf (f2r q * f2r q) ->
+  no_ovf (rnd (f2r q * f2r q) / 4) ->
+  no_ovf (f2r p * f2r p) ->
+  no_ovf (rnd (f2r p * f2r p) * f2r p) ->
+  no_ovf (rnd (rnd (f2r p * f2r p) * f2r p) / 27) ->
+  no_ovf (rnd (rnd (f2r q * f2r q) / 4) + rnd (rnd (rnd (f2r p * f2r p) * f2r p) / 27)) ->
+  f2r (float_cardano_discriminant p q)
+    = rnd (rnd (rnd (f2r q * f2r q) / 4) + rnd (rnd (rnd (f2r p * f2r p) * f2r p) / 27)).
+Proof.
+  intros p q Fp Fq Oqq Oq4 Opp Oppp Op27 Osum.
+  assert (H4 : fin 4%float) by (unfold fin; vm_compute; reflexivity).
+  assert (H27 : fin 27%float) by (unfold fin; vm_compute; reflexivity).
+  assert (H4ne : f2r 4%float <> 0) by (rewrite f2r_4; lra).
+  assert (H27ne : f2r 27%float <> 0) by (rewrite f2r_27; lra).
+  destruct (mul_sound _ _ Fq Fq Oqq) as [Eqq Fqq].
+  destruct (div_sound _ 4%float Fqq H4 H4ne ltac:(rewrite Eqq, f2r_4; exact Oq4)) as [Eq4 Fq4].
+  destruct (mul_sound _ _ Fp Fp Opp) as [Epp Fpp].
+  destruct (mul_sound _ p Fpp Fp ltac:(rewrite Epp; exact Oppp)) as [Eppp Fppp].
+  destruct (div_sound _ 27%float Fppp H27 H27ne
+    ltac:(rewrite Eppp, Epp, f2r_27; exact Op27)) as [Ep27 Fp27].
+  destruct (add_sound _ _ Fq4 Fp27
+    ltac:(rewrite Eq4, Eqq, f2r_4, Ep27, Eppp, Epp, f2r_27; exact Osum)) as [Esum _].
+  unfold float_cardano_discriminant.
+  rewrite Esum, Eq4, Eqq, f2r_4, Ep27, Eppp, Epp, f2r_27. reflexivity.
+Qed.
+
+(** float_ngon_angle n = 2 pi_float / n, faithfully rounded (pi_float the
+    double nearest pi; n converted to a float).  Requires the converted n
+    nonzero, i.e. n >= 1. *)
+Lemma float_ngon_angle_sound : forall n,
+  fin (PrimFloat.of_uint63 (Uint63.of_Z (Z.of_nat n))) ->
+  f2r (PrimFloat.of_uint63 (Uint63.of_Z (Z.of_nat n))) <> 0 ->
+  no_ovf (2 * f2r float_pi) ->
+  no_ovf (rnd (2 * f2r float_pi) / f2r (PrimFloat.of_uint63 (Uint63.of_Z (Z.of_nat n)))) ->
+  f2r (float_ngon_angle n)
+    = rnd (rnd (2 * f2r float_pi) / f2r (PrimFloat.of_uint63 (Uint63.of_Z (Z.of_nat n)))).
+Proof.
+  intros n Fn Hn O1 O2.
+  assert (H2 : fin 2%float) by (unfold fin; vm_compute; reflexivity).
+  assert (Hpi : fin float_pi) by (unfold fin, float_pi; vm_compute; reflexivity).
+  destruct (mul_sound 2%float float_pi H2 Hpi ltac:(rewrite f2r_2; exact O1)) as [Emul Fmul].
+  destruct (div_sound _ _ Fmul Fn Hn ltac:(rewrite Emul, f2r_2; exact O2)) as [Ediv _].
+  unfold float_ngon_angle.
+  rewrite Ediv, Emul, f2r_2. reflexivity.
+Qed.

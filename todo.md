@@ -22,13 +22,15 @@ real roots, and no rational root has no root in any real square+cube-root tower
 over Q; with `casus_irreducibilis_split` discharging the three-real-roots
 hypothesis from a real factorization, and `casus_cube_heart` /
 `casus_sqrt_obstruction` the underlying complex-conjugate and dimension
-obstructions -- the real-radical counterpart to origami solving every cubic).
+obstructions -- the real-radical counterpart to origami solving every cubic), and
+FloatGeom soundness against the real-number model via Flocq (`theories/floatsound.v`:
+every extracted primitive-float operation computes the IEEE-754 round-to-nearest
+value of its exact real model at each step -- within half an ulp per step, with
+explicit per-operation error bounds `add/sub/mul/div_err` -- and
+`float_line_intersection` decides the real two-lines-meet predicate when the
+determinant does not round to zero).
 
 1. **Geometric two-fold operations.** Formalize simultaneous two-fold origami as
    genuine fold pairs with incidence constraints, derive their quintic-solving
    power from the geometry, and prove OrigamiNum2 equals exactly the numbers those
    operations construct.
-
-2. **FloatGeom soundness via Flocq.** Each float operation lies within a proven
-   error bound of its real-number model, and the float predicates decide their
-   real counterparts on adequately separated inputs.
