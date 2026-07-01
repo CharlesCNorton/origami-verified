@@ -9561,6 +9561,131 @@ Proof.
   assert (Hxeq : x0 * (1 + a*a) = d - b - a*g) by (rewrite Hx0; field; exact Ha).
   subst y0. nsatz.
 Qed.
+
+(* ============================================================================
+   The simultaneous two-fold axiom system, in Lill form.  A two-fold
+   manipulation folds two creases at once.  Here each crease is the line of one
+   of the two middle segments of the Lill shooting path for the Bring-Jerrard
+   quintic t^5 + p t + q: the path leaves the origin, bounces at right angles
+   off the coefficient lines x = 1 and y = 0 (twice each), and lands on
+   (1 + p, q).  The creases are mutually aligned by the middle bounce segment,
+   which is perpendicular to BOTH creases at their marked points -- neither
+   crease is determined without the other, which is what makes the manipulation
+   genuinely two-fold.  The system needs no nondegeneracy hypotheses: the
+   perpendicularity and well-formedness constraints exclude the degenerate
+   configurations by themselves.
+   ============================================================================ *)
+
+(** The coefficient line x = 1 of the Lill path *)
+Definition line_x1 : Line := {| A := 1; B := 0; C := -1 |}.
+
+(** The simultaneous two-fold alignment: g1 carries the first double bounce
+    (from the origin over x = 1 to y = 0), g2 the second (over x = 1 to y = 0
+    and into the endpoint (1+p, q)), and the middle segment couples them. *)
+Definition two_fold_lill (p q : R) (g1 g2 : Line) : Prop :=
+  exists B1 B2 B3 B4 : Point,
+    on_line B1 line_x1 /\ on_line B2 line_xaxis /\
+    on_line B3 line_x1 /\ on_line B4 line_xaxis /\
+    on_line B1 g1 /\ on_line B2 g1 /\
+    on_line B3 g2 /\ on_line B4 g2 /\
+    line_wf g1 /\ line_wf g2 /\
+    line_perp (line_through point_O B1) g1 /\
+    line_perp (line_through B2 B3) g1 /\
+    line_perp (line_through B2 B3) g2 /\
+    line_perp (line_through B4 (1 + p, q)) g2.
+
+(** Soundness: every simultaneous two-fold Lill manipulation solves the
+    Bring-Jerrard quintic. *)
+Theorem two_fold_lill_quintic : forall p q g1 g2,
+  two_fold_lill p q g1 g2 ->
+  exists t, t * t * t * t * t + p * t + q = 0.
+Proof.
+  intros p q g1 g2 [[xb1 u] [[x2 y2] [[xb3 y3] [[x4 y4] H]]]].
+  destruct H as [HB1x [HB2x [HB3x [HB4x [HB1g [HB2g [HB3g [HB4g
+                 [Hwf1 [Hwf2 [HP1 [HP2 [HP3 HP4]]]]]]]]]]]]].
+  unfold on_line, line_x1, line_xaxis in HB1x, HB2x, HB3x, HB4x.
+  simpl in HB1x, HB2x, HB3x, HB4x.
+  assert (Exb1 : xb1 = 1) by lra.
+  assert (Ey2 : y2 = 0) by lra.
+  assert (Exb3 : xb3 = 1) by lra.
+  assert (Ey4 : y4 = 0) by lra.
+  subst xb1 y2 xb3 y4.
+  unfold point_O in HP1.
+  unfold line_perp, line_through in HP1, HP2, HP3, HP4.
+  destruct (Req_EM_T 0 1) as [H01 | _]; [exfalso; lra |].
+  simpl in HP1.
+  assert (EB1 : B g1 = u * A g1) by lra.
+  unfold on_line in HB1g, HB2g, HB3g, HB4g.
+  simpl in HB1g, HB2g, HB3g, HB4g.
+  rewrite EB1 in HB1g.
+  assert (HA1 : A g1 <> 0).
+  { intro HA0. destruct Hwf1 as [HA | HB]; [exact (HA HA0) |].
+    apply HB. rewrite EB1, HA0. ring. }
+  assert (Ex2 : x2 = 1 + u * u).
+  { apply (Rmult_eq_reg_l (A g1)); [| exact HA1]. nra. }
+  subst x2.
+  destruct (Req_EM_T (1 + u * u) 1) as [Hdeg | Hne].
+  { exfalso. simpl in HP2. apply HA1. lra. }
+  simpl in HP2, HP3.
+  rewrite EB1 in HP2.
+  assert (Hu : u <> 0) by (intro Hu0; apply Hne; nra).
+  assert (Ey3 : y3 = - (u * u * u)).
+  { apply (Rmult_eq_reg_l (A g1)); [| exact HA1]. nra. }
+  subst y3.
+  assert (EB2 : B g2 = u * A g2).
+  { apply (Rmult_eq_reg_l (u * u)); [nra | nra]. }
+  assert (HA2 : A g2 <> 0).
+  { intro HA0. destruct Hwf2 as [HA | HB]; [exact (HA HA0) |].
+    apply HB. rewrite EB2, HA0. ring. }
+  rewrite EB2 in HB3g.
+  assert (Ex4 : x4 = 1 - u * u * u * u).
+  { apply (Rmult_eq_reg_l (A g2)); [| exact HA2]. nra. }
+  subst x4.
+  destruct (Req_EM_T (1 - u * u * u * u) (1 + p)) as [Hdeg3 | Hne3].
+  { exfalso. simpl in HP4. apply HA2. lra. }
+  simpl in HP4.
+  rewrite EB2 in HP4.
+  assert (Hq : q = u * p + u * u * u * u * u).
+  { apply (Rmult_eq_reg_l (A g2)); [| exact HA2]. nra. }
+  exists (- u). nra.
+Qed.
+
+(** Realizability: every root of the Bring-Jerrard quintic with q <> 0 is
+    produced by an explicit simultaneous two-fold Lill manipulation, whose
+    creases are the parallel mirrors of normal (1, -t). *)
+Theorem two_fold_lill_realizable : forall p q t,
+  t * t * t * t * t + p * t + q = 0 -> q <> 0 ->
+  two_fold_lill p q
+    {| A := 1; B := - t; C := - (1 + t * t) |}
+    {| A := 1; B := - t; C := - (1 - t * t * t * t) |}.
+Proof.
+  intros p q t Hquint Hq0.
+  assert (Ht : t <> 0) by (intro Ht0; apply Hq0; nra).
+  exists (1, - t), (1 + t * t, 0), (1, t * t * t), (1 - t * t * t * t, 0).
+  unfold on_line, line_x1, line_xaxis, line_wf, line_perp, line_through, point_O.
+  destruct (Req_EM_T 0 1) as [H01 | _]; [exfalso; lra |].
+  destruct (Req_EM_T (1 + t * t) 1) as [Hdeg | _]; [exfalso; nra |].
+  assert (Hne3 : (1 - t * t * t * t) <> (1 + p)).
+  { intro Heq. apply Hq0. nra. }
+  destruct (Req_EM_T (1 - t * t * t * t) (1 + p)) as [Hdeg3 | _]; [exfalso; exact (Hne3 Hdeg3) |].
+  simpl.
+  repeat split; try (left; lra); try nra.
+Qed.
+
+(** The two-fold analogue of beloch_fold_satisfies_O6: every simultaneous
+    two-fold Lill manipulation yields a Bring-Jerrard root whose crease
+    {t, -1, -t^4} carries the quintic incidence of twofold_reflects_quintic,
+    grounding the two-fold layer at the axiom level. *)
+Theorem two_fold_axiom_grounds_crease : forall p q g1 g2,
+  two_fold_lill p q g1 g2 ->
+  exists t, t * t * t * t * t + p * t + q = 0 /\
+    on_line (reflect_point (q, p) (twofold_crease t)) {| A := 1; B := 0; C := q |}.
+Proof.
+  intros p q g1 g2 H.
+  destruct (two_fold_lill_quintic p q g1 g2 H) as [t Ht].
+  exists t. split; [exact Ht |].
+  apply twofold_reflects_quintic. exact Ht.
+Qed.
 Import Cardano_C.
 Open Scope R_scope.
 
