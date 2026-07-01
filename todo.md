@@ -1,6 +1,5 @@
 # Remaining Work
 
-- `foot_on_line_minimizes_distance` earns its name through the theorem that `foot_on_line p l` minimizes `dist2 p y` over all `y` with `on_line y l`, derived from the `o5land` parametrization and `o5_min_dist`.
 - `fold_O7` becomes case-complete by branching on `on_line p1 l1` to emit `perp_through p1 l2` for a point already incident to its target line, yielding the satisfaction theorem for every solvable configuration together with the impossibility lemma that no well-formed crease meets the O7 constraint when `l1` is parallel to `l2` and `p1` lies off `l1`, totalizing `O7_unified`.
 - The constructor `CF_O6` realizes the axiom O6 itself by carrying the general-position crease of `O6_general_constructible` — the O2 fold of `p1` and its reflection via `reflect_via_perp_bisector` — in place of the midpoint approximation `fold_O6_approx`, with the enumeration soundness, completeness, and `GoodFold` proofs transported to the new payload.
 - The trisection configuration `trisection_setup` receives its satisfaction certificate — `satisfies_O6_constraint` for the trisecting fold, derived from the depressed triple-angle cubic through `beloch_fold_satisfies_O6` — so the worked example carries the same guarantee as the heptagon.

@@ -1418,12 +1418,32 @@ Proof.
   intros p1 p2 l Hwf. symmetry. apply reflect_point_isometry_dist2. exact Hwf.
 Qed.
 
-(** foot(p,l) ∈ l *)
-Theorem foot_on_line_minimizes_distance : forall p l,
-  line_wf l -> on_line (foot_on_line p l) l.
+(** foot(p,l) minimizes dist² to p among the points of l *)
+Theorem foot_on_line_minimizes_distance : forall p l y,
+  line_wf l -> on_line y l ->
+  dist2 p (foot_on_line p l) <= dist2 p y.
 Proof.
-  intros p l Hwf.
-  apply foot_on_line_incident. exact Hwf.
+  intros [px py] l [yx yy] Hwf Hy.
+  assert (Hd : A l * A l + B l * B l > 0) by (apply line_norm_pos; exact Hwf).
+  unfold on_line in Hy.
+  unfold dist2, foot_on_line, sqr; simpl.
+  set (k := (A l * px + B l * py + C l) / (A l * A l + B l * B l)).
+  replace (px - (px - A l * k)) with (A l * k) by ring.
+  replace (py - (py - B l * k)) with (B l * k) by ring.
+  assert (Hk : k * (A l * A l + B l * B l) = A l * px + B l * py + C l).
+  { unfold k. field. lra. }
+  assert (Hnum : A l * px + B l * py + C l
+                 = A l * (px - yx) + B l * (py - yy)) by nra.
+  assert (Hsq : 0 <= (B l * (px - yx) - A l * (py - yy))
+                     * (B l * (px - yx) - A l * (py - yy))) by apply Rle_0_sqr.
+  assert (Hcs : (A l * (px - yx) + B l * (py - yy)) * (A l * (px - yx) + B l * (py - yy))
+                <= (A l * A l + B l * B l)
+                   * ((px - yx) * (px - yx) + (py - yy) * (py - yy))) by nra.
+  assert (Hkk : (k * (A l * A l + B l * B l)) * (k * (A l * A l + B l * B l))
+                <= (A l * A l + B l * B l)
+                   * ((px - yx) * (px - yx) + (py - yy) * (py - yy))).
+  { rewrite Hk, Hnum. exact Hcs. }
+  nra.
 Qed.
 
 (** ∃ fold through p₁ and p₂ *)
