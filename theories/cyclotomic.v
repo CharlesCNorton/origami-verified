@@ -541,7 +541,6 @@ Qed.
 (** I. THE HEPTAGON *)
 Section Heptagon_Irreducibility.
 Local Open Scope Z_scope.
-
 (** Cleared of denominators (root y = a/b, gcd(a,b)=1, b>0):
     a^3 + a^2 b - 2 a b^2 - b^3 <> 0. *)
 Lemma heptagon_min_no_rational_root : forall a b : Z,
@@ -791,7 +790,6 @@ Proof. exact (hept_cos_alg_deg_exactly_3 cos_2pi_7 cos_2pi_7_cubic_form). Qed.
     Vieta forces the third root into F, descending to a rational root. Hence the
     heptagon is not compass-constructible and Euclid c Origami is strict.
     ═══════════════════════════════════════════════════════════════════════════ *)
-Open Scope R_scope.
 (* ---------- abstract subfields of R ---------- *)
 Lemma heptagon_cubic_no_rat_root : forall r, is_rational r ->
   r*r*r + 1*(r*r) + (-2)*r + (-1) <> 0.
@@ -837,7 +835,6 @@ Qed.
     (cos 2pi/9) each give a monic rational cubic with no rational root, hence no
     Euclidean root by the quadratic-tower descent above.
     ═══════════════════════════════════════════════════════════════════════════ *)
-Open Scope R_scope.
 (* ---------- monic cubic rational root theorem (integer side) ---------- *)
 Definition cos_2pi_9 : R := cos (2*PI/9).
 Lemma cos_2pi_9_cubic : 8*(cos_2pi_9*cos_2pi_9*cos_2pi_9) - 6*cos_2pi_9 + 1 = 0.
@@ -863,18 +860,13 @@ Proof.
   intro H. apply not_EuclidNum_two_cos_2pi_9.
   apply EN_mul; [replace 2 with (1+1) by ring; apply EN_add; apply EN_1 | exact H].
 Qed.
-Open Scope R_scope.
 (** A verified O5 fold genuinely satisfies the O5 incidence constraint. *)
-Close Scope R_scope.
-Open Scope R_scope.
 Definition minpoly_list : list R := 1 :: 3 :: (-3) :: (-4) :: 1 :: 1 :: nil.
 
 Lemma pe_minpoly_list : forall y, pe minpoly_list y = minpoly_2cos y.
 Proof.
   intros y. unfold minpoly_list. rewrite !pe_cons, pe_nil. unfold minpoly_2cos. ring.
 Qed.
-Close Scope R_scope.
-Open Scope R_scope.
 Lemma minpoly_list_rational : Forall is_rational minpoly_list.
 Proof. unfold minpoly_list. repeat constructor; apply is_rational_IZR. Qed.
 
@@ -956,8 +948,6 @@ Qed.
    the constant term is its value at 0; dividing by the variable and using
    continuity at 0 peels off the next coefficient.  This is the coefficient-
    matching fact behind the monic form of Gauss's lemma. *)
-Close Scope R_scope.
-Open Scope R_scope.
 Definition minpoly_Z : list Z := (1 :: 3 :: (-3) :: (-4) :: 1 :: 1 :: nil)%Z.
 
 Lemma peval_minpoly_Z : forall y, peval minpoly_Z y = minpoly_2cos y.
@@ -970,16 +960,10 @@ Qed.
 
 Lemma Zcontent_minpoly_Z : Zcontent minpoly_Z = 1%Z.
 Proof. reflexivity. Qed.
-Close Scope R_scope.
-Open Scope R_scope.
 Open Scope Z_scope.
 (* Two integer polynomials with equal evaluations agree coefficient by
    coefficient. This turns an evaluation identity into the integer coefficient
    equations consumed by the finite degree checks. *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma high_coeff_zero : forall muZ0 qZ0 Dmu Dq d,
   length muZ0 = S d -> nth d muZ0 0 <> 0 ->
   (forall k, nth k (Zpmul muZ0 qZ0) 0 = (Dmu * Dq) * nth k minpoly_Z 0) ->
@@ -1003,10 +987,6 @@ Proof.
           [ exfalso; apply Hlead; exact Hbad | exact Hgood ]. }
   intros j Hj. apply (Hrange (length qZ0) j); [ lia | exact Hj ].
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma monic_gauss_factor : forall mu q d,
   Forall is_rational mu -> Forall is_rational q ->
   length mu = S d -> nth d mu 0%R = 1%R -> (d <= 5)%nat ->
@@ -1090,15 +1070,8 @@ Proof.
   - intro y. rewrite peval_Zpmul, (peval_eq_pe (Zprim muZ0) y), (peval_eq_pe (Zprim qZ0) y), HmapMu, HmapQ.
     rewrite peval_minpoly_Z, <- pe_minpoly_list, (Hfact y). reflexivity.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Open Scope R_scope.
 Open Scope R_scope.
 (* peval distributes over append, with the second part shifted by the degree. *)
-Close Scope R_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma linear_factor_absurd : forall f g,
   nth 1 f 0%Z = 1%Z -> (forall j, (2 <= j)%nat -> nth j f 0%Z = 0%Z) ->
   (forall y, peval minpoly_Z y = peval f y * peval g y) -> False.
@@ -1117,9 +1090,6 @@ Proof.
     apply (minpoly_2cos_no_rat_root r);
       [ unfold r; rewrite <- opp_IZR; apply is_rational_IZR | exact Hmpr ].
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Open Scope R_scope.
 Open Scope Z_scope.
 (* minpoly_2cos has no monic rational factor of degree 1 to 4.  By monic Gauss
    the factor and cofactor are integer; a degree-1 (or degree-4 via the
@@ -1182,9 +1152,6 @@ Proof.
     + intros j Hj. apply HqdegB. lia.
     + exact Hfactrl.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Open Scope R_scope.
 Open Scope R_scope.
 (* #8 resolved: cos(2 pi / 11) is not origami-constructible.  If it were, so
    would 2 cos(2 pi / 11) = delta, whose rational vector space Qx delta has a
@@ -1231,10 +1198,6 @@ Proof.
 Qed.
 
 (* Truncating a power family for the exact-degree argument. *)
-Close Scope R_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Theorem cos_2pi_11_degree_exactly_5 :
   basis is_rational (powers (2 * cos_2pi_11) 5) (Qx (2 * cos_2pi_11)).
 Proof.
@@ -1408,9 +1371,6 @@ Proof.
     lia. }
   subst d. exact (Qx_powers_basis delta 3 Hindd Hdepd).
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Open Scope R_scope.
 (* ============================================================================
    Eisenstein's irreducibility criterion over Z, built on the content and
    convolution machinery above. A polynomial whose lower coefficients are all
@@ -1419,51 +1379,13 @@ Open Scope R_scope.
    polynomials of positive degree. This is the engine for cyclotomic
    irreducibility (Phi_p via the shift x -> x+1).
    ============================================================================ *)
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 (* Convolution is commutative, via real evaluation being a commutative product. *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ============================================================================
    Dickson polynomials D_k (integer coefficient lists): D_0 = 2, D_1 = Y,
    D_{k+1} = Y*D_k - D_{k-1}.  They satisfy the Laurent identity
    D_k(x + 1/x) = x^k + x^(-k) and the Chebyshev relation D_k(2 cos t) = 2 cos(k t),
    the engine for the minimal polynomial of 2cos(2pi/p) at a general prime p.
    ============================================================================ *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Fixpoint dickson (k : nat) : list Z :=
   match k with
   | O => 2%Z :: nil
@@ -1510,38 +1432,12 @@ Proof.
     replace ((a + 1 + 1) * t) with ((a + 1) * t + t) by ring.
     rewrite cos_plus, cos_minus. ring.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ============================================================================
    Cosine sums (Dirichlet kernel) and the minimal polynomial psi_m of
    2cos(2pi/(2m+1)).  psi_m = 1 + D_1 + ... + D_m has 2cos(2pi/(2m+1)) as a root
    for every odd modulus; with cyclotomic_prime_irreducible this drives the
    degree-(p-1)/2 result at prime p.
    ============================================================================ *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Fixpoint psi (m : nat) : list Z :=
   match m with
   | O => 1%Z :: nil
@@ -1561,20 +1457,6 @@ Proof.
 Qed.
 
 (* the half-period value of the cosine sum: (m + 1/2) * (2 pi/(2m+1)) = pi *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma psi_root : forall m, (1 <= m)%nat ->
   peval (psi m) (2 * cos (2 * PI / INR (2*m+1))) = 0.
 Proof.
@@ -1597,20 +1479,6 @@ Proof.
 Qed.
 
 (* geometric-sum identity: (x - 1) * Phi_n = x^n - 1, rearranged *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma peval_psi_geom : forall m x, x <> 0 ->
   x ^ m * peval (psi m) (x + / x) = peval (repeat 1%Z (2*m+1)) x.
 Proof.
@@ -1640,19 +1508,6 @@ Proof.
     by (simpl pow; ring).
   rewrite (peval_psi_geom m x Hx). reflexivity.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope Z_scope.
 (* General cyclotomic irreducibility transfer: for prime p = 2m+1, the minimal
    polynomial psi_m of 2cos(2pi/p) admits no positive-degree integer factorization,
@@ -1737,20 +1592,6 @@ Qed.
    Gauss step (monic_gauss_factor_gen) feeds psi_no_factor, and the nat_boundary /
    Qx_powers_basis argument pins the algebraic degree to m = (p-1)/2.
    ============================================================================ *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma minpoly_no_low_factor_psi : forall m mu q d,
   Znumtheory.prime (Z.of_nat (2*m+1)) ->
   Forall is_rational mu -> Forall is_rational q ->
@@ -1794,19 +1635,6 @@ Proof.
     + rewrite (nth_overflow (firstn (S (m - d)) qZ)) by (rewrite length_firstn; lia).
       apply HqdegB. lia.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope R_scope.
 (* The algebraic degree of 2cos(2pi/p) over Q is exactly (p-1)/2 = m for prime
    p = 2m+1: psi_m gives a degree-(m+1) power dependency, and any lower boundary
@@ -1891,52 +1719,13 @@ Proof.
     rewrite !powers_length in Hle. exact Hle. }
   assert (Hdeq : d = m) by lia. subst d. exact (Hns Hsmooth).
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ============================================================================
    General exact O6 solvability: every cubic has a real root, so the common
    tangent to two parabolas (the Beloch fold) exists for an arbitrary second
    focus/directrix - an exact fold superseding the midpoint approximation.
    ============================================================================ *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 (* every cubic with nonzero leading coefficient has a real root, by depressing
    and applying depressed_cubic_root_exists *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Definition Cunit (t : R) : C := (cos t, sin t).
 
 Lemma Cmul_unit : forall a b, Cmul (Cunit a) (Cunit b) = Cunit (a + b).
@@ -1968,36 +1757,12 @@ Proof.
 Qed.
 
 (* zeta n is a root of x^n - 1 over C: cpe (Xn1 n) (zeta n) = 0. *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Theorem zeta_root_Xn1 : forall n, (1 <= n)%nat -> cpe (Xn1 n) (zeta n) = C0.
 Proof.
   intros n Hn. rewrite cpe_Xn1 by exact Hn. rewrite zeta_pow_n by exact Hn. ring.
 Qed.
 
 (* Complex power laws and the forward order property: n | k => zeta n ^ k = 1. *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Theorem zeta_pow_divides : forall n k, (1 <= n)%nat -> Nat.divide n k ->
   Cpow (zeta n) k = C1.
 Proof.
@@ -2010,18 +1775,6 @@ Qed.
    (cos_inj), so a nonzero residue r < n would force phi = 2*PI*r/n in (0,2*PI)
    with cos phi = 1, a contradiction. With zeta_pow_divides this identifies the
    primitive n-th roots of unity for the Dedekind argument. *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Theorem zeta_pow_r_ne_1 : forall n r, (0 < r < n)%nat -> Cpow (zeta n) r <> C1.
 Proof.
   intros n r Hr Hc. unfold zeta in Hc. rewrite de_moivre in Hc.
@@ -2059,38 +1812,11 @@ Qed.
 (* Complex-coefficient polynomial evaluation and division by (x - a): the factor
    theorem ceval p a = 0 => p(z) = (z - a) * q(z), toward bounding the number of
    roots of an irreducible factor in the Dedekind argument. *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma zeta_neq_0 : forall n, zeta n <> C0.
 Proof.
   intros n H. unfold zeta, Cunit, C0 in H. inversion H as [[Hc Hs]].
   pose proof (sin2_cos2 (2 * PI / INR n)) as Hpy. unfold Rsqr in Hpy. nra.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma zeta_k_root_Xn1 : forall n k, (1 <= n)%nat -> cpe (Xn1 n) (Cpow (zeta n) k) = C0.
 Proof.
   intros n k Hn. rewrite cpe_Xn1 by exact Hn.
@@ -2132,20 +1858,6 @@ Proof.
       destruct c as [|c]; [simpl in Hc; lia | nia].
     + exfalso. apply (Cpow_neq_0 (zeta n) j (zeta_neq_0 n)). exact Hbad.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Definition roots_of_unity (n : nat) : list C := map (Cpow (zeta n)) (seq 0 n).
 
 Lemma roots_of_unity_NoDup : forall n, (1 <= n)%nat -> NoDup (roots_of_unity n).
@@ -2185,38 +1897,12 @@ Proof.
     rewrite length_Xn1 in Hlt by exact Hn. lia.
   - intro Hin. apply roots_of_unity_are_roots; assumption.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ============================================================================
    Complex polynomial arithmetic and the product of linear factors (toward the
    cyclotomic product formula x^n - 1 = prod_{d|n} Phi_d).  Cpadd/Cpmul mirror
    Zpadd/Zpmul over the complex field; ceval is a ring homomorphism; and the
    product of linear factors prod (x - a_i) evaluates to prod (z - a_i).
    ============================================================================ *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Corollary Xn1_factorization : forall n z, (1 <= n)%nat ->
   cpe (Xn1 n) z = ceval (linprod (roots_of_unity n)) z.
 Proof.
@@ -2225,35 +1911,10 @@ Proof.
   - apply roots_of_unity_NoDup; exact Hn.
   - intros w Hw. apply roots_of_unity_are_roots; assumption.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ===== Product formula  x^n - 1 = prod_{d | n} Phi_d  over C =====
    The roots of x^n-1 partition by exact order: each n-th root of unity is a
    primitive d-th root for a unique d | n.  This regrouping is the tot_rhs
    bijection (used for totient_sum) lifted through the map  k |-> zeta n ^ k. *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope nat_scope.
 (* the primitive d-th roots of unity as a complex list *)
 Definition coprimes (d : nat) : list nat := filter (fun j => coprime j d) (seq 1 d).
@@ -2273,20 +1934,6 @@ Proof.
     by (rewrite <- Hgd'; field; split; assumption).
   rewrite Hangle. reflexivity.
 Qed.
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
 Lemma primroots_as_map : forall n d, 1 <= n -> Nat.divide d n ->
   primroots d = map (Cpow (zeta n)) (map (fun j => (n / d) * j) (coprimes d)).
 Proof.
@@ -2339,20 +1986,6 @@ Proof.
   - apply (Hkey n a b); [lia|lia|lia|lia|exact Heq].
   - symmetry. apply (Hkey n b a); [lia|lia|lia|lia|symmetry; exact Heq].
 Qed.
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
 Lemma roots_regroup_length : forall n, 1 <= n -> length (flat_map primroots (divisors n)) = n.
 Proof.
   intros n Hn. rewrite flatmap_primroots_eq by exact Hn. rewrite length_map.
@@ -2381,20 +2014,6 @@ Proof.
 Qed.
 
 (* product rule for linprod over list concatenation and flat_map *)
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
 Theorem Xn1_prod_PhiC : forall n z, 1 <= n ->
   cpe (Xn1 n) z
    = fold_right (fun d acc => Cmul (ceval (PhiC d) z) acc) C1 (divisors n).
@@ -2442,18 +2061,6 @@ Proof.
   intros n Hn. unfold PhiC. rewrite ceval_linprod. apply linprod_root_in.
   apply zeta_in_primroots; exact Hn.
 Qed.
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
 Open Scope R_scope.
 (* ===== Exact monic division by root-counting =====
    A monic integer polynomial whose dP distinct complex roots are all roots of an
@@ -2461,18 +2068,6 @@ Open Scope R_scope.
    yet vanishes at dP distinct points, so it is the zero polynomial. *)
 
 (* cpe depends only on the coefficient sequence (nth with default 0) *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope nat_scope.
 Lemma coprimes_bounds : forall n a, In a (coprimes n) -> 1 <= a <= n.
 Proof.
@@ -2515,19 +2110,6 @@ Proof.
   - intros r Hr. rewrite Hchar. apply primroots_root_PhiC; exact Hr.
   - intros r Hr. apply primroots_root_Xn1; [exact Hn | exact Hr].
 Qed.
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope Z_scope.
 (* The integer product of a list of cyclotomic polynomials, given that each one in
    the list has an integer representative (monic, degree phi(d), matching PhiC d):
@@ -2554,32 +2136,8 @@ Proof.
       apply (Zpmul_monic_top Pd M' (euler_phi d) (list_sum (map euler_phi ds)) HPdlen HPdmon HM'len HM'mon).
     + intro z. rewrite cpe_Zpmul, HPdeval, HM'eval. cbn [fold_right]. reflexivity.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
 Open Scope R_scope.
 (* --- fold-of-Cmul helpers (toward peeling Phi_n out of the divisor product) --- *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Lemma primroots_pow_self : forall d r, (1 <= d)%nat -> In r (primroots d) -> Cpow r d = C1.
 Proof.
   intros d r Hd Hin. unfold primroots in Hin. apply in_map_iff in Hin.
@@ -2601,33 +2159,8 @@ Proof.
   intros n d Hd. unfold PhiC. apply ceval_linprod_nonzero.
   intros a Hin Heq. subst a. exact (zeta_not_in_lower_primroots n d Hd Hin).
 Qed.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope nat_scope.
 (* divisors n is the proper divisors followed by n itself *)
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope R_scope.
 Lemma has_annih_zeta : forall n, (1 <= n)%nat -> has_annih (zeta n) n.
 Proof.
@@ -2641,20 +2174,6 @@ Proof.
 Qed.
 
 (* a real polynomial with a nonzero coefficient has a top nonzero index *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma annih_normalize : forall n r e',
   Forall is_rational r -> rpe r (zeta n) = C0 ->
   nth e' r 0%R <> 0%R -> (forall j, (e' < j)%nat -> nth j r 0%R = 0%R) ->
@@ -2728,19 +2247,6 @@ Proof.
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro y. rewrite (Hid y), (pe_all0 r y Hrcoeff). ring.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Lemma zeta_minpoly_Z : forall n, (1 <= n)%nat ->
   exists mZ e qZ,
     length mZ = S e /\ nth e mZ 0%Z = 1%Z /\ (e <= n)%nat /\
@@ -2772,19 +2278,6 @@ Proof.
   - exact Hmin.
   - intro k. apply (peval_eq_nth (Xn1 n) (Zpmul muZ qZ)). intro y. symmetry. apply Hpevalprod.
 Qed.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma minpoly_min_no_smaller : forall n e (p : list Z),
   (forall k, (k < e)%nat -> ~ has_annih (zeta n) k) ->
   cpe p (zeta n) = C0 ->
@@ -2805,19 +2298,6 @@ Proof.
     exfalso. apply He'1. rewrite nth_map_IZR, (Hdeg e' H). reflexivity. }
   apply (Hmin e' He'e). apply (annih_normalize n (map IZR p) e' Hrat Hrz He'1 He'2).
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope Z_scope.
 (* the integer minimal polynomial divides every integer polynomial vanishing at zeta_n *)
 Lemma minpoly_Z_divides : forall n mZ e,
@@ -2873,34 +2353,8 @@ Proof.
     + exists db. intro Hc. rewrite Hc in Hlead. lia.
     + intros j Hj. apply nth_overflow. lia.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ===== General-z versions of the minimal-polynomial lemmas, needed to treat the
    conjugate roots zeta_n^k as well as zeta_n itself. ===== *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma minpoly_root_divides : forall n mZ e w,
   (1 <= n)%nat -> length mZ = S e -> nth e mZ 0%Z = 1%Z -> (1 <= e)%nat ->
   cpe mZ (zeta n) = C0 ->
@@ -2967,20 +2421,6 @@ Proof.
         [exact H | exfalso; apply Hno; exists k; exact H]. }
   intro k. rewrite (Hcoeff k), nth_Zpadd, Hrr0. lia.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma dedekind_conjugate_step : forall n mZ e g p w,
   Znumtheory.prime (Z.of_nat p) -> ~ (Z.of_nat p | Z.of_nat n) -> (1 <= n)%nat ->
   length mZ = S e -> nth e mZ 0%Z = 1%Z -> (1 <= e)%nat ->
@@ -3023,38 +2463,8 @@ Proof.
     pose proof (Znumtheory.Zdivide_le P 1 ltac:(lia) ltac:(lia) Hbad). lia.
   - intros j Hj. rewrite nth_overflow by lia. apply Z.divide_0_r.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Open Scope nat_scope.
 (* every natural number >= 2 has a prime factor (as a nat whose Z cast is prime) *)
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
 Lemma conj_orbit : forall n mZ e g,
   (1 <= n)%nat -> length mZ = S e -> nth e mZ 0%Z = 1%Z -> (1 <= e)%nat ->
   cpe mZ (zeta n) = C0 ->
@@ -3091,20 +2501,6 @@ Proof.
                   Hpp Hpn_Z Hn Hlen Hmonic He HmzZ Hmin Hfact HXk' Hk'root) as Hstep.
     rewrite <- Cpow_mul, Hkpk in Hstep. exact Hstep.
 Qed.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 Open Scope Z_scope.
 (* ===== COMPOSITE CYCLOTOMIC IRREDUCIBILITY (Dedekind) =====
    Any monic integer polynomial P whose complex roots are exactly the primitive
@@ -3113,21 +2509,6 @@ Open Scope Z_scope.
    the prime case is cyclotomic_prime_irreducible (Eisenstein); this is the
    general (composite) case via the Dedekind zeta -> zeta^p reduction-mod-p
    argument, the minimal polynomial of zeta_n, and its conjugate orbit. *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope Z_scope.
 Theorem cyclotomic_irreducible_composite : forall n P G H dg dh,
   (1 <= n)%nat ->
   length P = S (euler_phi n) -> nth (euler_phi n) P 0%Z = 1%Z ->
@@ -3176,38 +2557,9 @@ Proof.
     + exists dh. intro Hc. rewrite Hc in Hlead. lia.
     + intros j Hj. apply nth_overflow. lia.
 Qed.
-Close Scope Z_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 (* ===== Toward item 2: degree of cos(2 pi / n) = phi(n)/2 (composite case). ===== *)
 
 (* 2 cos(2 pi / n) = zeta_n + zeta_n^(n-1) = zeta_n + conj(zeta_n) *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Open Scope R_scope.
 Lemma RtoC_2cos_zeta : forall n, (1 <= n)%nat ->
   RtoC (2 * cos (2 * PI / INR n)) = Cadd (zeta n) (Cpow (zeta n) (n - 1)).
@@ -3239,38 +2591,8 @@ Proof.
      with (Cadd (Cmul (zeta n) (zeta n)) (Cmul (Cpow (zeta n) (n - 1)) (zeta n))) by ring.
   rewrite Hinv. ring.
 Qed.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 (* the minimal polynomial of zeta_n has degree at least phi(n): all phi(n)
    primitive roots are among its (distinct) roots *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope Z_scope.
 Lemma zeta_minpoly_deg_ge_phi : forall n mZ e g,
   (1 <= n)%nat -> length mZ = S e -> nth e mZ 0%Z = 1%Z -> (1 <= e)%nat ->
   cpe mZ (zeta n) = C0 ->
@@ -3291,22 +2613,6 @@ Proof.
         [lia | unfold coprime in Hjcop; apply Nat.eqb_eq in Hjcop; exact Hjcop]. }
   rewrite length_primroots, Hlen in Hlt. lia.
 Qed.
-Close Scope Z_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 (* key identity: 1 + zeta_n^2 = zeta_n * (2cos), avoiding complex inverses *)
 Lemma one_plus_zeta_sq : forall n, (1 <= n)%nat ->
   rpe [1; 0; 1] (zeta n) = Cmul (zeta n) (RtoC (2 * cos (2 * PI / INR n))).
@@ -3322,22 +2628,6 @@ Proof.
   rewrite Hsucc. cbn [rpe].
   replace (RtoC 0) with C0 by reflexivity. replace (RtoC 1) with C1 by reflexivity. ring.
 Qed.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Lemma rpe_lift_aux_zeta : forall n, (1 <= n)%nat -> forall m d, length m = S d ->
   rpe (lift_aux d m) (zeta n)
    = Cmul (Cpow (zeta n) d) (rpe m (RtoC (2 * cos (2 * PI / INR n)))).
@@ -3364,22 +2654,6 @@ Proof.
 Qed.
 
 (* rpe of a real-coeff poly at a real point = RtoC of the real evaluation *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Lemma cos_annih_lifts : forall n m d, (1 <= n)%nat ->
   length m = S d -> nth d m 0 = 1 -> Forall is_rational m ->
   pe m (2 * cos (2 * PI / INR n)) = 0 ->
@@ -3425,36 +2699,7 @@ Proof.
   apply (zeta_annih_deg_ge_phi n (2*d)%nat Hn).
   apply (cos_annih_lifts n m d Hn Hlen Hmonic Hrat Hroot).
 Qed.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 (* ===== The integer cyclotomic polynomial Phi_n (existence) ===== *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma PhiZ_exists : forall n, (1 <= n)%nat ->
   exists P, length P = S (euler_phi n) /\ nth (euler_phi n) P 0%Z = 1%Z /\
             (forall z, cpe P z = ceval (PhiC n) z).
@@ -3590,20 +2835,6 @@ Proof.
 Qed.
 
 (* ===== Constant term of the cyclotomic polynomial Phi_n(0) = 1 (n >= 2) ===== *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma PhiC_1_at_0 : ceval (PhiC 1) C0 = Copp C1.
 Proof.
   unfold PhiC. rewrite ceval_linprod.
@@ -3642,21 +2873,6 @@ Proof.
 Qed.
 
 (* ===== Reciprocal reduction: degree-phi(n)/2 annihilator of 2cos(2pi/n) ===== *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 (* general angle: 2 cos(j * 2pi/n) = zeta_n^j + zeta_n^((n-1)*j) = zeta_n^j + conj(zeta_n^j) *)
 Lemma RtoC_2cos_zeta_j : forall n j, (1 <= n)%nat ->
   RtoC (2 * cos (INR j * (2 * PI / INR n)))
@@ -3671,36 +2887,7 @@ Proof.
   - rewrite cos_period, cos_neg. ring.
   - rewrite sin_period, sin_neg. ring.
 Qed.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 (* evaluation of a concatenation of integer polynomials *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma cpe_dickson : forall j z w, Cmul z w = C1 ->
   cpe (dickson j) (Cadd z w) = Cadd (Cpow z j) (Cpow w j).
 Proof.
@@ -3719,20 +2906,6 @@ Proof.
 Qed.
 
 (* (w z)^m = 1 when z w = 1 *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Fixpoint recip_reduce (k : nat) (P : list Z) : list Z :=
   match k with
   | O => [ (2 * nth 0 P 0)%Z ]
@@ -3821,20 +2994,6 @@ Proof.
 Qed.
 
 (* gcd(n-1, n) = 1 *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 Lemma euler_phi_pos : forall n, (1 <= n)%nat -> (1 <= euler_phi n)%nat.
 Proof.
   intros n Hn. rewrite <- length_coprimes.
@@ -3877,21 +3036,6 @@ Proof.
       unfold coprime. apply Nat.eqb_eq. apply gcd_pred_n; lia. }
     rewrite HPz, HPw. replace (RtoC 0) with C0 by reflexivity. ring.
 Qed.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 (* THE COMPOSITE-n DEGREE THEOREM: for n >= 3 with phi(n) = 2k, the powers
    1, 2cos, ..., (2cos)^(k-1) are a Q-basis of Q(2cos(2pi/n)); i.e. [Q(2cos):Q] = phi(n)/2.
    Upper bound from cos_recip_annih, lower bound from cos_degree_ge_phi_half. *)
@@ -3981,37 +3125,8 @@ Proof.
     rewrite !powers_length in Hle. exact Hle. }
   assert (Hdeq : d = k) by lia. subst d. exact (Hns Hsmooth).
 Qed.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
 Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
 (* ===== phi(n) is even for n >= 3, via a fixpoint-free involution on the units ===== *)
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
 Lemma euler_phi_even : forall n, (3 <= n)%nat -> exists k, euler_phi n = 2 * k.
 Proof.
   intros n Hn.
@@ -4038,23 +3153,8 @@ Proof.
   destruct Heven as [k Hk]. exists k. lia.
 Qed.
 
+Open Scope R_scope.
 (* doubling preserves 2-3-smoothness *)
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Theorem cos_2pi_n_not_origami_clean : forall n, (3 <= n)%nat ->
   ~ two_three_smooth (euler_phi n) -> ~ OrigamiNum (cos (2 * PI / INR n)).
 Proof.
@@ -4068,22 +3168,6 @@ Qed.
 
 (* a root of any monic cubic with origami coefficients is origami (depress and
    apply the depressed-cubic closure) *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Theorem cos_2pi_n_not_euclid : forall n k, (3 <= n)%nat -> (euler_phi n = 2*k)%nat ->
   ~ is_power_of_2 k -> ~ EuclidNum (cos (2 * PI / INR n)).
 Proof.
@@ -4121,14 +3205,3 @@ Proof.
 Qed.
 
 (* ===== The 2^a-gons are compass-straightedge constructible (repeated bisection) ===== *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
