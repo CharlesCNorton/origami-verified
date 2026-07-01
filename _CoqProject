@@ -6,3 +6,4 @@ theories/cyclotomic.v
 theories/geometry.v
 theories/frontier.v
 theories/extraction.v
+theories/floatsound.v
