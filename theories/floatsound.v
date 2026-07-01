@@ -149,3 +149,69 @@ Proof.
   split; [exact Ea | split; [exact Eb |]].
   rewrite Eopp, Esum, Eax, Eby, Ea, Eb. reflexivity.
 Qed.
+
+(** The float literal 2 denotes the real 2. *)
+Lemma f2r_2 : f2r 2%float = 2. Proof. unfold f2r. vm_compute. lra. Qed.
+
+(** float_midpoint faithfully rounds ((x1+x2)/2, (y1+y2)/2): the halving is a
+    correctly rounded division by the exactly-represented 2. *)
+Lemma float_midpoint_sound : forall p1 p2,
+  fin (fpx p1) -> fin (fpx p2) -> fin (fpy p1) -> fin (fpy p2) ->
+  no_ovf (f2r (fpx p1) + f2r (fpx p2)) -> no_ovf (f2r (fpy p1) + f2r (fpy p2)) ->
+  no_ovf (rnd (f2r (fpx p1) + f2r (fpx p2)) / 2) ->
+  no_ovf (rnd (f2r (fpy p1) + f2r (fpy p2)) / 2) ->
+  f2r (fst (float_midpoint p1 p2)) = rnd (rnd (f2r (fpx p1) + f2r (fpx p2)) / 2) /\
+  f2r (snd (float_midpoint p1 p2)) = rnd (rnd (f2r (fpy p1) + f2r (fpy p2)) / 2).
+Proof.
+  intros p1 p2 F1 F2 F3 F4 Osx Osy Odx Ody.
+  assert (H2 : fin 2%float) by (unfold fin; vm_compute; reflexivity).
+  assert (H2ne : f2r 2%float <> 0) by (rewrite f2r_2; lra).
+  destruct (add_sound (fpx p1) (fpx p2) F1 F2 Osx) as [Esx Fsx].
+  destruct (add_sound (fpy p1) (fpy p2) F3 F4 Osy) as [Esy Fsy].
+  destruct (div_sound _ 2%float Fsx H2 H2ne ltac:(rewrite Esx, f2r_2; exact Odx)) as [Edx _].
+  destruct (div_sound _ 2%float Fsy H2 H2ne ltac:(rewrite Esy, f2r_2; exact Ody)) as [Edy _].
+  unfold float_midpoint. simpl.
+  split.
+  - rewrite Edx, Esx, f2r_2. reflexivity.
+  - rewrite Edy, Esy, f2r_2. reflexivity.
+Qed.
+
+(** A finite float that denotes a nonzero real is not IEEE-equal to 0, so the
+    determinant test in float_line_intersection agrees with the real predicate. *)
+Lemma eqb_nonzero : forall det : float,
+  fin det -> f2r det <> 0 -> PrimFloat.eqb det 0%float = false.
+Proof.
+  intros det Fd Hd. rewrite eqb_equiv.
+  assert (F0 : BinarySingleNaN.is_finite (Prim2B 0%float) = true) by (vm_compute; reflexivity).
+  rewrite (Beqb_correct _ _ _ _ Fd F0).
+  assert (B0 : B2R (Prim2B 0%float) = 0) by (vm_compute; reflexivity).
+  rewrite B0. apply Req_bool_false. exact Hd.
+Qed.
+
+(** Decision soundness of float_line_intersection: when the float determinant
+    (the rounded real determinant a1 b2 - a2 b1) is nonzero, the routine returns
+    an intersection point -- it decides the real "lines meet in a point"
+    predicate on inputs whose determinant does not round to zero. *)
+Lemma float_line_intersection_defined : forall l1 l2,
+  fin (fla l1 * flb l2 - fla l2 * flb l1)%float ->
+  f2r (fla l1 * flb l2 - fla l2 * flb l1)%float <> 0 ->
+  exists p, float_line_intersection l1 l2 = Some p.
+Proof.
+  intros l1 l2 Fd Hd.
+  unfold float_line_intersection. cbv zeta.
+  rewrite (eqb_nonzero _ Fd Hd).
+  eexists. reflexivity.
+Qed.
+
+(** Conversely, if the routine returns None the float determinant is exactly the
+    float zero, so its real value is 0: the two lines are (numerically) parallel. *)
+Lemma float_line_intersection_none : forall l1 l2,
+  fin (fla l1 * flb l2 - fla l2 * flb l1)%float ->
+  float_line_intersection l1 l2 = None ->
+  f2r (fla l1 * flb l2 - fla l2 * flb l1)%float = 0.
+Proof.
+  intros l1 l2 Fd Hnone.
+  destruct (Req_dec (f2r (fla l1 * flb l2 - fla l2 * flb l1)%float) 0) as [H0|Hne]; [exact H0|].
+  exfalso. destruct (float_line_intersection_defined l1 l2 Fd Hne) as [p Hp].
+  rewrite Hp in Hnone. discriminate.
+Qed.
