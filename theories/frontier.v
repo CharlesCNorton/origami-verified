@@ -495,3 +495,283 @@ Proof.
   assert (Hq2 : (2 <= q)%nat) by (destruct Hq as [Hq1 _]; lia).
   exact (step_prime_K P g HP5 Hg K HK q Hq2 (Hsolvers q Hq Hqn) D w HD HDdiv IHq).
 Qed.
+
+(* ============================================================================
+   OrigamiNumK: the parametric fold-strength class.  The rationals closed under
+   field operations, square roots, and roots of monic prime-degree polynomials
+   of degree at most 2k+1.  k = 1, 2, 3 recover the single-, two-, and
+   three-fold classes exactly.
+   ============================================================================ *)
+
+Inductive OrigamiNumK (kk : nat) : R -> Prop :=
+| ONK_0 : OrigamiNumK kk 0
+| ONK_1 : OrigamiNumK kk 1
+| ONK_add : forall x y, OrigamiNumK kk x -> OrigamiNumK kk y -> OrigamiNumK kk (x + y)
+| ONK_sub : forall x y, OrigamiNumK kk x -> OrigamiNumK kk y -> OrigamiNumK kk (x - y)
+| ONK_mul : forall x y, OrigamiNumK kk x -> OrigamiNumK kk y -> OrigamiNumK kk (x * y)
+| ONK_inv : forall x, OrigamiNumK kk x -> x <> 0 -> OrigamiNumK kk (/ x)
+| ONK_sqrt : forall x, OrigamiNumK kk x -> 0 <= x -> OrigamiNumK kk (sqrt x)
+| ONK_proot : forall (d : nat) (c : nat -> R) (r : R),
+    Znumtheory.prime (Z.of_nat d) -> (d <= 2 * kk + 1)%nat ->
+    (forall i, (i < d)%nat -> OrigamiNumK kk (c i)) ->
+    fsum d (fun i => c i * r ^ i) + r ^ d = 0 ->
+    OrigamiNumK kk r.
+
+Lemma ONK_neg : forall kk x, OrigamiNumK kk x -> OrigamiNumK kk (- x).
+Proof.
+  intros kk x Hx. replace (- x) with (0 - x) by ring.
+  apply ONK_sub; [apply ONK_0 | exact Hx].
+Qed.
+
+Lemma ONK_div : forall kk x y,
+  OrigamiNumK kk x -> OrigamiNumK kk y -> y <> 0 -> OrigamiNumK kk (x / y).
+Proof.
+  intros kk x y Hx Hy Hne. unfold Rdiv.
+  apply ONK_mul; [exact Hx | apply ONK_inv; assumption].
+Qed.
+
+(** OrigamiNum embeds into every OrigamiNumK with k >= 1. *)
+Lemma Origami_in_ONK : forall kk, (1 <= kk)%nat ->
+  forall x, OrigamiNum x -> OrigamiNumK kk x.
+Proof.
+  intros kk Hkk x Hx. induction Hx.
+  - apply ONK_0.
+  - apply ONK_1.
+  - apply ONK_add; assumption.
+  - apply ONK_sub; assumption.
+  - apply ONK_mul; assumption.
+  - apply ONK_inv; assumption.
+  - apply ONK_sqrt; assumption.
+  - apply (ONK_proot kk 3
+             (fun i => match i with O => b | S O => a | _ => 0 end) r).
+    + exact prime_Z_3.
+    + lia.
+    + intros i Hi.
+      destruct i as [|[|[|i]]]; [assumption | assumption | apply ONK_0 | exfalso; lia].
+    + cbn [fsum]. nra.
+Qed.
+
+Lemma onk_tower_ops : forall kk, (1 <= kk)%nat -> tower_ops (OrigamiNumK kk).
+Proof.
+  intros kk Hkk. constructor.
+  - intros x Hx. apply Origami_in_ONK; assumption.
+  - exact (ONK_add kk).
+  - exact (ONK_sub kk).
+  - exact (ONK_mul kk).
+  - exact (ONK_div kk).
+  - exact (ONK_neg kk).
+Qed.
+
+(** k = 1 is exactly single-fold origami. *)
+Lemma ONK_1_sound : forall x, OrigamiNumK 1 x -> OrigamiNum x.
+Proof.
+  intros x Hx.
+  induction Hx as [ | | x y _ IH1 _ IH2 | x y _ IH1 _ IH2 | x y _ IH1 _ IH2
+                  | x _ IH Hne | x _ IH Hnn | d c r Hp Hle Hc IHc Heq ].
+  - apply ON_0.
+  - apply ON_1.
+  - apply ON_add; assumption.
+  - apply ON_sub; assumption.
+  - apply ON_mul; assumption.
+  - apply ON_inv; assumption.
+  - apply ON_sqrt; assumption.
+  - assert (Hd2 : (2 <= d)%nat) by (destruct Hp as [Hgt _]; lia).
+    assert (Hcase : (d = 2 \/ d = 3)%nat) by lia.
+    destruct Hcase as [-> | ->].
+    + apply (origami_general_quadratic (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+    + apply (origami_general_cubic (c 2%nat) (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+Qed.
+
+Theorem OrigamiNumK_1_iff : forall x, OrigamiNumK 1 x <-> OrigamiNum x.
+Proof.
+  intro x. split; [apply ONK_1_sound | apply Origami_in_ONK; lia].
+Qed.
+
+(** k = 2 is exactly two-fold origami. *)
+Lemma ONK_2_sound : forall x, OrigamiNumK 2 x -> OrigamiNum2 x.
+Proof.
+  intros x Hx.
+  induction Hx as [ | | x y _ IH1 _ IH2 | x y _ IH1 _ IH2 | x y _ IH1 _ IH2
+                  | x _ IH Hne | x _ IH Hnn | d c r Hp Hle Hc IHc Heq ].
+  - apply ON2_0.
+  - apply ON2_1.
+  - apply ON2_add; assumption.
+  - apply ON2_sub; assumption.
+  - apply ON2_mul; assumption.
+  - apply ON2_inv; assumption.
+  - apply ON2_sqrt; assumption.
+  - assert (Hd2 : (2 <= d)%nat) by (destruct Hp as [Hgt _]; lia).
+    assert (Hd4 : d <> 4%nat).
+    { intro E. subst d. pose proof (is_prime_of_Z 4 Hp) as [_ Hdd].
+      destruct (Hdd 2%nat ltac:(lia) ltac:(exists 2%nat; reflexivity)) as [E'|E']; lia. }
+    assert (Hcase : (d = 2 \/ d = 3 \/ d = 5)%nat) by lia.
+    destruct Hcase as [-> | [-> | ->]].
+    + apply (ON2_general_quadratic (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+    + apply (ON2_general_cubic (c 2%nat) (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+    + apply (ON2_quint (c 4%nat) (c 3%nat) (c 2%nat) (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+Qed.
+
+Lemma Origami2_in_ONK_2 : forall x, OrigamiNum2 x -> OrigamiNumK 2 x.
+Proof.
+  intros x Hx. induction Hx.
+  - apply ONK_0.
+  - apply ONK_1.
+  - apply ONK_add; assumption.
+  - apply ONK_sub; assumption.
+  - apply ONK_mul; assumption.
+  - apply ONK_inv; assumption.
+  - apply ONK_sqrt; assumption.
+  - apply (ONK_proot 2 3
+             (fun i => match i with O => b | S O => a | _ => 0 end) r).
+    + exact prime_Z_3.
+    + lia.
+    + intros i Hi.
+      destruct i as [|[|[|i]]]; [assumption | assumption | apply ONK_0 | exfalso; lia].
+    + cbn [fsum]. nra.
+  - apply (ONK_proot 2 5
+             (fun i => match i with
+                       | O => e | S O => d | S (S O) => c
+                       | S (S (S O)) => b | S (S (S (S O))) => a | _ => 0 end) r).
+    + exact prime_Z_5.
+    + lia.
+    + intros i Hi.
+      destruct i as [|[|[|[|[|i]]]]];
+        [assumption | assumption | assumption | assumption | assumption | exfalso; lia].
+    + cbn [fsum]. nra.
+Qed.
+
+Theorem OrigamiNumK_2_iff : forall x, OrigamiNumK 2 x <-> OrigamiNum2 x.
+Proof.
+  intro x. split; [apply ONK_2_sound | apply Origami2_in_ONK_2].
+Qed.
+
+(** k = 3 is exactly three-fold origami. *)
+Lemma ONK_3_sound : forall x, OrigamiNumK 3 x -> OrigamiNum3 x.
+Proof.
+  intros x Hx.
+  induction Hx as [ | | x y _ IH1 _ IH2 | x y _ IH1 _ IH2 | x y _ IH1 _ IH2
+                  | x _ IH Hne | x _ IH Hnn | d c r Hp Hle Hc IHc Heq ].
+  - apply ON3_0.
+  - apply ON3_1.
+  - apply ON3_add; assumption.
+  - apply ON3_sub; assumption.
+  - apply ON3_mul; assumption.
+  - apply ON3_inv; assumption.
+  - apply ON3_sqrt; assumption.
+  - assert (Hd2 : (2 <= d)%nat) by (destruct Hp as [Hgt _]; lia).
+    assert (Hd4 : d <> 4%nat).
+    { intro E. subst d. pose proof (is_prime_of_Z 4 Hp) as [_ Hdd].
+      destruct (Hdd 2%nat ltac:(lia) ltac:(exists 2%nat; reflexivity)) as [E'|E']; lia. }
+    assert (Hd6 : d <> 6%nat).
+    { intro E. subst d. pose proof (is_prime_of_Z 6 Hp) as [_ Hdd].
+      destruct (Hdd 2%nat ltac:(lia) ltac:(exists 3%nat; reflexivity)) as [E'|E']; lia. }
+    assert (Hcase : (d = 2 \/ d = 3 \/ d = 5 \/ d = 7)%nat) by lia.
+    destruct Hcase as [-> | [-> | [-> | ->]]].
+    + apply (ON3_general_quadratic (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+    + apply (ON3_general_cubic (c 2%nat) (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+    + apply (ON3_quint (c 4%nat) (c 3%nat) (c 2%nat) (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+    + apply (ON3_sept (c 6%nat) (c 5%nat) (c 4%nat) (c 3%nat) (c 2%nat) (c 1%nat) (c 0%nat) r).
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * apply IHc; lia.
+      * cbn [fsum] in Heq. nra.
+Qed.
+
+Lemma Origami3_in_ONK_3 : forall x, OrigamiNum3 x -> OrigamiNumK 3 x.
+Proof.
+  intros x Hx. induction Hx.
+  - apply ONK_0.
+  - apply ONK_1.
+  - apply ONK_add; assumption.
+  - apply ONK_sub; assumption.
+  - apply ONK_mul; assumption.
+  - apply ONK_inv; assumption.
+  - apply ONK_sqrt; assumption.
+  - apply (ONK_proot 3 3
+             (fun i => match i with O => b | S O => a | _ => 0 end) r).
+    + exact prime_Z_3.
+    + lia.
+    + intros i Hi.
+      destruct i as [|[|[|i]]]; [assumption | assumption | apply ONK_0 | exfalso; lia].
+    + cbn [fsum]. nra.
+  - apply (ONK_proot 3 5
+             (fun i => match i with
+                       | O => e | S O => d | S (S O) => c
+                       | S (S (S O)) => b | S (S (S (S O))) => a | _ => 0 end) r).
+    + exact prime_Z_5.
+    + lia.
+    + intros i Hi.
+      destruct i as [|[|[|[|[|i]]]]];
+        [assumption | assumption | assumption | assumption | assumption | exfalso; lia].
+    + cbn [fsum]. nra.
+  - apply (ONK_proot 3 7
+             (fun i => match i with
+                       | O => g | S O => f | S (S O) => e
+                       | S (S (S O)) => d | S (S (S (S O))) => c
+                       | S (S (S (S (S O)))) => b
+                       | S (S (S (S (S (S O))))) => a | _ => 0 end) r).
+    + exact prime_Z_7.
+    + lia.
+    + intros i Hi.
+      destruct i as [|[|[|[|[|[|[|i]]]]]]];
+        [assumption | assumption | assumption | assumption
+         | assumption | assumption | assumption | exfalso; lia].
+    + cbn [fsum]. nra.
+Qed.
+
+Theorem OrigamiNumK_3_iff : forall x, OrigamiNumK 3 x <-> OrigamiNum3 x.
+Proof.
+  intro x. split; [apply ONK_3_sound | apply Origami3_in_ONK_3].
+Qed.
+
+(** The class is monotone in the fold budget. *)
+Lemma ONK_mono : forall kk kk', (kk <= kk')%nat ->
+  forall x, OrigamiNumK kk x -> OrigamiNumK kk' x.
+Proof.
+  intros kk kk' Hle x Hx. induction Hx.
+  - apply ONK_0.
+  - apply ONK_1.
+  - apply ONK_add; assumption.
+  - apply ONK_sub; assumption.
+  - apply ONK_mul; assumption.
+  - apply ONK_inv; assumption.
+  - apply ONK_sqrt; assumption.
+  - apply (ONK_proot kk' d c r); [assumption | lia | assumption | assumption].
+Qed.
