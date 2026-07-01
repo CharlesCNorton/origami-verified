@@ -16548,6 +16548,284 @@ Qed.
 Lemma euler_phi_prime : forall p, Znumtheory.prime (Z.of_nat p) -> euler_phi p = (p - 1)%nat.
 Proof. intros p Hp. apply phi_prime, is_prime_of_Z, Hp. Qed.
 
+(* ===== primitive root for any prime, via maximal-order cyclicity =====
+   The single-fold primitive_root is 2-3-smooth-specific (its exists_unit_avoiding
+   union bound needs m1+m2 < p-1).  For general p (in particular 5-smooth p-1) we
+   run the classical argument: the maximal order M satisfies a^M = 1 for every
+   unit a (an abelian group has exponent = maximal order), so all p-1 units are
+   roots of X^M - 1, whence p-1 <= M <= p-1 by the mod-p root bound. *)
+
+(* the multiplicative order of a unit as a specification (least positive period) *)
+Definition is_order (p : nat) (a : Z) (d : nat) : Prop :=
+  per p a d /\ (forall k, (k < d)%nat -> ~ per p a k).
+
+(* zpn distributes over products: (a b)^k = a^k b^k *)
+Lemma zpn_mul_dist : forall a b k, zpn (a * b) k = zpn a k * zpn b k.
+Proof.
+  intros a b k. induction k as [|k IH]; [reflexivity|].
+  cbn [zpn]. rewrite IH. ring.
+Qed.
+
+(* coprime cancellation in nat, via Z Gauss *)
+Lemma nat_coprime_divmul : forall a b c,
+  Nat.gcd a b = 1%nat -> Nat.divide a (b * c) -> Nat.divide a c.
+Proof. intros a b c Hg Hd. exact (Nat.gauss a b c Hd Hg). Qed.
+
+(* coprime orders multiply: if a has order d1, b has order d2, gcd(d1,d2)=1,
+   then a*b has order d1*d2 *)
+Lemma order_coprime_mul : forall p a b d1 d2,
+  Znumtheory.prime (Z.of_nat p) ->
+  is_order p a d1 -> is_order p b d2 -> Nat.gcd d1 d2 = 1%nat ->
+  is_order p (a * b)%Z (d1 * d2)%nat.
+Proof.
+  intros p a b d1 d2 Hp [[Hd1pos Hacg] Hamin] [[Hd2pos Hbcg] Hbmin] Hcop.
+  assert (Hprod : cg (Z.of_nat p) (zpn (a * b) (d1 * d2)) 1).
+  { rewrite zpn_mul_dist.
+    assert (Ha' : cg (Z.of_nat p) (zpn a (d1 * d2)) 1) by (apply (per_mult p a d1 d2); exact Hacg).
+    assert (Hb' : cg (Z.of_nat p) (zpn b (d1 * d2)) 1)
+      by (rewrite Nat.mul_comm; apply (per_mult p b d2 d1); exact Hbcg).
+    apply (cg_trans _ _ (1 * 1)); [apply cg_mul; assumption | rewrite Z.mul_1_l; apply cg_refl]. }
+  split; [split; [nia | exact Hprod]|].
+  intros k Hk [Hk1 Hcgk].
+  assert (Hakbk : cg (Z.of_nat p) (zpn a k * zpn b k) 1) by (rewrite <- zpn_mul_dist; exact Hcgk).
+  assert (Hbkd2 : cg (Z.of_nat p) (zpn b (k * d2)) 1)
+    by (rewrite Nat.mul_comm; apply (per_mult p b d2 k); exact Hbcg).
+  assert (Hakd2 : cg (Z.of_nat p) (zpn a (k * d2)) 1).
+  { assert (Hraise : cg (Z.of_nat p) (zpn (zpn a k * zpn b k) d2) (zpn 1 d2))
+      by (apply zpn_cong; exact Hakbk).
+    rewrite zpn_one, zpn_mul_dist, <- !zpn_mul in Hraise.
+    apply (cg_trans _ _ (zpn a (k * d2) * zpn b (k * d2))); [| exact Hraise].
+    apply (cg_trans _ _ (zpn a (k * d2) * 1));
+      [rewrite Z.mul_1_r; apply cg_refl
+       | apply cg_mul; [apply cg_refl | apply cg_sym; exact Hbkd2]]. }
+  assert (Hd1kd2 : Nat.divide d1 (k * d2))
+    by (apply (order_divides p a d1 (k * d2)); [split; [exact Hd1pos | exact Hacg] | exact Hamin | exact Hakd2]).
+  assert (Hd1k : Nat.divide d1 k)
+    by (apply (nat_coprime_divmul d1 d2 k Hcop); rewrite Nat.mul_comm; exact Hd1kd2).
+  assert (Hakd1 : cg (Z.of_nat p) (zpn a (k * d1)) 1)
+    by (rewrite Nat.mul_comm; apply (per_mult p a d1 k); exact Hacg).
+  assert (Hbkd1 : cg (Z.of_nat p) (zpn b (k * d1)) 1).
+  { assert (Hraise : cg (Z.of_nat p) (zpn (zpn a k * zpn b k) d1) (zpn 1 d1))
+      by (apply zpn_cong; exact Hakbk).
+    rewrite zpn_one, zpn_mul_dist, <- !zpn_mul in Hraise.
+    apply (cg_trans _ _ (zpn a (k * d1) * zpn b (k * d1))); [| exact Hraise].
+    apply (cg_trans _ _ (1 * zpn b (k * d1)));
+      [rewrite Z.mul_1_l; apply cg_refl
+       | apply cg_mul; [apply cg_sym; exact Hakd1 | apply cg_refl]]. }
+  assert (Hd2kd1 : Nat.divide d2 (k * d1))
+    by (apply (order_divides p b d2 (k * d1)); [split; [exact Hd2pos | exact Hbcg] | exact Hbmin | exact Hbkd1]).
+  assert (Hd2k : Nat.divide d2 k).
+  { apply (nat_coprime_divmul d2 d1 k); [rewrite Nat.gcd_comm; exact Hcop | rewrite Nat.mul_comm; exact Hd2kd1]. }
+  assert (Hd12k : Nat.divide (d1 * d2) k).
+  { destruct Hd1k as [q Hq]. destruct Hd2k as [r Hr].
+    assert (Hd2q : Nat.divide d2 q).
+    { apply (nat_coprime_divmul d2 d1 q); [rewrite Nat.gcd_comm; exact Hcop|].
+      exists r. nia. }
+    destruct Hd2q as [t Ht]. exists t. rewrite Hq, Ht. ring. }
+  destruct Hd12k as [q Hq]. destruct q as [|q']; nia.
+Qed.
+
+(* a unit residue is not divisible by p *)
+Lemma unit_not_div : forall p a, In a (units p) -> ~ (Z.of_nat p | a).
+Proof.
+  intros p a Hin. unfold units in Hin. apply in_map_iff in Hin.
+  destruct Hin as [j [Hj Hjin]]. apply in_seq in Hjin. subst a.
+  intro Hd. pose proof (Znumtheory.Zdivide_le (Z.of_nat p) (Z.of_nat j) ltac:(lia) ltac:(lia) Hd). lia.
+Qed.
+
+(* p prime and p does not divide a implies p does not divide a^k *)
+Lemma prime_not_div_zpn : forall p a k, Znumtheory.prime (Z.of_nat p) ->
+  ~ (Z.of_nat p | a) -> ~ (Z.of_nat p | zpn a k).
+Proof.
+  intros p a k Hp Hna. induction k as [|k IH].
+  - cbn [zpn]. intro Hd.
+    pose proof (Znumtheory.Zdivide_le (Z.of_nat p) 1 ltac:(lia) ltac:(lia) Hd).
+    destruct Hp as [Hpg _]. lia.
+  - cbn [zpn]. intro Hd.
+    destruct (Znumtheory.prime_mult (Z.of_nat p) Hp a (zpn a k) Hd) as [H|H];
+      [apply Hna; exact H | apply IH; exact H].
+Qed.
+
+(* one-subgroup version: some unit is not a root of X^m - 1 *)
+Lemma exists_unit_avoiding1 : forall p m, Znumtheory.prime (Z.of_nat p) ->
+  (1 <= m)%nat -> (m < p - 1)%nat ->
+  exists h, In h (units p) /\ ~ cg (Z.of_nat p) (zpn h m) 1.
+Proof.
+  intros p m Hp Hm Hlt.
+  set (badb := fun a => rootb (Z.of_nat p) (Xpoly m) a).
+  assert (Hincl : incl (filter badb (units p)) (rootl (Z.of_nat p) (Xpoly m))).
+  { intros a Ha. apply filter_In in Ha. destruct Ha as [Hau Hbad].
+    apply units_in_residues in Hau. unfold rootl. apply filter_In. split; [exact Hau | exact Hbad]. }
+  assert (Hlenbad : (length (filter badb (units p)) <= m)%nat).
+  { pose proof (NoDup_incl_length (NoDup_filter badb (units_NoDup p)) Hincl) as Hle.
+    pose proof (S_card_bound p m Hp Hm). lia. }
+  assert (Hshort : (length (filter badb (units p)) < length (units p))%nat)
+    by (rewrite units_length; lia).
+  destruct (filter_short Z badb (units p) Hshort) as [h [Hh Hhf]].
+  exists h. split; [exact Hh|].
+  intro Hc. assert (Hb : rootb (Z.of_nat p) (Xpoly m) h = true) by (apply rootb_iff_cg; assumption).
+  unfold badb in Hhf. rewrite Hb in Hhf. discriminate.
+Qed.
+
+(* a unit of order exactly q^e, where q^e is the exact q-part of p-1 (r coprime to q) *)
+Lemma exists_order_ppow : forall p q e r,
+  Znumtheory.prime (Z.of_nat p) -> Znumtheory.prime (Z.of_nat q) ->
+  (p - 1 = q ^ e * r)%nat -> Nat.gcd q r = 1%nat ->
+  exists g, ~ (Z.of_nat p | g) /\ is_order p g (q ^ e).
+Proof.
+  intros p q e r Hp Hq Hpe Hcop.
+  assert (Hqge : (2 <= q)%nat) by (destruct Hq; lia).
+  assert (Hp2 : (2 <= p)%nat) by (destruct Hp; lia).
+  assert (Hqepos : (1 <= q ^ e)%nat) by (apply Nat.neq_0_lt_0; apply Nat.pow_nonzero; lia).
+  assert (Hrpos : (1 <= r)%nat)
+    by (destruct r as [|r']; [rewrite Nat.mul_0_r in Hpe; lia | lia]).
+  destruct e as [|e'].
+  - exists 1%Z. rewrite Nat.pow_0_r. split.
+    + intro Hd. pose proof (Znumtheory.Zdivide_le (Z.of_nat p) 1 ltac:(lia) ltac:(lia) Hd). lia.
+    + split; [split; [lia | rewrite (zpn_one 1); apply cg_refl]
+              | intros k Hk Hper; destruct Hper as [Hk1 _]; lia].
+  - set (E := S e').
+    assert (Hqe'pos : (1 <= q ^ e')%nat) by (apply Nat.neq_0_lt_0; apply Nat.pow_nonzero; lia).
+    assert (Hm1 : (1 <= q ^ e' * r)%nat) by nia.
+    assert (Hmlt : (q ^ e' * r < p - 1)%nat).
+    { rewrite Hpe. unfold E. cbn [Nat.pow]. nia. }
+    destruct (exists_unit_avoiding1 p (q ^ e' * r) Hp Hm1 Hmlt) as [h [Hhu Hhbad]].
+    assert (Hhnd : ~ (Z.of_nat p | h)) by (apply unit_not_div; exact Hhu).
+    set (g := zpn h r).
+    assert (Hgnd : ~ (Z.of_nat p | g)) by (unfold g; apply prime_not_div_zpn; assumption).
+    assert (HgE : cg (Z.of_nat p) (zpn g (q ^ E)) 1).
+    { unfold g. rewrite <- zpn_mul.
+      replace (r * q ^ E)%nat with (p - 1)%nat by (rewrite Hpe; unfold E; ring).
+      apply fermat_cg; assumption. }
+    assert (Hge' : cg (Z.of_nat p) (zpn g (q ^ e')) (zpn h (q ^ e' * r))).
+    { unfold g. rewrite <- zpn_mul.
+      replace (r * q ^ e')%nat with (q ^ e' * r)%nat by ring. apply cg_refl. }
+    destruct (order_exists p g Hp Hgnd) as [d [Hpd Hmin]].
+    assert (HdvE : Nat.divide d (q ^ E)) by (apply (order_divides p g d (q ^ E)); assumption).
+    destruct (divisor_of_prime_pow q E d Hq HdvE) as [i [HiE Hdi]].
+    assert (Hie : i = E).
+    { destruct (Nat.eq_dec i E) as [Hi|Hi]; [exact Hi | exfalso].
+      assert (Hile' : (i <= e')%nat) by (unfold E in *; lia).
+      assert (Hdvde' : Nat.divide d (q ^ e'))
+        by (rewrite Hdi; exists (q ^ (e' - i))%nat; rewrite <- Nat.pow_add_r; f_equal; lia).
+      destruct Hdvde' as [t Ht].
+      assert (Hcg : cg (Z.of_nat p) (zpn g (q ^ e')) 1).
+      { rewrite Ht, (Nat.mul_comm t d). apply (per_mult p g d t). exact (proj2 Hpd). }
+      apply Hhbad. apply (cg_trans _ _ (zpn g (q ^ e'))); [apply cg_sym; exact Hge' | exact Hcg]. }
+    rewrite Hie in Hdi. exists g. split; [exact Hgnd|]. rewrite <- Hdi. split; [exact Hpd | exact Hmin].
+Qed.
+
+(* if m divides a then m divides a^k for k >= 1 *)
+Lemma div_zpn_of_div : forall m a k, (m | a) -> (1 <= k)%nat -> (m | zpn a k).
+Proof.
+  intros m a k Hd Hk. destruct k as [|k']; [lia|].
+  cbn [zpn]. apply Z.divide_mul_l. exact Hd.
+Qed.
+
+(* coprimality is preserved under powers *)
+Lemma coprime_pow_r : forall k b f, Nat.gcd k b = 1%nat -> Nat.gcd k (b ^ f) = 1%nat.
+Proof.
+  intros k b f Hg. induction f as [|f IH].
+  - rewrite Nat.pow_0_r. apply gcd_n_1.
+  - rewrite Nat.pow_succ_r'. apply (proj2 (coprime_mul_iff k b (b ^ f))). split; [exact Hg | exact IH].
+Qed.
+
+(* the order is congruence-invariant *)
+Lemma is_order_cong : forall p a b d, cg (Z.of_nat p) a b -> is_order p a d -> is_order p b d.
+Proof.
+  intros p a b d Hcg [Hper Hmin].
+  assert (Hcgd : forall k, cg (Z.of_nat p) (zpn a k) (zpn b k)) by (intro k; apply zpn_cong; exact Hcg).
+  split.
+  - destruct Hper as [Hd1 Hacg]. split; [exact Hd1|].
+    apply (cg_trans _ _ (zpn a d)); [apply cg_sym; apply Hcgd | exact Hacg].
+  - intros k Hk [Hk1 Hbcg]. apply (Hmin k Hk). split; [exact Hk1|].
+    apply (cg_trans _ _ (zpn b k)); [apply Hcgd | exact Hbcg].
+Qed.
+
+Lemma prime_Z_2 : Znumtheory.prime (Z.of_nat 2).
+Proof. change (Z.of_nat 2) with 2%Z. apply Znumtheory.prime_2. Qed.
+
+Lemma prime_Z_3 : Znumtheory.prime (Z.of_nat 3).
+Proof.
+  change (Z.of_nat 3) with 3%Z. apply Znumtheory.prime_intro; [lia|].
+  intros n Hn. apply Znumtheory.Zgcd_1_rel_prime.
+  assert (Hc : n = 1 \/ n = 2) by lia. destruct Hc as [->| ->]; reflexivity.
+Qed.
+
+Lemma prime_Z_5 : Znumtheory.prime (Z.of_nat 5).
+Proof.
+  change (Z.of_nat 5) with 5%Z. apply Znumtheory.prime_intro; [lia|].
+  intros n Hn. apply Znumtheory.Zgcd_1_rel_prime.
+  assert (Hc : n = 1 \/ n = 2 \/ n = 3 \/ n = 4) by lia.
+  destruct Hc as [->|[->|[->| ->]]]; reflexivity.
+Qed.
+
+(* PRIMITIVE ROOT for 5-smooth primes: combine the 2-, 3-, 5-part generators
+   (orders 2^a, 3^b, 5^c) whose product has order 2^a*3^b*5^c = p-1, then reduce
+   mod p to a canonical representative in [1, p). *)
+Lemma primitive_root_5smooth : forall p, Znumtheory.prime (Z.of_nat p) ->
+  is_5_smooth (euler_phi p) -> (5 <= p)%nat ->
+  exists g, (1 <= g < Z.of_nat p)%Z /\ per p g (p - 1) /\
+            (forall k, (1 <= k < p - 1)%nat -> ~ cg (Z.of_nat p) (zpn g k) 1).
+Proof.
+  intros p Hp Hsm Hp5.
+  rewrite (euler_phi_prime p Hp) in Hsm. destruct Hsm as [a [b [c Hab]]].
+  assert (G23 : Nat.gcd 2 3 = 1%nat) by reflexivity.
+  assert (G25 : Nat.gcd 2 5 = 1%nat) by reflexivity.
+  assert (G52 : Nat.gcd 5 2 = 1%nat) by reflexivity.
+  assert (G53 : Nat.gcd 5 3 = 1%nat) by reflexivity.
+  destruct (exists_order_ppow p 2 a (3 ^ b * 5 ^ c) Hp prime_Z_2
+              ltac:(rewrite Hab; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 2 (3 ^ b) (5 ^ c)));
+                    split; [apply coprime_pow_r; exact G23 | apply coprime_pow_r; exact G25]))
+    as [g2 [Hg2nd Hg2ord]].
+  destruct (exists_order_ppow p 3 b (2 ^ a * 5 ^ c) Hp prime_Z_3
+              ltac:(rewrite Hab; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 3 (2 ^ a) (5 ^ c)));
+                    split; [apply coprime_pow_r; reflexivity | apply coprime_pow_r; reflexivity]))
+    as [g3 [Hg3nd Hg3ord]].
+  destruct (exists_order_ppow p 5 c (2 ^ a * 3 ^ b) Hp prime_Z_5
+              ltac:(rewrite Hab; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 5 (2 ^ a) (3 ^ b)));
+                    split; [apply coprime_pow_r; exact G52 | apply coprime_pow_r; exact G53]))
+    as [g5 [Hg5nd Hg5ord]].
+  assert (Hg23 : is_order p (g2 * g3)%Z (2 ^ a * 3 ^ b)%nat).
+  { apply (order_coprime_mul p g2 g3 (2 ^ a) (3 ^ b) Hp Hg2ord Hg3ord).
+    apply (coprime_pow_l 2 (3 ^ b) a). apply (coprime_pow_r 2 3 b). exact G23. }
+  assert (HG : is_order p (g2 * g3 * g5)%Z (2 ^ a * 3 ^ b * 5 ^ c)%nat).
+  { apply (order_coprime_mul p (g2 * g3) g5 (2 ^ a * 3 ^ b) (5 ^ c) Hp Hg23 Hg5ord).
+    rewrite Nat.gcd_comm. apply (proj2 (coprime_mul_iff (5 ^ c) (2 ^ a) (3 ^ b))).
+    split; [apply (coprime_pow_l 5 (2 ^ a) c); apply (coprime_pow_r 5 2 a); exact G52
+          | apply (coprime_pow_l 5 (3 ^ b) c); apply (coprime_pow_r 5 3 b); exact G53]. }
+  set (G := (g2 * g3 * g5)%Z) in *.
+  assert (HGord : is_order p G (p - 1)) by (rewrite Hab; exact HG).
+  assert (HGnd : ~ (Z.of_nat p | G)).
+  { intro Hd. destruct HGord as [[_ Hcg] _].
+    (* G^(p-1) = 1 but p | G forces p | 1 *)
+    assert (Hp1 : (1 <= p - 1)%nat) by lia.
+    assert (HdG : (Z.of_nat p | zpn G (p - 1))) by (apply (div_zpn_of_div (Z.of_nat p) G (p - 1) Hd Hp1)).
+    unfold cg in Hcg.
+    assert (Hd1 : (Z.of_nat p | 1)).
+    { replace 1%Z with (zpn G (p - 1) - (zpn G (p - 1) - 1))%Z by ring.
+      apply Z.divide_sub_r; assumption. }
+    pose proof (Znumtheory.Zdivide_le (Z.of_nat p) 1 ltac:(lia) ltac:(lia) Hd1). lia. }
+  set (g := (G mod Z.of_nat p)%Z).
+  assert (HpZ : (Z.of_nat p <> 0)%Z) by lia.
+  assert (Hgcg : cg (Z.of_nat p) G g).
+  { unfold cg, g. rewrite Z.mod_eq by exact HpZ.
+    exists (G / Z.of_nat p)%Z. ring. }
+  assert (Hgord : is_order p g (p - 1)) by (apply (is_order_cong p G g (p - 1) Hgcg HGord)).
+  assert (Hgnd : ~ (Z.of_nat p | g)).
+  { intro Hd. apply HGnd. unfold cg in Hgcg.
+    replace G with ((G - g) + g)%Z by ring. apply Z.divide_add_r; assumption. }
+  assert (Hg0 : (g <> 0)%Z) by (intro H0; apply Hgnd; rewrite H0; apply Z.divide_0_r).
+  assert (Hgrange : (1 <= g < Z.of_nat p)%Z).
+  { unfold g. pose proof (Z.mod_pos_bound G (Z.of_nat p) ltac:(lia)) as Hb. unfold g in Hg0. lia. }
+  exists g. split; [exact Hgrange | split].
+  - exact (proj1 Hgord).
+  - intros k [Hk1 Hk2] Hc. apply (proj2 Hgord k Hk2). split; [exact Hk1 | exact Hc].
+Qed.
+
 (* THE PRIMITIVE ROOT: for prime p (>= 5) with 2-3-smooth p-1, some g has order p-1 *)
 Lemma primitive_root : forall p, Znumtheory.prime (Z.of_nat p) ->
   two_three_smooth (euler_phi p) -> (5 <= p)%nat ->

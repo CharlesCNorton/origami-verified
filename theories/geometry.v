@@ -10035,3 +10035,220 @@ Proof.
 Qed.
 
 End Tower2.
+
+(* prime case, p >= 5: a primitive root now exists for every 5-smooth prime
+   (primitive_root_5smooth), so run the two-fold tower *)
+Lemma Hcore2_ge5 : forall p, Znumtheory.prime (Z.of_nat p) ->
+  is_5_smooth (euler_phi p) -> (5 <= p)%nat ->
+  OrigamiNum2 (cos (2 * PI / INR p)).
+Proof.
+  intros p Hp Hsm Hp5.
+  destruct (primitive_root_5smooth p Hp Hsm Hp5) as [g [Hgr [Hper Hgord]]].
+  assert (Hsm' : is_5_smooth (p - 1)) by (rewrite <- (euler_phi_prime p Hp); exact Hsm).
+  exact (cos_ON2_section2 p g Hp Hp5 Hper Hgord Hgr Hsm').
+Qed.
+
+(* prime case, all primes (small primes 2, 3 are rational hence in OrigamiNum) *)
+Theorem Hcore2 : forall p, Znumtheory.prime (Z.of_nat p) ->
+  is_5_smooth (euler_phi p) -> OrigamiNum2 (cos (2 * PI / INR p)).
+Proof.
+  intros p Hp Hsm.
+  destruct (le_lt_dec 5 p) as [Hge | Hlt].
+  - exact (Hcore2_ge5 p Hp Hsm Hge).
+  - apply Origami_in_Origami2.
+    assert (Hp2 : (2 <= p)%nat) by (destruct Hp as [Hgt _]; lia).
+    destruct (Nat.eq_dec p 2) as [E2|N2]; [ subst p; exact (cos_2pi_2a3b_origami 1 0) |].
+    destruct (Nat.eq_dec p 3) as [E3|N3]; [ subst p; exact (cos_2pi_2a3b_origami 0 1) |].
+    exfalso. assert (E4 : p = 4%nat) by lia.
+    pose proof (is_prime_of_Z p Hp) as Hisp. rewrite E4 in Hisp. destruct Hisp as [_ Hd].
+    destruct (Hd 2%nat ltac:(lia) ltac:(exists 2%nat; reflexivity)) as [H|H]; lia.
+Qed.
+
+(* the 5-power prime-power case: cos(2*PI/5^e) is two-fold origami.  Induction on
+   e via the Chebyshev relation cos(2*PI/5^(e-1)) = T_5(cos(2*PI/5^e)), which makes
+   cos(2*PI/5^e) a root of the monic quintic T_5(x) - cos(2*PI/5^(e-1)) solved by
+   the two-fold quintic fold ON2_quint. *)
+Lemma cos_2pi_5e_ON2 : forall e, OrigamiNum2 (cos (2 * PI / INR (5 ^ e))).
+Proof.
+  induction e as [|e IH].
+  - replace (2 * PI / INR (5 ^ 0)) with (2 * PI)
+      by (rewrite Nat.pow_0_r, INR_1; field).
+    rewrite cos_2PI. apply ON2_1.
+  - set (t := cos (2 * PI / INR (5 ^ S e))) in *.
+    set (c := cos (2 * PI / INR (5 ^ e))) in *.
+    assert (H16 : OrigamiNum2 16)
+      by (replace 16 with (IZR 16) by (simpl; ring); apply Origami_in_Origami2, Origami_Z).
+    assert (Hrel : 16 * t ^ 5 - 20 * t ^ 3 + 5 * t = c).
+    { transitivity (chebyshev_T 5 t).
+      - cbn [chebyshev_T]. ring.
+      - unfold t. rewrite chebyshev_cos. unfold c. f_equal.
+        rewrite Nat.pow_succ_r', mult_INR.
+        assert (H5e : INR (5 ^ e) <> 0) by (apply not_0_INR; apply Nat.pow_nonzero; lia).
+        assert (H5 : INR 5 <> 0) by (apply not_0_INR; lia).
+        field. split; assumption. }
+    apply (ON2_quint 0 (- (20 / 16)) 0 (5 / 16) (- (c / 16)) t).
+    + apply ON2_0.
+    + apply Origami_in_Origami2.
+      replace (- (20 / 16)) with (IZR (-20) / IZR 16) by (simpl; lra). apply Origami_Q; lia.
+    + apply ON2_0.
+    + apply Origami_in_Origami2.
+      replace (5 / 16) with (IZR 5 / IZR 16) by (simpl; lra). apply Origami_Q; lia.
+    + apply ON2_neg. apply ON2_div; [exact IH | exact H16 | lra].
+    + rewrite <- Hrel. field.
+Qed.
+
+(* de Moivre over OrigamiNum2: cos, sin of an integer multiple of an origami angle *)
+Lemma vertex_coords_origami2 : forall theta,
+  OrigamiNum2 (cos theta) -> OrigamiNum2 (sin theta) ->
+  forall k : nat, OrigamiNum2 (cos (INR k * theta)) /\ OrigamiNum2 (sin (INR k * theta)).
+Proof.
+  intros theta Hc Hs k. induction k as [|k [IHc IHs]].
+  - replace (INR 0) with 0 by reflexivity.
+    rewrite Rmult_0_l, cos_0, sin_0. split; [apply ON2_1 | apply ON2_0].
+  - replace (INR (S k) * theta) with (INR k * theta + theta) by (rewrite S_INR; ring).
+    rewrite cos_plus, sin_plus. split.
+    + apply ON2_sub; apply ON2_mul; assumption.
+    + apply ON2_add; apply ON2_mul; assumption.
+Qed.
+
+(* sin(2pi/n) is two-fold origami whenever cos(2pi/n) is (n >= 2) *)
+Lemma sin_origami2_of_cos : forall n, (2 <= n)%nat ->
+  OrigamiNum2 (cos (2 * PI / INR n)) -> OrigamiNum2 (sin (2 * PI / INR n)).
+Proof.
+  intros n Hn Hc.
+  pose proof PI_RGT_0 as HPI.
+  assert (HnR : INR n <> 0) by (apply not_0_INR; lia).
+  assert (HnPos : 0 < INR n) by (apply lt_0_INR; lia).
+  assert (Hn2 : 2 <= INR n) by (replace 2 with (INR 2) by (simpl; ring); apply le_INR; lia).
+  set (t := 2 * PI / INR n) in *.
+  assert (Ht0 : 0 <= t).
+  { unfold t, Rdiv. apply Rmult_le_pos; [lra | left; apply Rinv_0_lt_compat; exact HnPos]. }
+  assert (Htpi : t <= PI).
+  { unfold t. apply Rmult_le_reg_r with (INR n); [exact HnPos |].
+    unfold Rdiv. rewrite Rmult_assoc. rewrite Rinv_l by exact HnR. rewrite Rmult_1_r. nra. }
+  assert (Hsnn : 0 <= sin t) by (apply sin_ge_0; [exact Ht0 | exact Htpi]).
+  assert (Hsq : sin t = sqrt (1 - cos t * cos t)).
+  { rewrite <- (sqrt_Rsqr (sin t) Hsnn). f_equal. unfold Rsqr.
+    pose proof (sin2_cos2 t) as H. unfold Rsqr in H. lra. }
+  rewrite Hsq. apply ON2_sqrt.
+  - apply ON2_sub; [apply ON2_1 | apply ON2_mul; exact Hc].
+  - pose proof (COS_bound t) as [Hlo Hhi]. nra.
+Qed.
+
+(* CRT angle-addition over OrigamiNum2: coprime m, k give cos/sin for the product *)
+Lemma cos_sin_origami2_mul : forall m k,
+  (1 <= m)%nat -> (1 <= k)%nat -> Nat.gcd m k = 1%nat ->
+  OrigamiNum2 (cos (2 * PI / INR m)) -> OrigamiNum2 (sin (2 * PI / INR m)) ->
+  OrigamiNum2 (cos (2 * PI / INR k)) -> OrigamiNum2 (sin (2 * PI / INR k)) ->
+  OrigamiNum2 (cos (2 * PI / INR (m * k))) /\ OrigamiNum2 (sin (2 * PI / INR (m * k))).
+Proof.
+  intros m k Hm Hk Hgcd Hcm Hsm Hck Hsk.
+  destruct (bezout_coprime m k ltac:(lia) Hgcd) as [u [v Huv]].
+  assert (HmR : INR m <> 0) by (apply not_0_INR; lia).
+  assert (HkR : INR k <> 0) by (apply not_0_INR; lia).
+  assert (HuvR : INR u * INR m = 1 + INR v * INR k).
+  { rewrite <- !mult_INR. replace (1:R) with (INR 1) by (simpl; ring).
+    rewrite <- plus_INR. apply f_equal. exact Huv. }
+  assert (Hone : INR u * INR m - INR v * INR k = 1) by lra.
+  assert (Hangle : 2 * PI / INR (m * k) = INR u * (2 * PI / INR k) - INR v * (2 * PI / INR m)).
+  { rewrite mult_INR.
+    transitivity (2 * PI * (INR u * INR m - INR v * INR k) / (INR m * INR k)).
+    - rewrite Hone. field. repeat split; assumption.
+    - field. repeat split; assumption. }
+  destruct (vertex_coords_origami2 (2 * PI / INR k) Hck Hsk u) as [Hcuk Hsuk].
+  destruct (vertex_coords_origami2 (2 * PI / INR m) Hcm Hsm v) as [Hcvm Hsvm].
+  rewrite Hangle. split.
+  - rewrite cos_minus. apply ON2_add; apply ON2_mul; assumption.
+  - rewrite sin_minus. apply ON2_sub; apply ON2_mul; assumption.
+Qed.
+
+(* CONSTRUCTIVE DIRECTION, composite n: 5-smooth phi(n) gives two-fold cos, sin.
+   Mirrors the single-fold cos_sin_smooth, over OrigamiNum2, using the two-fold
+   prime case Hcore2, the 2- and 3-power constructions (cos_2pi_2a3b_origami,
+   embedded), the 5-power construction cos_2pi_5e_ON2, and the multiplicative
+   CRT split, with prime_dvd_2a3b5c forcing prime powers p^e (p >= 7) to p^1. *)
+Theorem cos_sin_smooth2 : forall n, (1 <= n)%nat -> is_5_smooth (euler_phi n) ->
+  OrigamiNum2 (cos (2 * PI / INR n)) /\ OrigamiNum2 (sin (2 * PI / INR n)).
+Proof.
+  intro n. induction n as [n IH] using (well_founded_induction lt_wf). intros Hn Hsm.
+  destruct (le_lt_dec n 2) as [Hle | Hgt].
+  - assert (E : n = 1%nat \/ n = 2%nat) by lia. destruct E as [E|E]; subst n.
+    + replace (2 * PI / INR 1) with (2 * PI) by (simpl; field).
+      rewrite cos_2PI, sin_2PI. split; [apply ON2_1 | apply ON2_0].
+    + replace (2 * PI / INR 2) with PI by (simpl; field).
+      rewrite cos_PI, sin_PI. split; [apply ON2_neg; apply ON2_1 | apply ON2_0].
+  - assert (Hn2 : (2 <= n)%nat) by lia.
+    destruct (prime_factor_nat n ltac:(lia)) as [p [Hp Hpn]].
+    assert (Hp2 : (2 <= p)%nat) by (destruct Hp; lia).
+    destruct (ppart_exists p n Hp2 ltac:(lia)) as [e [k [Hnk Hpk]]].
+    assert (He1 : (1 <= e)%nat).
+    { destruct e as [|e']; [|lia]. exfalso. rewrite Nat.pow_0_r, Nat.mul_1_l in Hnk.
+      subst k. apply Hpk; exact Hpn. }
+    set (q := (p ^ e)%nat) in *.
+    assert (Hple : (p <= q)%nat).
+    { unfold q. rewrite <- (Nat.pow_1_r p) at 1. apply Nat.pow_le_mono_r; lia. }
+    assert (Hq2 : (2 <= q)%nat) by lia.
+    assert (Hgcd : Nat.gcd q k = 1%nat) by (unfold q; apply coprime_pp; assumption).
+    assert (Hk1 : (1 <= k)%nat).
+    { destruct k as [|k']; [|lia]. rewrite Nat.mul_0_r in Hnk. lia. }
+    destruct (le_lt_dec k 1) as [Hkle | Hkgt].
+    + assert (Ek : k = 1%nat) by lia. subst k. rewrite Nat.mul_1_r in Hnk.
+      assert (Hcosn : OrigamiNum2 (cos (2 * PI / INR n))).
+      { destruct (le_lt_dec p 5) as [Hple5 | Hpgt].
+        - assert (Hp4 : p <> 4%nat).
+          { intro E4. subst p. pose proof (is_prime_of_Z 4 Hp) as Hisp. destruct Hisp as [_ Hd].
+            destruct (Hd 2%nat ltac:(lia) ltac:(exists 2%nat; reflexivity)) as [H|H]; lia. }
+          assert (Ep : p = 2%nat \/ p = 3%nat \/ p = 5%nat) by lia.
+          destruct Ep as [Ep|[Ep|Ep]]; subst p.
+          + assert (Heq : n = (2 ^ e * 3 ^ 0)%nat).
+            { rewrite Hnk. unfold q. rewrite Nat.pow_0_r, Nat.mul_1_r. reflexivity. }
+            rewrite Heq. apply Origami_in_Origami2. apply (cos_2pi_2a3b_origami e 0).
+          + assert (Heq : n = (2 ^ 0 * 3 ^ e)%nat).
+            { rewrite Hnk. unfold q. rewrite Nat.pow_0_r, Nat.mul_1_l. reflexivity. }
+            rewrite Heq. apply Origami_in_Origami2. apply (cos_2pi_2a3b_origami 0 e).
+          + assert (Heq : n = (5 ^ e)%nat) by (rewrite Hnk; unfold q; reflexivity).
+            rewrite Heq. apply cos_2pi_5e_ON2.
+        - assert (He1' : e = 1%nat).
+          { destruct (le_lt_dec e 1) as [Hele|Hege]; [lia | exfalso].
+            assert (Hpphi : Nat.divide p (euler_phi (p ^ e))) by (apply p_dvd_phi_pp; [exact Hp | lia]).
+            assert (Hphin : euler_phi n = euler_phi (p ^ e)) by (rewrite Hnk; reflexivity).
+            destruct Hsm as [a [b [cc Habc]]].
+            assert (Hpdvd : Nat.divide p (2 ^ a * 3 ^ b * 5 ^ cc)%nat).
+            { rewrite <- Habc, Hphin. exact Hpphi. }
+            destruct (prime_dvd_2a3b5c p a b cc Hp Hpdvd) as [E2|[E3|E5]]; lia. }
+          subst e. unfold q in Hnk. rewrite Nat.pow_1_r in Hnk.
+          assert (En : n = p) by lia. rewrite En.
+          apply Hcore2; [exact Hp | rewrite <- En; exact Hsm]. }
+      split; [exact Hcosn | apply sin_origami2_of_cos; [exact Hn2 | exact Hcosn]].
+    + assert (Hk2 : (2 <= k)%nat) by lia.
+      assert (Hqlt : (q < n)%nat) by (rewrite Hnk; nia).
+      assert (Hklt : (k < n)%nat) by (rewrite Hnk; nia).
+      assert (Hphi_eq : euler_phi n = (euler_phi q * euler_phi k)%nat).
+      { rewrite Hnk. apply euler_phi_mult; [lia | lia | exact Hgcd]. }
+      destruct Hsm as [a [b [cc Habc]]].
+      assert (Hsmq : is_5_smooth (euler_phi q)).
+      { apply (divisor_5_smooth a b cc). rewrite <- Habc, Hphi_eq. exists (euler_phi k). ring. }
+      assert (Hsmk : is_5_smooth (euler_phi k)).
+      { apply (divisor_5_smooth a b cc). rewrite <- Habc, Hphi_eq. exists (euler_phi q). ring. }
+      destruct (IH q Hqlt ltac:(lia) Hsmq) as [Hcq Hsq].
+      destruct (IH k Hklt ltac:(lia) Hsmk) as [Hck Hsk].
+      rewrite Hnk.
+      apply cos_sin_origami2_mul; [lia | lia | exact Hgcd | exact Hcq | exact Hsq | exact Hck | exact Hsk].
+Qed.
+
+(* 5-smooth phi(n) gives two-fold origami cos(2pi/n), for all n *)
+Theorem cos_2pi_n_two_fold_smooth : forall n, (1 <= n)%nat ->
+  is_5_smooth (euler_phi n) -> OrigamiNum2 (cos (2 * PI / INR n)).
+Proof. intros n Hn Hsm. apply (cos_sin_smooth2 n Hn Hsm). Qed.
+
+(* THE TWO-FOLD n-GON THEOREM: cos(2pi/n) is two-fold-origami constructible iff
+   phi(n) is {2,3,5}-smooth.  The exact two-fold analogue of ngon_origami_iff. *)
+Theorem ngon_two_fold_iff : forall n, (3 <= n)%nat ->
+  (OrigamiNum2 (cos (2 * PI / INR n)) <-> is_5_smooth (euler_phi n)).
+Proof.
+  intros n Hn. split.
+  - intro HO. destruct (classic (is_5_smooth (euler_phi n))) as [Hs|Hns].
+    + exact Hs.
+    + exfalso. exact (cos_2pi_n_not_two_fold_clean n Hn Hns HO).
+  - intro Hs. apply cos_2pi_n_two_fold_smooth; [lia | exact Hs].
+Qed.
