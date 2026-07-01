@@ -6471,9 +6471,6 @@ Definition delian_O6_fold : Fold :=
   fold_O6_beloch delian_p delian_q cbrt2.
 
 (** p = 0 ∧ q = -2 ∧ is_cubic_root(p, q, ∛2) ∧ (∛2)³ = 2 *)
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Theorem fold_O5_general_satisfies_O5 : forall p l q,
   line_wf l -> O5_general_valid p l q -> p <> O5_general_image p l q ->
   satisfies_O5_constraint (fold_O5_general p l q) p l q.
@@ -6511,8 +6508,6 @@ Proof.
   pose proof (proj2_sig (depressed_cubic_root_sig p q)) as Hr.
   unfold is_cubic_root, depressed_cubic in Hr. exact Hr.
 Qed.
-Close Scope R_scope.
-Open Scope R_scope.
 Lemma cubic_root_list_sound : forall p q t,
   In t (cubic_root_list p q) -> t ^ 3 + p * t + q = 0.
 Proof.
@@ -6955,14 +6950,6 @@ Qed.
 (** ═══════════════════════════════════════════════════════════════════════════
     OCAML EXTRACTION
     ═══════════════════════════════════════════════════════════════════════════ *)
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Theorem O6_general_solvable : forall (a b A2 B2 C2 : R), A2 <> 0 ->
   exists s, satisfies_O6_line_constraint (beloch_fold_line s)
               beloch_P1 beloch_L1 (a, b) {| A := A2; B := B2; C := C2 |}.
@@ -6987,20 +6974,6 @@ Qed.
 
 (* a general cubic with nonzero leading coefficient and negative depressed
    discriminant has a unique real root: the single-solution O6 case *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Theorem O6_scaled_solvable : forall (d1 a b A2 B2 C2 : R), d1 <> 0 -> A2 <> 0 ->
   exists s, satisfies_O6_line_constraint
               {| A := s; B := -1; C := -(d1*s*s) |}
@@ -7121,20 +7094,6 @@ Qed.
 (* unit-circle parametrization: any (c,s) on the unit circle is (cos th, sin th)
    for some angle th - the rotation that aligns an arbitrary directrix to
    horizontal in the O6 normalization. *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Lemma rotate_point_zero : forall p, rotate_point p 0 = p.
 Proof. intros [x y]. unfold rotate_point; simpl. rewrite cos_0, sin_0. f_equal; ring. Qed.
 
@@ -7642,37 +7601,10 @@ Proof.
     + rewrite (reflect_via_perp_bisector p1 p1 c Hwfc Hpc). exact Ho1.
     + rewrite (reflect_via_perp_bisector p2 p1 c Hwfc Hpc). exact Ho2.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
 (* ===== Complex Cardano (item 10): C as a field, complex square and cube
    roots via polar form, and the radical formula returning all three roots of
    z^3 + p z + q over C with no discriminant-sign restriction.  Wrapped in a
    module so the complex type C does not collide with the Line field C. ===== *)
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Theorem cos_2pi_n_origami_deg3 : forall n, (3 <= n)%nat -> euler_phi n = 6%nat ->
   OrigamiNum (cos (2 * PI / INR n)).
 Proof.
@@ -7701,22 +7633,6 @@ Qed.
    the real square root for the constructions below *)
 
 (* a real root of any monic quadratic with origami coefficients is origami *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Theorem cos_2pi_n_origami_deg2 : forall n, (3 <= n)%nat -> euler_phi n = 4%nat ->
   OrigamiNum (cos (2 * PI / INR n)).
 Proof.
@@ -7741,22 +7657,6 @@ Proof.
 Qed.
 
 (* ===== The 2-3-smooth-n polygons: cos(2pi/n) is origami for n = 2^a * 3^b ===== *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Lemma cos_third_origami : forall m, (1 <= m)%nat ->
   OrigamiNum (cos (2 * PI / INR m)) -> OrigamiNum (cos (2 * PI / INR (3*m))).
 Proof.
@@ -7821,22 +7721,6 @@ Proof.
 Qed.
 
 (* ===== Compass-straightedge (Gauss-Wantzel) impossibility ===== *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Lemma cos_half_euclid : forall m, (1 <= m)%nat ->
   EuclidNum (cos (2 * PI / INR m)) -> EuclidNum (cos (2 * PI / INR (2*m))).
 Proof.
@@ -7880,24 +7764,6 @@ Qed.
 (* ===== Degree-based impossibility, factored generally ===== *)
 
 (* a real number whose degree over Q is not 2-3-smooth is not origami-constructible *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
 Section PrimeCase.
 
 Variable P : nat.
@@ -8304,48 +8170,7 @@ Proof.
 Qed.
 
 End PrimeCase.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-(* ---- multiplicative CRT reduction (former dev.v) ---- *)
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
+(* ---- multiplicative CRT reduction ---- *)
 (* sin(2pi/n) is origami whenever cos(2pi/n) is (n >= 2): sin = sqrt(1 - cos^2), >= 0 *)
 Lemma sin_origami_of_cos : forall n, (2 <= n)%nat ->
   OrigamiNum (cos (2 * PI / INR n)) -> OrigamiNum (sin (2 * PI / INR n)).
@@ -8396,28 +8221,6 @@ Proof.
   - rewrite cos_minus. apply ON_add; apply ON_mul; assumption.
   - rewrite sin_minus. apply ON_sub; apply ON_mul; assumption.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Section Reduction.
 (* For prime p with 2-3-smooth phi(p), cos(2pi/p) is origami (Gaussian periods
    over the cyclic unit group mod p). *)
@@ -8512,60 +8315,15 @@ Proof.
 Qed.
 
 End Reduction.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-(* ---- base level of the period tower (former gauss.v) ---- *)
+(* ---- base level of the period tower ---- *)
 (******************************************************************************)
-(*  gauss.v — completes todo item #1: the Galois sufficiency backbone.          *)
+(*  Base level of the Gaussian-period tower over the units mod p.          *)
 (*                                                                            *)
-(*  Discharges Hcore (the last hypothesis of dev.v's Section Reduction) via    *)
+(*  Discharges Hcore (the last hypothesis of Section Reduction) via    *)
 (*  the real Gaussian-period tower over the cyclic unit group mod p, then      *)
 (*  assembles the full constructibility iff: for n >= 3, cos(2*PI/n) is         *)
 (*  origami iff phi(n) is 2-3-smooth.                                          *)
 (******************************************************************************)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 (* ===== generic rsum helpers (rsum : list nat -> (nat -> R) -> R) ===== *)
 
 Lemma rsum_nilL : forall phi, rsum [] phi = 0.
@@ -8613,30 +8371,6 @@ Proof.
   - reflexivity.
   - cbn [map]. rewrite rsum_consL, csum_cons, IH. reflexivity.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Section W.
 
 Variable P : nat.
@@ -8791,95 +8525,20 @@ Proof.
 Qed.
 
 End W.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-(* ---- the period tower + Hcore + the full iff (former tower.v) ---- *)
+(* ---- the period tower + Hcore + the full iff ---- *)
 (******************************************************************************)
-(*  tower.v — completes todo item #1: the Galois sufficiency backbone.          *)
+(*  The Gaussian-period tower closing the n-gon iff for all n.          *)
 (*                                                                            *)
 (*  The Gaussian-period tower: for prime p with 2-3-smooth phi(p) = p-1, every  *)
 (*  period PerV P g v D is origami, by induction up the divisor chain of p-1    *)
 (*  (each step a degree-2 sqrt or degree-3 cube root, both origami).  This       *)
-(*  discharges Hcore, the sole remaining hypothesis of dev.v's Reduction, and    *)
+(*  discharges Hcore, the sole remaining hypothesis of Section Reduction, and    *)
 (*  closes the constructible half of the n-gon theorem for all n.               *)
 (******************************************************************************)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 (* ===== Pure algebra: a root from the power sums of the conjugate periods ===== *)
 
 (* degree-2: a is a root of t^2 - e1 t + e2, with e1,e2 the symmetric functions
    read off from the power sums p1 = e1 = a+b, p2 = a^2+b^2. *)
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 Section Tower.
 
 Variable P : nat.
@@ -9172,32 +8831,6 @@ Proof.
 Qed.
 
 End Tower.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Open Scope R_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope R_scope.
-Open Scope Z_scope.
-Open Scope nat_scope.
-Open Scope Z_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
-Open Scope R_scope.
 (* ===== Hcore for primes p >= 5: pick a primitive root, run the tower ===== *)
 Lemma Hcore_ge5 : forall p, Znumtheory.prime (Z.of_nat p) ->
   two_three_smooth (euler_phi p) -> (5 <= p)%nat ->
@@ -9439,22 +9072,6 @@ Proof.
   assert (Hxeq : x0 * (1 + a*a) = d - b - a*g) by (rewrite Hx0; field; exact Ha).
   subst y0. nsatz.
 Qed.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope Z_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope Z_scope.
-Close Scope R_scope.
-Close Scope nat_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
-Close Scope R_scope.
 Import Cardano_C.
 Open Scope R_scope.
 
