@@ -1883,8 +1883,13 @@ Proof.
     apply (perp_bisector_parallel_direction_perp p1 q l2 Hpar Hneq_q).
 Qed.
 
-(** Alias for fold_O7_corrected *)
-Definition fold_O7 := fold_O7_corrected.
+(** O7 with the incidence branch: a point already on l₁ folds by the
+    perpendicular to l₂ through it; otherwise the parametric construction. *)
+Definition fold_O7 (p1 : Point) (l1 l2 : Line) : Fold :=
+  match on_line_dec p1 l1 with
+  | left _ => fold_line_ctor (perp_through p1 l2)
+  | right _ => fold_O7_corrected p1 l1 l2
+  end.
 
 (** l₁ ∥ l₂ → fold_O7 ⊥ l₂ *)
 Lemma fold_O7_degenerate_perp : forall p1 l1 l2,
@@ -1892,13 +1897,16 @@ Lemma fold_O7_degenerate_perp : forall p1 l1 l2,
   line_perp (fold_line (fold_O7 p1 l1 l2)) l2.
 Proof.
   intros p1 l1 l2 Hdenom.
-  unfold fold_O7, fold_O7_corrected, fold_line.
-  set (denom := A l1 * B l2 + B l1 * - A l2).
-  assert (Hdenom_eq: denom = 0).
-  { unfold denom. ring_simplify. exact Hdenom. }
-  destruct (Req_EM_T denom 0).
+  unfold fold_O7.
+  destruct (on_line_dec p1 l1) as [Hon | Hoff].
   - simpl. apply perp_through_is_perp.
-  - contradiction.
+  - unfold fold_O7_corrected, fold_line.
+    set (denom := A l1 * B l2 + B l1 * - A l2).
+    assert (Hdenom_eq: denom = 0).
+    { unfold denom. ring_simplify. exact Hdenom. }
+    destruct (Req_EM_T denom 0).
+    + simpl. apply perp_through_is_perp.
+    + contradiction.
 Qed.
 
 (** p ∈ perp_through(p,l) *)
@@ -1915,13 +1923,9 @@ Lemma fold_O7_degenerate_reflection : forall p1 l1 l2,
   on_line (reflect_point p1 (fold_line (fold_O7 p1 l1 l2))) l1.
 Proof.
   intros p1 l1 l2 Hdenom Hp1.
-  unfold fold_O7, fold_O7_corrected, fold_line.
-  set (denom := A l1 * B l2 + B l1 * - A l2).
-  assert (Hdenom_eq: denom = 0).
-  { unfold denom. ring_simplify. exact Hdenom. }
-  destruct (Req_EM_T denom 0).
-  - simpl. rewrite reflect_point_on_line by apply point_on_perp_through. exact Hp1.
-  - contradiction.
+  unfold fold_O7.
+  destruct (on_line_dec p1 l1) as [Hon | Hoff]; [| contradiction].
+  simpl. rewrite reflect_point_on_line by apply point_on_perp_through. exact Hp1.
 Qed.
 
 (** p₁ ∈ l₁ → t = 0 in fold_O7_corrected *)
@@ -1941,21 +1945,10 @@ Lemma fold_O7_p1_on_fold_when_on_l1 : forall p1 l1 l2,
   A l1 * B l2 - B l1 * A l2 <> 0 ->
   on_line p1 (fold_line (fold_O7 p1 l1 l2)).
 Proof.
-  intros [px py] l1 l2 Hon Hnonpar.
-  unfold fold_O7, fold_O7_corrected, fold_line.
-  set (denom := A l1 * B l2 + B l1 * - A l2).
-  assert (Hdenom: denom <> 0) by (unfold denom; lra).
-  destruct (Req_EM_T denom 0); [contradiction|].
-  simpl.
-  assert (Ht: - (A l1 * px + B l1 * py + C l1) / denom = 0).
-  { unfold on_line in Hon. simpl in Hon. rewrite Hon. field. exact Hdenom. }
-  unfold perp_bisector, on_line. simpl.
-  rewrite Ht.
-  replace (px + 0 * B l2) with px by ring.
-  replace (py + 0 * - A l2) with py by ring.
-  destruct (Req_EM_T px px) as [_|Hne]; [|exfalso; apply Hne; reflexivity].
-  destruct (Req_EM_T py py) as [_|Hne]; [|exfalso; apply Hne; reflexivity].
-  simpl. ring.
+  intros p1 l1 l2 Hon Hnonpar.
+  unfold fold_O7.
+  destruct (on_line_dec p1 l1) as [_ | Hoff]; [| contradiction].
+  simpl. apply point_on_perp_through.
 Qed.
 
 (** p₁ ∈ l₁ ∧ l₁ ∦ l₂ → reflect(p₁, fold_O7) ∈ l₁ *)
@@ -2192,7 +2185,9 @@ Lemma fold_O7_satisfies_O7_constraint : forall p1 l1 l2,
   satisfies_O7_constraint (fold_O7 p1 l1 l2) p1 l1 l2.
 Proof.
   intros p1 l1 l2 Hwf2 Hdenom Hnot_on.
-  unfold satisfies_O7_constraint, fold_O7, fold_O7_corrected, fold_line.
+  unfold satisfies_O7_constraint, fold_O7.
+  destruct (on_line_dec p1 l1) as [Hon | _]; [contradiction |].
+  unfold fold_O7_corrected, fold_line.
   set (dir_x := B l2).
   set (dir_y := - A l2).
   set (p1_x := fst p1).
@@ -2232,6 +2227,64 @@ Proof.
   intros p1 l1 l2 Hwf2 [[Hpar Hon] | [Hnpar Hnot_on]].
   - apply O7_degenerate_case_complete; assumption.
   - apply fold_O7_satisfies_O7_constraint; assumption.
+Qed.
+
+(** p₁ ∈ l₁ → fold_O7 satisfies O7 outright, for any l₂ *)
+Theorem O7_on_line_complete : forall p1 l1 l2,
+  on_line p1 l1 ->
+  satisfies_O7_constraint (fold_O7 p1 l1 l2) p1 l1 l2.
+Proof.
+  intros p1 l1 l2 Hon.
+  unfold satisfies_O7_constraint, fold_O7.
+  destruct (on_line_dec p1 l1) as [_ | Hoff]; [| contradiction].
+  simpl. split.
+  - rewrite reflect_point_on_line by apply point_on_perp_through. exact Hon.
+  - apply perp_through_is_perp.
+Qed.
+
+(** l₁ ∥ l₂ ∧ p₁ ∉ l₁: no well-formed crease satisfies the O7 constraint,
+    since a crease perpendicular to l₂ displaces p₁ parallel to l₁ *)
+Lemma O7_parallel_off_line_impossible : forall p1 l1 l2,
+  line_wf l2 ->
+  A l1 * B l2 - B l1 * A l2 = 0 ->
+  ~ on_line p1 l1 ->
+  forall f, line_wf (fold_line f) -> ~ satisfies_O7_constraint f p1 l1 l2.
+Proof.
+  intros [px py] l1 l2 Hwf2 Hpar Hoff f Hwff [Hrefl Hperp].
+  set (c := fold_line f) in *.
+  unfold line_perp in Hperp.
+  assert (Hkey : A l1 * A c + B l1 * B c = 0).
+  { destruct Hwf2 as [HA2 | HB2].
+    - apply (Rmult_eq_reg_l (A l2)); [| exact HA2].
+      transitivity (A l1 * (A c * A l2 + B c * B l2)
+                    - B c * (A l1 * B l2 - B l1 * A l2)).
+      + ring.
+      + rewrite Hperp, Hpar. ring.
+    - apply (Rmult_eq_reg_l (B l2)); [| exact HB2].
+      transitivity (B l1 * (A c * A l2 + B c * B l2)
+                    + A c * (A l1 * B l2 - B l1 * A l2)).
+      + ring.
+      + rewrite Hperp, Hpar. ring. }
+  unfold reflect_point, on_line in Hrefl. simpl in Hrefl.
+  set (k := (A c * px + B c * py + C c) / (A c * A c + B c * B c)) in Hrefl.
+  assert (Hlin : A l1 * px + B l1 * py + C l1
+                 = 2 * k * (A l1 * A c + B l1 * B c)) by nra.
+  rewrite Hkey in Hlin.
+  apply Hoff. unfold on_line. simpl. lra.
+Qed.
+
+(** The complete O7 satisfaction: fold_O7 solves every configuration outside
+    the impossible parallel/off-line case *)
+Theorem O7_total : forall p1 l1 l2,
+  line_wf l2 ->
+  on_line p1 l1 \/ A l1 * B l2 - B l1 * A l2 <> 0 ->
+  satisfies_O7_constraint (fold_O7 p1 l1 l2) p1 l1 l2.
+Proof.
+  intros p1 l1 l2 Hwf2 [Hon | Hnonpar].
+  - apply O7_on_line_complete. exact Hon.
+  - destruct (on_line_dec p1 l1) as [Hon | Hoff].
+    + apply O7_on_line_complete. exact Hon.
+    + apply fold_O7_satisfies_O7_constraint; assumption.
 Qed.
 
 
@@ -3735,9 +3788,11 @@ Proof.
     + rewrite fold_line_O5. apply perp_through_wf. apply line_through_wf.
     + rewrite fold_line_O6. apply line_through_wf.
     + unfold fold_O7, fold_O7_corrected. simpl.
-      destruct (Req_EM_T (A l1 * B l2 + B l1 * - A l2) 0).
+      destruct (on_line_dec p1 l1).
       * apply perp_through_wf; apply ConstructibleLine_wf; assumption.
-      * apply perp_bisector_wf.
+      * destruct (Req_EM_T (A l1 * B l2 + B l1 * - A l2) 0).
+        -- apply perp_through_wf; apply ConstructibleLine_wf; assumption.
+        -- apply perp_bisector_wf.
     + unfold fold_O5_vert; simpl. apply perp_bisector_wf.
     + unfold fold_O6_beloch; simpl. apply beloch_fold_line_wf.
     + unfold fold_O5_general; simpl. apply perp_bisector_wf.
@@ -3843,7 +3898,10 @@ Lemma GoodLine_fold_O7 : forall p1 l1 l2,
   GoodLine (fold_line (fold_O7 p1 l1 l2)).
 Proof.
   intros p1 l1 l2 Hp1 Hl1 Hl2.
-  unfold fold_O7, fold_O7_corrected, fold_line.
+  unfold fold_O7.
+  destruct (on_line_dec p1 l1) as [Hon | Hoff].
+  { simpl. apply GoodLine_perp_through; assumption. }
+  unfold fold_O7_corrected, fold_line.
   set (dir_x := B l2).
   set (dir_y := - A l2).
   set (p1_x := fst p1).
