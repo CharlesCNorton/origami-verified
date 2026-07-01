@@ -223,3 +223,112 @@ Proof.
   exists t. split; [exact Ht |].
   apply septic_crease_reflects. exact Ht.
 Qed.
+
+(* ============================================================================
+   First-polygon separations.  The 29-gon is three-fold but not two-fold
+   constructible (phi(29) = 28 = 2^2 * 7), and is the first such polygon: every
+   m-gon with m < 29 is either two-fold constructible or beyond three-fold.
+   The 23-gon is the first regular polygon beyond even three-fold origami
+   (phi(23) = 22 = 2 * 11).
+   ============================================================================ *)
+
+Lemma prime_Z_11 : Znumtheory.prime (Z.of_nat 11).
+Proof.
+  change (Z.of_nat 11) with 11%Z. apply Znumtheory.prime_intro; [lia|].
+  intros n Hn. apply Znumtheory.Zgcd_1_rel_prime.
+  assert (Hc : (n = 1 \/ n = 2 \/ n = 3 \/ n = 4 \/ n = 5 \/ n = 6 \/ n = 7
+                \/ n = 8 \/ n = 9 \/ n = 10)%Z) by lia.
+  destruct Hc as [->|[->|[->|[->|[->|[->|[->|[->|[->| ->]]]]]]]]]; reflexivity.
+Qed.
+
+Lemma phi_29 : euler_phi 29 = 28%nat. Proof. reflexivity. Qed.
+Lemma phi_23 : euler_phi 23 = 22%nat. Proof. reflexivity. Qed.
+
+Lemma not_5_smooth_28 : ~ is_5_smooth 28.
+Proof.
+  intros [a [b [c H]]].
+  assert (Hd : Nat.divide 7 (2 ^ a * 3 ^ b * 5 ^ c)%nat).
+  { rewrite <- H. exists 4%nat. reflexivity. }
+  destruct (prime_dvd_2a3b5c 7 a b c prime_Z_7 Hd) as [E|[E|E]]; lia.
+Qed.
+
+Lemma not_7_smooth_22 : ~ is_7_smooth 22.
+Proof.
+  intros [a [b [c [d H]]]].
+  assert (Hd11 : Nat.divide 11 (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ d)%nat).
+  { rewrite <- H. exists 2%nat. reflexivity. }
+  destruct (prime_dvd_2a3b5c7d 11 a b c d prime_Z_11 Hd11) as [E|[E|[E|E]]]; lia.
+Qed.
+
+(** The 29-gon is three-fold constructible ... *)
+Theorem ngon_29_three_fold : OrigamiNum3 (cos (2 * PI / INR 29)).
+Proof.
+  apply (proj2 (ngon_three_fold_iff 29 ltac:(lia))).
+  rewrite phi_29. exists 2%nat, 0%nat, 0%nat, 1%nat. reflexivity.
+Qed.
+
+(** ... but not two-fold constructible. *)
+Theorem ngon_29_not_two_fold : ~ OrigamiNum2 (cos (2 * PI / INR 29)).
+Proof.
+  apply cos_2pi_n_not_two_fold_clean; [lia|].
+  rewrite phi_29. exact not_5_smooth_28.
+Qed.
+
+(** The 23-gon is beyond even three-fold origami. *)
+Theorem ngon_23_not_three_fold : ~ OrigamiNum3 (cos (2 * PI / INR 23)).
+Proof.
+  apply cos_2pi_n_not_three_fold_clean; [lia|].
+  rewrite phi_23. exact not_7_smooth_22.
+Qed.
+
+(** phi(m) is 5-smooth for every 3 <= m < 29 except m = 23. *)
+Lemma small_phi_5_smooth : forall m, (3 <= m < 29)%nat -> (m <> 23)%nat ->
+  is_5_smooth (euler_phi m).
+Proof.
+  intros m Hm Hne.
+  do 3 (destruct m as [|m]; [lia|]).
+  destruct m as [|m]. { exists 1%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 0%nat, 1%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 3%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 3%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 4%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 2%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 3%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 0%nat, 1%nat. reflexivity. }
+  destruct m as [|m]. { exfalso. apply Hne. reflexivity. }
+  destruct m as [|m]. { exists 3%nat, 0%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 0%nat, 1%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 1%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 1%nat, 2%nat, 0%nat. reflexivity. }
+  destruct m as [|m]. { exists 2%nat, 1%nat, 0%nat. reflexivity. }
+  lia.
+Qed.
+
+(** THE FIRST EXACTLY-THREE-FOLD POLYGON: the 29-gon is three-fold but not
+    two-fold constructible, and every smaller polygon is either two-fold
+    constructible or beyond three-fold. *)
+Theorem ngon_29_first_exactly_three_fold :
+  OrigamiNum3 (cos (2 * PI / INR 29)) /\
+  ~ OrigamiNum2 (cos (2 * PI / INR 29)) /\
+  (forall m, (3 <= m < 29)%nat ->
+     OrigamiNum2 (cos (2 * PI / INR m)) \/ ~ OrigamiNum3 (cos (2 * PI / INR m))).
+Proof.
+  split; [exact ngon_29_three_fold | split; [exact ngon_29_not_two_fold |]].
+  intros m Hm.
+  destruct (Nat.eq_dec m 23) as [-> | Hne].
+  - right. exact ngon_23_not_three_fold.
+  - left. apply cos_2pi_n_two_fold_smooth; [lia |].
+    apply small_phi_5_smooth; [exact Hm | exact Hne].
+Qed.
