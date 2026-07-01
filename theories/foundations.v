@@ -12109,6 +12109,308 @@ Qed.
 Close Scope R_scope.
 End Cardano_C.
 Open Scope R_scope.
+
+(* ===== Newton's identities over lists =====
+   Power sums, elementary symmetric functions, the Vieta polynomial of a root
+   list, and the identity connecting them: the list-generic foundation for
+   arbitrary-degree tower rungs. *)
+
+(** Bounded sum: fsum n f = f 0 + ... + f (n-1) *)
+Fixpoint fsum (n : nat) (f : nat -> R) : R :=
+  match n with
+  | O => 0
+  | S n' => fsum n' f + f n'
+  end.
+
+Lemma fsum_ext : forall n f h, (forall i, (i < n)%nat -> f i = h i) -> fsum n f = fsum n h.
+Proof.
+  induction n as [|n IH]; intros f h H; simpl.
+  - reflexivity.
+  - rewrite (IH f h); [rewrite (H n) by lia; reflexivity | intros i Hi; apply H; lia].
+Qed.
+
+Lemma fsum_plus : forall n f h, fsum n (fun i => f i + h i) = fsum n f + fsum n h.
+Proof.
+  induction n as [|n IH]; intros f h; simpl; [ring | rewrite IH; ring].
+Qed.
+
+Lemma fsum_scale : forall n c f, fsum n (fun i => c * f i) = c * fsum n f.
+Proof.
+  induction n as [|n IH]; intros c f; simpl; [ring | rewrite IH; ring].
+Qed.
+
+Lemma fsum_zero : forall n, fsum n (fun _ => 0) = 0.
+Proof. induction n as [|n IH]; simpl; [reflexivity | rewrite IH; ring]. Qed.
+
+Lemma fsum_S_shift : forall n f, fsum (S n) f = f 0%nat + fsum n (fun i => f (S i)).
+Proof.
+  induction n as [|n IH]; intros f; simpl.
+  - ring.
+  - change (fsum (S n) f + f (S n) = f 0%nat + (fsum n (fun i => f (S i)) + f (S n))).
+    rewrite IH. ring.
+Qed.
+
+(** Power sum p_k = x1^k + ... + xn^k *)
+Fixpoint powsum (xs : list R) (k : nat) : R :=
+  match xs with
+  | nil => 0
+  | x :: xs' => x ^ k + powsum xs' k
+  end.
+
+(** Elementary symmetric function e_k of a list *)
+Fixpoint esym (k : nat) (xs : list R) {struct xs} : R :=
+  match k with
+  | O => 1
+  | S k' => match xs with
+            | nil => 0
+            | x :: xs' => esym k xs' + x * esym k' xs'
+            end
+  end.
+
+Lemma esym_nil : forall k, (1 <= k)%nat -> esym k nil = 0.
+Proof. intros k Hk. destruct k; [lia | reflexivity]. Qed.
+
+Lemma esym_0 : forall xs, esym 0 xs = 1.
+Proof. intro xs. destruct xs; reflexivity. Qed.
+
+Lemma esym_high : forall xs k, (length xs < k)%nat -> esym k xs = 0.
+Proof.
+  induction xs as [|x xs' IH]; intros k Hk.
+  - apply esym_nil. simpl in Hk. lia.
+  - destruct k as [|k']; [simpl in Hk; lia|]. simpl in Hk. simpl.
+    rewrite (IH (S k')) by lia. rewrite (IH k') by lia. ring.
+Qed.
+
+(** NEWTON'S IDENTITY: for k >= 1,
+    sum_{i<k} (-1)^i e_i p_{k-i}  +  (-1)^k k e_k  =  0. *)
+Lemma newton_id : forall xs k, (1 <= k)%nat ->
+  fsum k (fun i => (-1) ^ i * esym i xs * powsum xs (k - i))
+  + (-1) ^ k * INR k * esym k xs = 0.
+Proof.
+  induction xs as [|x xs' IH]; intros k Hk.
+  - rewrite (fsum_ext k _ (fun _ => 0)).
+    + rewrite fsum_zero, esym_nil by exact Hk. ring.
+    + intros i Hi. simpl. ring.
+  - destruct k as [|m]; [lia|].
+    rewrite fsum_S_shift.
+    set (SA := fsum m (fun j => (-1) ^ j * esym (S j) xs' * powsum xs' (m - j))).
+    set (SB := fsum m (fun j => (-1) ^ j * esym j xs' * powsum xs' (m - j))).
+    set (SC := fsum m (fun j => (-1) ^ j * esym (S j) xs' * x ^ (m - j))).
+    set (SD := fsum m (fun j => (-1) ^ j * esym j xs' * x ^ (m - j))).
+    assert (Hsplit : fsum m (fun j =>
+        (-1) ^ S j * esym (S j) (x :: xs') * powsum (x :: xs') (S m - S j))
+      = - SA - SC - x * SD - x * SB).
+    { unfold SA, SB, SC, SD.
+      rewrite (fsum_ext m _ (fun j =>
+        (-1) * ((-1) ^ j * esym (S j) xs' * powsum xs' (m - j))
+        + ((-1) * ((-1) ^ j * esym (S j) xs' * x ^ (m - j))
+        + ((-1) * (x * ((-1) ^ j * esym j xs' * x ^ (m - j)))
+        + (-1) * (x * ((-1) ^ j * esym j xs' * powsum xs' (m - j))))))).
+      - rewrite !fsum_plus, !fsum_scale. ring.
+      - intros j Hj. replace (S m - S j)%nat with (m - j)%nat by lia.
+        cbn [esym powsum pow]. ring. }
+    rewrite Hsplit.
+    assert (HA : powsum xs' (S m) - SA + (-1) ^ S m * INR (S m) * esym (S m) xs' = 0).
+    { pose proof (IH (S m) ltac:(lia)) as HIH.
+      rewrite fsum_S_shift in HIH.
+      replace (fsum m (fun i => (-1) ^ S i * esym (S i) xs' * powsum xs' (S m - S i)))
+        with (- SA) in HIH.
+      - simpl ((-1) ^ 0) in HIH. rewrite esym_0 in HIH.
+        replace (S m - 0)%nat with (S m) in HIH by lia. nra.
+      - unfold SA.
+        replace (- fsum m (fun j => (-1) ^ j * esym (S j) xs' * powsum xs' (m - j)))
+          with ((-1) * fsum m (fun j => (-1) ^ j * esym (S j) xs' * powsum xs' (m - j)))
+          by ring.
+        rewrite <- (fsum_scale m (-1)).
+        apply fsum_ext. intros i Hi.
+        replace (S m - S i)%nat with (m - i)%nat by lia. cbn [pow]. ring. }
+    assert (HB : SB = (-1) ^ S m * INR m * esym m xs').
+    { destruct m as [|m'].
+      - unfold SB. simpl. ring.
+      - pose proof (IH (S m') ltac:(lia)) as HIH. unfold SB.
+        replace ((-1) ^ S (S m')) with (- (-1) ^ S m') by (cbn [pow]; ring).
+        nra. }
+    assert (HU : fsum (S m) (fun i => (-1) ^ i * esym i xs' * x ^ (S m - i))
+                 = x ^ S m - SC).
+    { rewrite fsum_S_shift.
+      simpl ((-1) ^ 0). rewrite esym_0.
+      replace (S m - 0)%nat with (S m) by lia.
+      replace (fsum m (fun i => (-1) ^ S i * esym (S i) xs' * x ^ (S m - S i)))
+        with (- SC); [ring |].
+      unfold SC.
+      replace (- fsum m (fun j => (-1) ^ j * esym (S j) xs' * x ^ (m - j)))
+        with ((-1) * fsum m (fun j => (-1) ^ j * esym (S j) xs' * x ^ (m - j)))
+        by ring.
+      rewrite <- (fsum_scale m (-1)).
+      apply fsum_ext. intros i Hi.
+      replace (S m - S i)%nat with (m - i)%nat by lia. cbn [pow]. ring. }
+    assert (HU2 : fsum (S m) (fun i => (-1) ^ i * esym i xs' * x ^ (S m - i))
+                  = x * SD + (-1) ^ m * esym m xs' * x).
+    { change (fsum (S m) (fun i => (-1) ^ i * esym i xs' * x ^ (S m - i)))
+        with (fsum m (fun i => (-1) ^ i * esym i xs' * x ^ (S m - i))
+              + (-1) ^ m * esym m xs' * x ^ (S m - m)).
+      replace (S m - m)%nat with 1%nat by lia.
+      replace (fsum m (fun i => (-1) ^ i * esym i xs' * x ^ (S m - i)))
+        with (x * SD); [simpl; ring |].
+      unfold SD. rewrite <- (fsum_scale m x).
+      apply fsum_ext. intros i Hi.
+      replace (S m - i)%nat with (S (m - i))%nat by lia. cbn [pow]. ring. }
+    assert (HC : SC = x ^ S m - x * SD - (-1) ^ m * esym m xs' * x) by nra.
+    replace ((-1) ^ 0 * esym 0 (x :: xs') * powsum (x :: xs') (S m - 0))
+      with (x ^ S m + powsum xs' (S m))
+      by (replace (S m - 0)%nat with (S m) by lia; cbn [esym pow powsum]; ring).
+    replace (esym (S m) (x :: xs')) with (esym (S m) xs' + x * esym m xs')
+      by (cbn [esym]; reflexivity).
+    rewrite HC, HB.
+    rewrite S_INR in *.
+    replace ((-1) ^ S m) with (- (-1) ^ m) in * by (cbn [pow]; ring).
+    nra.
+Qed.
+(** The symmetric functions are determined by the power sums (Newton, solved
+    for e_k in characteristic zero). *)
+Lemma newton_esym_step : forall xs k, (1 <= k)%nat ->
+  INR k * esym k xs
+  = - (-1) ^ k * fsum k (fun i => (-1) ^ i * esym i xs * powsum xs (k - i)).
+Proof.
+  intros xs k Hk.
+  pose proof (newton_id xs k Hk) as HN.
+  assert (Hm1 : (-1) ^ k * (-1) ^ k = 1)
+    by (rewrite <- Rpow_mult_distr; replace (-1 * -1) with 1 by ring; apply pow1).
+  set (S0 := fsum k (fun i => (-1) ^ i * esym i xs * powsum xs (k - i))) in *.
+  assert (HS : S0 = - ((-1) ^ k * INR k * esym k xs)) by lra.
+  rewrite HS.
+  transitivity (((-1) ^ k * (-1) ^ k) * (INR k * esym k xs)).
+  - rewrite Hm1. ring.
+  - ring.
+Qed.
+
+(* ===== The Vieta polynomial of a root list ===== *)
+
+(** Real-coefficient polynomial evaluation, lowest degree first *)
+Fixpoint pevalR (ps : list R) (x : R) : R :=
+  match ps with
+  | nil => 0
+  | c :: ps' => c + x * pevalR ps' x
+  end.
+
+Fixpoint paddR (ps qs : list R) : list R :=
+  match ps, qs with
+  | nil, _ => qs
+  | _, nil => ps
+  | p :: ps', q :: qs' => (p + q) :: paddR ps' qs'
+  end.
+
+Definition pscaleR (c : R) (ps : list R) : list R := map (Rmult c) ps.
+
+Lemma pevalR_padd : forall ps qs x, pevalR (paddR ps qs) x = pevalR ps x + pevalR qs x.
+Proof.
+  induction ps as [|p ps' IH]; intros qs x; simpl.
+  - ring.
+  - destruct qs as [|q qs']; simpl; [ring | rewrite IH; ring].
+Qed.
+
+Lemma pevalR_pscale : forall c ps x, pevalR (pscaleR c ps) x = c * pevalR ps x.
+Proof.
+  intros c ps. induction ps as [|p ps' IH]; intros x; simpl; [ring | rewrite IH; ring].
+Qed.
+
+Lemma paddR_length : forall ps qs, length (paddR ps qs) = Nat.max (length ps) (length qs).
+Proof.
+  induction ps as [|p ps' IH]; intros qs; simpl.
+  - reflexivity.
+  - destruct qs as [|q qs']; simpl; [reflexivity | rewrite IH; reflexivity].
+Qed.
+
+Lemma nth_paddR : forall ps qs k, nth k (paddR ps qs) 0 = nth k ps 0 + nth k qs 0.
+Proof.
+  induction ps as [|p ps' IH]; intros qs k; simpl.
+  - destruct k; simpl; ring.
+  - destruct qs as [|q qs'].
+    + destruct k; simpl; ring.
+    + destruct k; simpl; [ring | apply IH].
+Qed.
+
+Lemma nth_pscaleR : forall c ps k, nth k (pscaleR c ps) 0 = c * nth k ps 0.
+Proof.
+  intros c ps. induction ps as [|p ps' IH]; intros k; simpl.
+  - destruct k; simpl; ring.
+  - destruct k; simpl; [ring | apply IH].
+Qed.
+
+(** Coefficients of prod (X - x_i), lowest degree first *)
+Fixpoint vieta (xs : list R) : list R :=
+  match xs with
+  | nil => 1 :: nil
+  | x :: xs' => paddR (0 :: vieta xs') (pscaleR (- x) (vieta xs'))
+  end.
+
+Lemma vieta_length : forall xs, length (vieta xs) = S (length xs).
+Proof.
+  induction xs as [|x xs' IH]; [reflexivity |].
+  cbn [vieta]. rewrite paddR_length. unfold pscaleR. rewrite length_map.
+  cbn [length]. rewrite IH. lia.
+Qed.
+
+Lemma vieta_eval : forall xs y,
+  pevalR (vieta xs) y = fold_right (fun x acc => (y - x) * acc) 1 xs.
+Proof.
+  induction xs as [|x xs' IH]; intros y.
+  - simpl. ring.
+  - cbn [vieta fold_right]. rewrite pevalR_padd. cbn [pevalR].
+    rewrite pevalR_pscale, IH. ring.
+Qed.
+
+(** Every listed root kills the Vieta polynomial. *)
+Lemma vieta_root : forall xs x0, In x0 xs -> pevalR (vieta xs) x0 = 0.
+Proof.
+  intros xs x0 Hin. rewrite vieta_eval.
+  induction xs as [|x xs' IH]; [destruct Hin |].
+  destruct Hin as [-> | Hin]; simpl.
+  - replace (x0 - x0) with 0 by ring. ring.
+  - rewrite IH by exact Hin. ring.
+Qed.
+
+(** The Vieta coefficients are the signed elementary symmetric functions. *)
+Lemma vieta_nth : forall xs k, (k <= length xs)%nat ->
+  nth k (vieta xs) 0 = (-1) ^ (length xs - k) * esym (length xs - k) xs.
+Proof.
+  induction xs as [|x xs' IH]; intros k Hk.
+  - simpl in Hk. assert (k = 0)%nat by lia. subst k. simpl. ring.
+  - cbn [vieta]. rewrite nth_paddR, nth_pscaleR.
+    destruct k as [|k'].
+    + cbn [nth]. rewrite (IH 0%nat) by lia.
+      cbn [length]. rewrite !Nat.sub_0_r.
+      replace (esym (S (length xs')) (x :: xs'))
+        with (esym (S (length xs')) xs' + x * esym (length xs') xs')
+        by (cbn [esym]; reflexivity).
+      rewrite (esym_high xs' (S (length xs'))) by lia.
+      cbn [pow]. ring.
+    + cbn [nth]. cbn [length].
+      replace (S (length xs') - S k')%nat with (length xs' - k')%nat by lia.
+      destruct (Nat.eq_dec k' (length xs')) as [-> | Hne].
+      * rewrite Nat.sub_diag. cbn [esym pow].
+        rewrite nth_overflow with (n := S (length xs'))
+          by (rewrite vieta_length; lia).
+        rewrite (IH (length xs')) by lia. rewrite Nat.sub_diag.
+        rewrite esym_0. cbn [pow]. ring.
+      * assert (Hk'lt : (k' < length xs')%nat) by (simpl in Hk; lia).
+        rewrite (IH k') by lia.
+        rewrite (IH (S k')) by lia.
+        replace (length xs' - k')%nat with (S (length xs' - S k'))%nat by lia.
+        cbn [esym pow].
+        replace (esym (S (length xs' - S k')) xs' + x * esym (length xs' - S k') xs')
+          with (esym (S (length xs' - S k')) xs' + x * esym (length xs' - S k') xs')
+          by reflexivity.
+        ring.
+Qed.
+
+(** The Vieta polynomial is monic. *)
+Lemma vieta_top : forall xs, nth (length xs) (vieta xs) 0 = 1.
+Proof.
+  intro xs. rewrite (vieta_nth xs (length xs)) by lia.
+  rewrite Nat.sub_diag. rewrite esym_0. cbn [pow]. ring.
+Qed.
+
 (* ===== Two-fold degree theorem (item 7): the exact algebraic degree of
    every OrigamiNum2 number is 2^a*3^b*5^c.  Built on a degree-5 ring/field
    extension Quint5F (the quintic analog of CF) and a 5-smooth tower o5tower

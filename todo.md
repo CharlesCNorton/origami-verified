@@ -1,3 +1,10 @@
 # Remaining Work
 
-- None: the audit cure list is complete through `ngon_three_fold_iff`; new campaigns stage in `theories/frontier.v`.
+- A list-coefficient prime-degree extension `PolyF F cs r` generalizes `Quint5F` and `Sept7F` to monic polynomials of arbitrary degree, with subring and subfield closure, a step basis of length at most the degree, and a list-step tower generalizing `o5tower` and `o7tower` whose rational dimension is smooth over the primes of its rungs.
+- A parametric class `OrigamiNumK k` — the rationals closed under field operations, square roots, and roots of monic prime-degree polynomials of degree at most 2k+1 — recovers `OrigamiNum`, `OrigamiNum2`, and `OrigamiNum3` as the instances k = 1, 2, 3.
+- The parametric period tower acquires a prime rung of arbitrary degree through `newton_esym_step` and the `vieta` root identity, subsuming the four hand-rolled Newton corollaries `quad_root_from_psums` through `septic_root_from_psums`, so `tower_cos_K` extends to every prime rung at once.
+- The primitive-root existence lemmas `primitive_root`, `primitive_root_5smooth`, and `primitive_root_7smooth` unify into one lemma over an arbitrary prime-power factorization of p - 1, grounded in the general `exists_order_ppow`.
+- The prime-power rung cos(2π/ρ^e) generalizes the 5^e and 7^e Chebyshev inductions through an integer-coefficient `chebyshev_T` coefficient list with leading coefficient 2^(ρ-1), monic-ized inside `OrigamiNumK`.
+- `ngon_k_fold_iff` closes the full program at every tool strength: for every k and every n ≥ 3, cos(2π/n) lies in `OrigamiNumK k` exactly when every prime factor of φ(n) is at most 2k+1.
+- `k_fold_lill` generalizes the two- and three-crease Lill systems to k coupled mirrors solving the degree-(2k+1) Bring-Jerrard trinomial, and the general-coefficient Lill chain over arbitrary coefficient lines removes the trinomial restriction.
+- An upper bound for the full simultaneous two-fold alignment catalog — that no pair of coupled creases under any Alperin-Lang alignment produces a number outside `OrigamiNum2` — is formalized as an elimination-degree bound over the catalog, the open completeness problem of the field.
