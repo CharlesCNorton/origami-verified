@@ -15747,6 +15747,100 @@ Proof.
   subst e1 p2 p3 p4 p5. cbv zeta. field.
 Qed.
 
+(* ===== OrigamiNum3 field helpers and general low-degree closures, mirroring the
+   OrigamiNum2 versions, used to build the three-fold Gaussian-period tower. ===== *)
+Lemma ON3_neg : forall x, OrigamiNum3 x -> OrigamiNum3 (- x).
+Proof. intros x H. replace (- x) with (0 - x) by ring. apply ON3_sub; [apply ON3_0 | exact H]. Qed.
+
+Lemma ON3_two : OrigamiNum3 2.
+Proof. replace 2 with (1 + 1) by ring. apply ON3_add; apply ON3_1. Qed.
+
+Lemma ON3_three : OrigamiNum3 3.
+Proof. replace 3 with (1 + (1 + 1)) by ring. apply ON3_add; [apply ON3_1 | apply ON3_add; apply ON3_1]. Qed.
+
+Lemma ON3_div : forall x y, OrigamiNum3 x -> OrigamiNum3 y -> y <> 0 -> OrigamiNum3 (x / y).
+Proof.
+  intros x y Hx Hy Hne. unfold Rdiv.
+  apply ON3_mul; [exact Hx | apply ON3_inv; [exact Hy | exact Hne]].
+Qed.
+
+Lemma ON3_general_quadratic : forall c1 c0 x,
+  OrigamiNum3 c1 -> OrigamiNum3 c0 -> x*x + c1*x + c0 = 0 -> OrigamiNum3 x.
+Proof.
+  intros c1 c0 x Hc1 Hc0 Heq.
+  set (qw := 2*x + c1).
+  set (qd := c1*c1 - 4*c0).
+  assert (Hwd : qw*qw = qd) by (unfold qw, qd; nra).
+  assert (Hdon : OrigamiNum3 qd).
+  { unfold qd. apply ON3_sub; [apply ON3_mul; [exact Hc1|exact Hc1]|].
+    apply ON3_mul; [|exact Hc0].
+    replace (4:R) with (2*2) by lra. apply ON3_mul; apply ON3_two. }
+  assert (Hdnn : 0 <= qd) by (rewrite <- Hwd; nra).
+  assert (Hson : OrigamiNum3 (sqrt qd)) by (apply ON3_sqrt; assumption).
+  assert (Hwon : OrigamiNum3 qw).
+  { destruct (Rle_dec 0 qw) as [Hge|Hlt].
+    - replace qw with (sqrt qd); [exact Hson|].
+      rewrite <- Hwd, sqrt_square by exact Hge. reflexivity.
+    - replace qw with (- sqrt qd); [apply ON3_neg; exact Hson|].
+      rewrite <- Hwd. replace (qw*qw) with ((-qw)*(-qw)) by ring.
+      rewrite sqrt_square by lra. ring. }
+  assert (Hx : x = (qw - c1)/2) by (unfold qw; field).
+  rewrite Hx. apply ON3_div; [apply ON3_sub; [exact Hwon|exact Hc1] | apply ON3_two | lra].
+Qed.
+
+Lemma ON3_general_cubic : forall c2 c1 c0 x,
+  OrigamiNum3 c2 -> OrigamiNum3 c1 -> OrigamiNum3 c0 ->
+  x*x*x + c2*(x*x) + c1*x + c0 = 0 -> OrigamiNum3 x.
+Proof.
+  intros c2 c1 c0 x Hc2 Hc1 Hc0 Heq.
+  assert (H3ne : (3:R) <> 0) by lra.
+  assert (H27ne : (27:R) <> 0) by lra.
+  set (p := c1 - c2*c2/3).
+  set (q := c0 - c1*c2/3 + 2*(c2*c2*c2)/27).
+  set (t := x + c2/3).
+  assert (Hp : OrigamiNum3 p).
+  { unfold p. apply ON3_sub; [exact Hc1|].
+    apply ON3_div; [apply ON3_mul; [exact Hc2|exact Hc2] | apply ON3_three | exact H3ne]. }
+  assert (Hq : OrigamiNum3 q).
+  { unfold q. apply ON3_add.
+    - apply ON3_sub; [exact Hc0|].
+      apply ON3_div; [apply ON3_mul; [exact Hc1|exact Hc2] | apply ON3_three | exact H3ne].
+    - apply ON3_div.
+      + apply ON3_mul; [apply ON3_two | apply ON3_mul; [apply ON3_mul; [exact Hc2|exact Hc2]|exact Hc2]].
+      + replace (27:R) with (3*3*3) by lra.
+        apply ON3_mul; [apply ON3_mul; [apply ON3_three|apply ON3_three]|apply ON3_three].
+      + exact H27ne. }
+  assert (Ht : t*t*t + p*t + q = 0).
+  { replace (t*t*t + p*t + q) with (x*x*x + c2*(x*x) + c1*x + c0)
+      by (unfold t, p, q; field). exact Heq. }
+  assert (Htn : OrigamiNum3 t) by (apply (ON3_cbrt p q t Hp Hq Ht)).
+  assert (Hx : x = t - c2/3) by (unfold t; field).
+  rewrite Hx. apply ON3_sub; [exact Htn | apply ON3_div; [exact Hc2 | apply ON3_three | exact H3ne]].
+Qed.
+
+(* degree-7 Newton's identities: a root a of the monic septic whose coefficients
+   are the elementary symmetric functions e1..e7 from the power sums p1=e1,p2..p7
+   of the seven roots.  The algebraic heart of the three-fold tower step. *)
+Lemma septic_root_from_psums : forall a b c d f g h e1 p2 p3 p4 p5 p6 p7 : R,
+  e1 = a+b+c+d+f+g+h ->
+  p2 = a^2+b^2+c^2+d^2+f^2+g^2+h^2 ->
+  p3 = a^3+b^3+c^3+d^3+f^3+g^3+h^3 ->
+  p4 = a^4+b^4+c^4+d^4+f^4+g^4+h^4 ->
+  p5 = a^5+b^5+c^5+d^5+f^5+g^5+h^5 ->
+  p6 = a^6+b^6+c^6+d^6+f^6+g^6+h^6 ->
+  p7 = a^7+b^7+c^7+d^7+f^7+g^7+h^7 ->
+  let e2 := (e1*e1 - p2)/2 in
+  let e3 := (e2*e1 - e1*p2 + p3)/3 in
+  let e4 := (e3*e1 - e2*p2 + e1*p3 - p4)/4 in
+  let e5 := (e4*e1 - e3*p2 + e2*p3 - e1*p4 + p5)/5 in
+  let e6 := (e5*e1 - e4*p2 + e3*p3 - e2*p4 + e1*p5 - p6)/6 in
+  let e7 := (e6*e1 - e5*p2 + e4*p3 - e3*p4 + e2*p5 - e1*p6 + p7)/7 in
+  a^7 + (-e1)*a^6 + e2*a^5 + (-e3)*a^4 + e4*a^3 + (-e5)*a^2 + e6*a + (-e7) = 0.
+Proof.
+  intros a b c d f g h e1 p2 p3 p4 p5 p6 p7 H1 H2 H3 H4 H5 H6 H7.
+  subst e1 p2 p3 p4 p5 p6 p7. cbv zeta. field.
+Qed.
+
 (* Constructive direction, degree-2 case: when phi(n) = 4, cos(2pi/n) is origami
    (e.g. n = 5, 8, 10, 12). *)
 Open Scope R_scope.
@@ -16814,6 +16908,137 @@ Proof.
   assert (Hgcg : cg (Z.of_nat p) G g).
   { unfold cg, g. rewrite Z.mod_eq by exact HpZ.
     exists (G / Z.of_nat p)%Z. ring. }
+  assert (Hgord : is_order p g (p - 1)) by (apply (is_order_cong p G g (p - 1) Hgcg HGord)).
+  assert (Hgnd : ~ (Z.of_nat p | g)).
+  { intro Hd. apply HGnd. unfold cg in Hgcg.
+    replace G with ((G - g) + g)%Z by ring. apply Z.divide_add_r; assumption. }
+  assert (Hg0 : (g <> 0)%Z) by (intro H0; apply Hgnd; rewrite H0; apply Z.divide_0_r).
+  assert (Hgrange : (1 <= g < Z.of_nat p)%Z).
+  { unfold g. pose proof (Z.mod_pos_bound G (Z.of_nat p) ltac:(lia)) as Hb. unfold g in Hg0. lia. }
+  exists g. split; [exact Hgrange | split].
+  - exact (proj1 Hgord).
+  - intros k [Hk1 Hk2] Hc. apply (proj2 Hgord k Hk2). split; [exact Hk1 | exact Hc].
+Qed.
+
+(* ===== 7-smooth predicate and the primitive root for 7-smooth primes ===== *)
+Definition is_7_smooth (n : nat) : Prop :=
+  exists a b c d : nat, n = (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ d)%nat.
+
+Lemma is_7_smooth_one : is_7_smooth 1.
+Proof. exists 0%nat, 0%nat, 0%nat, 0%nat. reflexivity. Qed.
+
+Lemma is_7_smooth_mul2 : forall n, is_7_smooth n -> is_7_smooth (2 * n).
+Proof. intros n [a [b [c [d H]]]]. exists (S a), b, c, d. rewrite H, Nat.pow_succ_r'. ring. Qed.
+
+Lemma is_7_smooth_mul3 : forall n, is_7_smooth n -> is_7_smooth (3 * n).
+Proof. intros n [a [b [c [d H]]]]. exists a, (S b), c, d. rewrite H, Nat.pow_succ_r'. ring. Qed.
+
+Lemma is_7_smooth_mul5 : forall n, is_7_smooth n -> is_7_smooth (5 * n).
+Proof. intros n [a [b [c [d H]]]]. exists a, b, (S c), d. rewrite H, Nat.pow_succ_r'. ring. Qed.
+
+Lemma is_7_smooth_mul7 : forall n, is_7_smooth n -> is_7_smooth (7 * n).
+Proof. intros n [a [b [c [d H]]]]. exists a, b, c, (S d). rewrite H, Nat.pow_succ_r'. ring. Qed.
+
+Lemma is_7_smooth_max : forall n m,
+  is_7_smooth n -> is_7_smooth m -> is_7_smooth (Nat.max n m).
+Proof.
+  intros n m Hn Hm. destruct (Nat.max_spec n m) as [[_ E] | [_ E]]; rewrite E; assumption.
+Qed.
+
+(* coprimality of powers of coprime bases *)
+Lemma coprime_pow_pow : forall a b e f, Nat.gcd a b = 1%nat -> Nat.gcd (a ^ e) (b ^ f) = 1%nat.
+Proof. intros a b e f H. apply (coprime_pow_l a (b ^ f) e). apply (coprime_pow_r a b f). exact H. Qed.
+
+Lemma prime_Z_7 : Znumtheory.prime (Z.of_nat 7).
+Proof.
+  change (Z.of_nat 7) with 7%Z. apply Znumtheory.prime_intro; [lia|].
+  intros n Hn. apply Znumtheory.Zgcd_1_rel_prime.
+  assert (Hc : n = 1 \/ n = 2 \/ n = 3 \/ n = 4 \/ n = 5 \/ n = 6) by lia.
+  destruct Hc as [->|[->|[->|[->|[->| ->]]]]]; reflexivity.
+Qed.
+
+Lemma prime_dvd_2a3b5c7d : forall p a b c d, Znumtheory.prime (Z.of_nat p) ->
+  Nat.divide p (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ d)%nat ->
+  (p = 2)%nat \/ (p = 3)%nat \/ (p = 5)%nat \/ (p = 7)%nat.
+Proof.
+  intros p a b c d Hp Hd.
+  destruct (nat_prime_mult p (2 ^ a * 3 ^ b * 5 ^ c) (7 ^ d) Hp Hd) as [H235 | H7].
+  - destruct (prime_dvd_2a3b5c p a b c Hp H235) as [E2|[E3|E5]];
+      [left; exact E2 | right; left; exact E3 | right; right; left; exact E5].
+  - right; right; right.
+    apply (prime_dvd_pow p 7 d Hp) in H7.
+    assert (Hge : (2 <= p)%nat) by (destruct Hp; lia).
+    assert (Hle : (p <= 7)%nat) by (apply Nat.divide_pos_le; [lia | exact H7]).
+    destruct H7 as [q Hq].
+    assert (Hcase : p = 2%nat \/ p = 3%nat \/ p = 4%nat \/ p = 5%nat \/ p = 6%nat \/ p = 7%nat) by lia.
+    destruct Hcase as [E|[E|[E|[E|[E|E]]]]]; rewrite E in *; [lia|lia|lia|lia|lia|reflexivity].
+Qed.
+
+(* PRIMITIVE ROOT for 7-smooth primes: same maximal-order cyclicity, combining the
+   2-, 3-, 5-, 7-part generators (orders 2^a, 3^b, 5^c, 7^d, pairwise coprime). *)
+Lemma primitive_root_7smooth : forall p, Znumtheory.prime (Z.of_nat p) ->
+  is_7_smooth (euler_phi p) -> (5 <= p)%nat ->
+  exists g, (1 <= g < Z.of_nat p)%Z /\ per p g (p - 1) /\
+            (forall k, (1 <= k < p - 1)%nat -> ~ cg (Z.of_nat p) (zpn g k) 1).
+Proof.
+  intros p Hp Hsm Hp5.
+  rewrite (euler_phi_prime p Hp) in Hsm. destruct Hsm as [a [b [c [dd Habcd]]]].
+  destruct (exists_order_ppow p 2 a (3 ^ b * 5 ^ c * 7 ^ dd) Hp prime_Z_2
+              ltac:(rewrite Habcd; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 2 (3 ^ b * 5 ^ c) (7 ^ dd))); split;
+                    [apply (proj2 (coprime_mul_iff 2 (3 ^ b) (5 ^ c))); split;
+                      [apply coprime_pow_r; reflexivity | apply coprime_pow_r; reflexivity]
+                    | apply coprime_pow_r; reflexivity]))
+    as [g2 [Hg2nd Hg2ord]].
+  destruct (exists_order_ppow p 3 b (2 ^ a * 5 ^ c * 7 ^ dd) Hp prime_Z_3
+              ltac:(rewrite Habcd; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 3 (2 ^ a * 5 ^ c) (7 ^ dd))); split;
+                    [apply (proj2 (coprime_mul_iff 3 (2 ^ a) (5 ^ c))); split;
+                      [apply coprime_pow_r; reflexivity | apply coprime_pow_r; reflexivity]
+                    | apply coprime_pow_r; reflexivity]))
+    as [g3 [Hg3nd Hg3ord]].
+  destruct (exists_order_ppow p 5 c (2 ^ a * 3 ^ b * 7 ^ dd) Hp prime_Z_5
+              ltac:(rewrite Habcd; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 5 (2 ^ a * 3 ^ b) (7 ^ dd))); split;
+                    [apply (proj2 (coprime_mul_iff 5 (2 ^ a) (3 ^ b))); split;
+                      [apply coprime_pow_r; reflexivity | apply coprime_pow_r; reflexivity]
+                    | apply coprime_pow_r; reflexivity]))
+    as [g5 [Hg5nd Hg5ord]].
+  destruct (exists_order_ppow p 7 dd (2 ^ a * 3 ^ b * 5 ^ c) Hp prime_Z_7
+              ltac:(rewrite Habcd; ring)
+              ltac:(apply (proj2 (coprime_mul_iff 7 (2 ^ a * 3 ^ b) (5 ^ c))); split;
+                    [apply (proj2 (coprime_mul_iff 7 (2 ^ a) (3 ^ b))); split;
+                      [apply coprime_pow_r; reflexivity | apply coprime_pow_r; reflexivity]
+                    | apply coprime_pow_r; reflexivity]))
+    as [g7 [Hg7nd Hg7ord]].
+  assert (Hg23 : is_order p (g2 * g3)%Z (2 ^ a * 3 ^ b)%nat).
+  { apply (order_coprime_mul p g2 g3 (2 ^ a) (3 ^ b) Hp Hg2ord Hg3ord).
+    apply (coprime_pow_pow 2 3 a b); reflexivity. }
+  assert (Hg235 : is_order p (g2 * g3 * g5)%Z (2 ^ a * 3 ^ b * 5 ^ c)%nat).
+  { apply (order_coprime_mul p (g2 * g3) g5 (2 ^ a * 3 ^ b) (5 ^ c) Hp Hg23 Hg5ord).
+    rewrite Nat.gcd_comm. apply (proj2 (coprime_mul_iff (5 ^ c) (2 ^ a) (3 ^ b))).
+    split; [apply (coprime_pow_pow 5 2 c a); reflexivity | apply (coprime_pow_pow 5 3 c b); reflexivity]. }
+  assert (HG : is_order p (g2 * g3 * g5 * g7)%Z (2 ^ a * 3 ^ b * 5 ^ c * 7 ^ dd)%nat).
+  { apply (order_coprime_mul p (g2 * g3 * g5) g7 (2 ^ a * 3 ^ b * 5 ^ c) (7 ^ dd) Hp Hg235 Hg7ord).
+    rewrite Nat.gcd_comm. apply (proj2 (coprime_mul_iff (7 ^ dd) (2 ^ a * 3 ^ b) (5 ^ c))).
+    split; [ apply (proj2 (coprime_mul_iff (7 ^ dd) (2 ^ a) (3 ^ b))); split;
+               [apply (coprime_pow_pow 7 2 dd a); reflexivity | apply (coprime_pow_pow 7 3 dd b); reflexivity]
+           | apply (coprime_pow_pow 7 5 dd c); reflexivity ]. }
+  set (G := (g2 * g3 * g5 * g7)%Z) in *.
+  assert (HGord : is_order p G (p - 1)) by (rewrite Habcd; exact HG).
+  assert (HGnd : ~ (Z.of_nat p | G)).
+  { intro Hd. destruct HGord as [[_ Hcg] _].
+    assert (Hp1 : (1 <= p - 1)%nat) by lia.
+    assert (HdG : (Z.of_nat p | zpn G (p - 1))) by (apply (div_zpn_of_div (Z.of_nat p) G (p - 1) Hd Hp1)).
+    unfold cg in Hcg.
+    assert (Hd1 : (Z.of_nat p | 1)).
+    { replace 1%Z with (zpn G (p - 1) - (zpn G (p - 1) - 1))%Z by ring.
+      apply Z.divide_sub_r; assumption. }
+    pose proof (Znumtheory.Zdivide_le (Z.of_nat p) 1 ltac:(lia) ltac:(lia) Hd1). lia. }
+  set (g := (G mod Z.of_nat p)%Z).
+  assert (HpZ : (Z.of_nat p <> 0)%Z) by lia.
+  assert (Hgcg : cg (Z.of_nat p) G g).
+  { unfold cg, g. rewrite Z.mod_eq by exact HpZ. exists (G / Z.of_nat p)%Z. ring. }
   assert (Hgord : is_order p g (p - 1)) by (apply (is_order_cong p G g (p - 1) Hgcg HGord)).
   assert (Hgnd : ~ (Z.of_nat p | g)).
   { intro Hd. apply HGnd. unfold cg in Hgcg.
