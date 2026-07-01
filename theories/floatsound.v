@@ -278,3 +278,81 @@ Lemma div_err : forall x y, fin x -> fin y -> f2r y <> 0 -> no_ovf (f2r x / f2r 
   Rabs (f2r (x / y)%float - (f2r x / f2r y))
     <= /2 * Ulp.ulp radix2 (fexp prec emax) (f2r x / f2r y).
 Proof. intros x y Fx Fy Hy Ho. destruct (div_sound x y Fx Fy Hy Ho) as [E _]. rewrite E. apply rnd_err. Qed.
+
+(** float_perp_bisector (= float_fold_O2): direction (x2-x1, y2-y1) and offset
+    -(dx*mx + dy*my), where (mx,my) is the float midpoint.  Each step correctly
+    rounded (offset negation exact); stated in terms of the midpoint outputs. *)
+Lemma float_perp_bisector_sound : forall p1 p2,
+  fin (fpx p1) -> fin (fpx p2) -> fin (fpy p1) -> fin (fpy p2) ->
+  fin (fst (float_midpoint p1 p2)) -> fin (snd (float_midpoint p1 p2)) ->
+  no_ovf (f2r (fpx p2) - f2r (fpx p1)) ->
+  no_ovf (f2r (fpy p2) - f2r (fpy p1)) ->
+  no_ovf (rnd (f2r (fpx p2) - f2r (fpx p1)) * f2r (fst (float_midpoint p1 p2))) ->
+  no_ovf (rnd (f2r (fpy p2) - f2r (fpy p1)) * f2r (snd (float_midpoint p1 p2))) ->
+  no_ovf (rnd (rnd (f2r (fpx p2) - f2r (fpx p1)) * f2r (fst (float_midpoint p1 p2)))
+          + rnd (rnd (f2r (fpy p2) - f2r (fpy p1)) * f2r (snd (float_midpoint p1 p2)))) ->
+  f2r (fla (float_perp_bisector p1 p2)) = rnd (f2r (fpx p2) - f2r (fpx p1)) /\
+  f2r (flb (float_perp_bisector p1 p2)) = rnd (f2r (fpy p2) - f2r (fpy p1)) /\
+  f2r (flc (float_perp_bisector p1 p2))
+    = - rnd (rnd (rnd (f2r (fpx p2) - f2r (fpx p1)) * f2r (fst (float_midpoint p1 p2)))
+             + rnd (rnd (f2r (fpy p2) - f2r (fpy p1)) * f2r (snd (float_midpoint p1 p2)))).
+Proof.
+  intros p1 p2 F1 F2 F3 F4 Fmx Fmy Odx Ody Oxm Oym Osum.
+  destruct (sub_sound (fpx p2) (fpx p1) F2 F1 Odx) as [Edx Fdx].
+  destruct (sub_sound (fpy p2) (fpy p1) F4 F3 Ody) as [Edy Fdy].
+  destruct (mul_sound _ _ Fdx Fmx ltac:(rewrite Edx; exact Oxm)) as [Exm Fxm].
+  destruct (mul_sound _ _ Fdy Fmy ltac:(rewrite Edy; exact Oym)) as [Eym Fym].
+  destruct (add_sound _ _ Fxm Fym ltac:(rewrite Exm, Eym, Edx, Edy; exact Osum)) as [Esum Fsum].
+  destruct (opp_sound _ Fsum) as [Eopp _].
+  unfold float_perp_bisector, fla, flb, flc. cbv zeta. cbn [fst snd].
+  split; [exact Edx | split; [exact Edy |]].
+  rewrite Eopp, Esum, Exm, Eym, Edx, Edy. reflexivity.
+Qed.
+
+(** float_reflect: reflect (x,y) across the line (a,b,c).  norm2 = a*a+b*b,
+    k = 2*(a*x+b*y+c)/norm2, result (x-k*a, y-k*b).  Every primitive step is
+    correctly rounded; requires the (real) norm2 nonzero, i.e. a proper line. *)
+Lemma float_reflect_sound : forall p l,
+  fin (fpx p) -> fin (fpy p) -> fin (fla l) -> fin (flb l) -> fin (flc l) ->
+  fin (fla l * fla l + flb l * flb l)%float ->
+  f2r (fla l * fla l + flb l * flb l)%float <> 0 ->
+  no_ovf (f2r (fla l) * f2r (fla l)) -> no_ovf (f2r (flb l) * f2r (flb l)) ->
+  no_ovf (rnd (f2r (fla l) * f2r (fla l)) + rnd (f2r (flb l) * f2r (flb l))) ->
+  no_ovf (f2r (fla l) * f2r (fpx p)) -> no_ovf (f2r (flb l) * f2r (fpy p)) ->
+  no_ovf (rnd (f2r (fla l) * f2r (fpx p)) + rnd (f2r (flb l) * f2r (fpy p))) ->
+  no_ovf (rnd (rnd (f2r (fla l) * f2r (fpx p)) + rnd (f2r (flb l) * f2r (fpy p))) + f2r (flc l)) ->
+  no_ovf (2 * rnd (rnd (rnd (f2r (fla l) * f2r (fpx p)) + rnd (f2r (flb l) * f2r (fpy p))) + f2r (flc l))) ->
+  no_ovf (rnd (2 * rnd (rnd (rnd (f2r (fla l) * f2r (fpx p)) + rnd (f2r (flb l) * f2r (fpy p))) + f2r (flc l)))
+          / rnd (rnd (f2r (fla l) * f2r (fla l)) + rnd (f2r (flb l) * f2r (flb l)))) ->
+  let k := rnd (rnd (2 * rnd (rnd (rnd (f2r (fla l) * f2r (fpx p)) + rnd (f2r (flb l) * f2r (fpy p))) + f2r (flc l)))
+                / rnd (rnd (f2r (fla l) * f2r (fla l)) + rnd (f2r (flb l) * f2r (flb l)))) in
+  no_ovf (k * f2r (fla l)) -> no_ovf (k * f2r (flb l)) ->
+  no_ovf (f2r (fpx p) - rnd (k * f2r (fla l))) -> no_ovf (f2r (fpy p) - rnd (k * f2r (flb l))) ->
+  f2r (fst (float_reflect p l)) = rnd (f2r (fpx p) - rnd (k * f2r (fla l))) /\
+  f2r (snd (float_reflect p l)) = rnd (f2r (fpy p) - rnd (k * f2r (flb l))).
+Proof.
+  intros p l Fx Fy Fa Fb Fc Fn2 Hn2 Oaa Obb On2 Oax Oby Oaxby Oinner Otwo Ok k Oka Okb Orx Ory.
+  assert (H2 : fin 2%float) by (unfold fin; vm_compute; reflexivity).
+  destruct (mul_sound _ _ Fa Fa Oaa) as [Eaa Faa].
+  destruct (mul_sound _ _ Fb Fb Obb) as [Ebb Fbb].
+  destruct (add_sound _ _ Faa Fbb ltac:(rewrite Eaa, Ebb; exact On2)) as [En2 Fn2'].
+  destruct (mul_sound _ _ Fa Fx Oax) as [Eax Fax].
+  destruct (mul_sound _ _ Fb Fy Oby) as [Eby Fby].
+  destruct (add_sound _ _ Fax Fby ltac:(rewrite Eax, Eby; exact Oaxby)) as [Eaxby Faxby].
+  destruct (add_sound _ _ Faxby Fc ltac:(rewrite Eaxby, Eax, Eby; exact Oinner)) as [Einner Finner].
+  destruct (mul_sound _ _ H2 Finner ltac:(rewrite f2r_2, Einner, Eaxby, Eax, Eby; exact Otwo)) as [Etwo Ftwo].
+  assert (Hn2' : f2r (fla l * fla l + flb l * flb l)%float <> 0) by exact Hn2.
+  destruct (div_sound _ _ Ftwo Fn2' Hn2'
+    ltac:(rewrite Etwo, f2r_2, Einner, Eaxby, Eax, Eby, En2, Eaa, Ebb; exact Ok)) as [Ek Fk].
+  assert (Ekv : f2r ((2 * (fla l * fpx p + flb l * fpy p + flc l)) / (fla l * fla l + flb l * flb l))%float = k).
+  { unfold k. rewrite Ek, Etwo, f2r_2, Einner, Eaxby, Eax, Eby, En2, Eaa, Ebb. reflexivity. }
+  set (kf := ((2 * (fla l * fpx p + flb l * fpy p + flc l)) / (fla l * fla l + flb l * flb l))%float) in *.
+  destruct (mul_sound kf (fla l) Fk Fa ltac:(rewrite Ekv; exact Oka)) as [Eka Fka].
+  destruct (mul_sound kf (flb l) Fk Fb ltac:(rewrite Ekv; exact Okb)) as [Ekb Fkb].
+  destruct (sub_sound _ _ Fx Fka ltac:(rewrite Eka, Ekv; exact Orx)) as [Erx _].
+  destruct (sub_sound _ _ Fy Fkb ltac:(rewrite Ekb, Ekv; exact Ory)) as [Ery _].
+  unfold float_reflect. cbv zeta. cbn [fst snd]. fold kf.
+  split.
+  - rewrite Erx, Eka, Ekv. reflexivity.
+  - rewrite Ery, Ekb, Ekv. reflexivity.
+Qed.
