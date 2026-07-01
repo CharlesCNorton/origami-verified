@@ -3465,14 +3465,44 @@ Definition cbrt_fold_sequence (a : R) : FoldSequence :=
   let '(p1, l1, p2, l2) := cbrt_construction_setup a in
   FS_O6 p1 l1 p2 l2 :: nil.
 
-(** O6 configuration for angle trisection *)
+(** Depressed triple-angle cubic for trisection: t³ + pt + q with p = -3/4 and
+    q = -cos θ/4, whose root is cos(θ/3) *)
+Definition trisection_cubic_p : R := -3/4.
+Definition trisection_cubic_q (theta : R) : R := - cos theta / 4.
+
+(** O6 configuration for angle trisection: the Beloch configuration of the
+    depressed triple-angle cubic *)
 Definition trisection_setup (theta : R) : Point * Line * Point * Line :=
-  let c := cos theta in
-  let p1 := (0, 1) in
-  let l1 := line_xaxis in
-  let p2 := (0, c) in
-  let l2 := {| A := 0; B := 1; C := 1 |} in
-  (p1, l1, p2, l2).
+  (beloch_P1, beloch_L1,
+   beloch_P2 trisection_cubic_p (trisection_cubic_q theta),
+   beloch_L2 (trisection_cubic_q theta)).
+
+(** The Beloch fold that trisects θ *)
+Definition trisection_O6_fold (theta : R) : Fold :=
+  fold_O6_beloch trisection_cubic_p (trisection_cubic_q theta) (cos (theta / 3)).
+
+(** cos(θ/3) is a root of the trisection cubic *)
+Lemma trisection_root : forall theta,
+  cos (theta / 3) * cos (theta / 3) * cos (theta / 3)
+  + trisection_cubic_p * cos (theta / 3) + trisection_cubic_q theta = 0.
+Proof.
+  intro theta.
+  unfold trisection_cubic_p, trisection_cubic_q.
+  pose proof (cos_triple (theta / 3)) as H3.
+  replace (3 * (theta / 3)) with theta in H3 by field.
+  nra.
+Qed.
+
+(** The trisecting fold satisfies the O6 constraint of its configuration *)
+Theorem trisection_fold_satisfies_O6 : forall theta,
+  let '(p1, l1, p2, l2) := trisection_setup theta in
+  satisfies_O6_constraint (trisection_O6_fold theta) p1 l1 p2 l2.
+Proof.
+  intro theta.
+  unfold trisection_setup, trisection_O6_fold.
+  apply beloch_fold_satisfies_O6.
+  apply trisection_root.
+Qed.
 
 (** Fold sequence for trisecting θ *)
 Definition trisection_fold_sequence (theta : R) : FoldSequence :=
@@ -5363,6 +5393,17 @@ Proof.
         rewrite Hsimp2. field. lra.
       * replace (t * - 0 - 0 * - - (t * t)) with 0 by ring.
         ring.
+Qed.
+
+(** The certified trisection fold marks cos(θ/3) on the x-axis *)
+Theorem trisection_fold_trisects : forall theta,
+  cos (theta / 3) <> 0 ->
+  line_intersection (fold_line (trisection_O6_fold theta)) line_xaxis
+  = (cos (theta / 3), 0).
+Proof.
+  intros theta Hc.
+  unfold trisection_O6_fold, fold_O6_beloch, fold_line.
+  apply beloch_fold_xaxis_intersection. exact Hc.
 Qed.
 
 (** Cubic roots are constructible via O6 (Beloch fold) *)
