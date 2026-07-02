@@ -1072,3 +1072,657 @@ Proof.
       rewrite fsum_minus, fsum_delta0.
       lra.
 Qed.
+
+(* ============================================================================
+   The list-step degree theory, part 1: smooth_upto, the arbitrary-prime-degree
+   extension PolyF generalizing Quint5F and Sept7F, subring and subfield
+   closure, and the step basis of length at most the degree via the maximal
+   independent prefix of the powers of the root.
+   ============================================================================ *)
+
+(** Every prime factor bounded: the divisor-closed smoothness predicate. *)
+Definition smooth_upto (b n : nat) : Prop :=
+  forall q, Znumtheory.prime (Z.of_nat q) -> Nat.divide q n -> (q <= b)%nat.
+
+Lemma smooth_upto_divisor : forall b n m,
+  Nat.divide m n -> smooth_upto b n -> smooth_upto b m.
+Proof.
+  intros b n m Hdiv Hs q Hq Hqm.
+  apply Hs; [exact Hq | eapply Nat.divide_trans; [exact Hqm | exact Hdiv]].
+Qed.
+
+Lemma smooth_upto_mul : forall b n m,
+  smooth_upto b n -> smooth_upto b m -> smooth_upto b (n * m).
+Proof.
+  intros b n m Hn Hm q Hq Hqnm.
+  destruct (nat_prime_mult q n m Hq Hqnm) as [Hd | Hd]; [apply Hn | apply Hm]; assumption.
+Qed.
+
+Lemma smooth_upto_of_le : forall b n, (1 <= n)%nat -> (n <= b)%nat -> smooth_upto b n.
+Proof.
+  intros b n Hn Hnb q Hq Hqn.
+  assert (Hqle : (q <= n)%nat) by (apply Nat.divide_pos_le; [lia | exact Hqn]).
+  lia.
+Qed.
+
+Lemma smooth_upto_1 : forall b, smooth_upto b 1.
+Proof.
+  intros b q Hq Hd. apply Nat.divide_1_r in Hd.
+  pose proof (is_prime_of_Z q Hq) as [Hq1 _]. lia.
+Qed.
+
+Lemma subfield_subring : forall F, is_subfield F -> is_subring F.
+Proof.
+  intros F HF. destruct HF as [H0 [H1 [Ha [Hs [Hm Hi]]]]].
+  repeat split; assumption.
+Qed.
+
+Lemma fsum_delta : forall m j (a x : R), (j < m)%nat ->
+  fsum m (fun i => (if Nat.eqb i j then a else 0) * x ^ i) = a * x ^ j.
+Proof.
+  intros m j a x Hj. revert j Hj. induction m as [|m IH]; intros j Hj; [lia |].
+  rewrite fsum_S. destruct (Nat.eq_dec j m) as [-> | Hne].
+  - rewrite Nat.eqb_refl.
+    rewrite (fsum_ext m (fun i => (if Nat.eqb i m then a else 0) * x ^ i) (fun _ => 0)).
+    + rewrite fsum_zero. ring.
+    + intros i Hi. destruct (Nat.eqb_spec i m) as [E|E]; [lia | ring].
+  - destruct (Nat.eqb_spec m j) as [E|E]; [lia |].
+    rewrite (IH j ltac:(lia)). ring.
+Qed.
+
+(** PolyF: the F-span of the first d powers of r, coefficients as a function. *)
+Definition PolyF (F : R -> Prop) (d : nat) (r : R) (x : R) : Prop :=
+  exists c : nat -> R, (forall i, (i < d)%nat -> F (c i)) /\
+    x = fsum d (fun i => c i * r ^ i).
+
+Lemma PolyF_contains_sr : forall F d r x,
+  is_subring F -> (1 <= d)%nat -> F x -> PolyF F d r x.
+Proof.
+  intros F d r x Hsr Hd Hx.
+  exists (fun i => if Nat.eqb i 0 then x else 0). split.
+  - intros i Hi. destruct (Nat.eqb i 0); [exact Hx | apply subring_0; exact Hsr].
+  - destruct d as [|d']; [lia |]. rewrite fsum_delta0. reflexivity.
+Qed.
+
+Lemma PolyF_r : forall F d r, is_subring F -> (2 <= d)%nat -> PolyF F d r r.
+Proof.
+  intros F d r Hsr Hd.
+  exists (fun i => if Nat.eqb i 1 then 1 else 0). split.
+  - intros i Hi. destruct (Nat.eqb i 1); [apply subring_1 | apply subring_0]; exact Hsr.
+  - rewrite fsum_delta by lia. cbn [pow]. ring.
+Qed.
+
+Lemma PolyF_add : forall F d r x y, is_subring F ->
+  PolyF F d r x -> PolyF F d r y -> PolyF F d r (x + y).
+Proof.
+  intros F d r x y Hsr [cx [Hcx Hx]] [cy [Hcy Hy]].
+  exists (fun i => cx i + cy i). split.
+  - intros i Hi. apply subring_add; [exact Hsr | apply Hcx; lia | apply Hcy; lia].
+  - subst. rewrite <- fsum_plus. apply fsum_ext. intros i Hi. ring.
+Qed.
+
+Lemma PolyF_sub : forall F d r x y, is_subring F ->
+  PolyF F d r x -> PolyF F d r y -> PolyF F d r (x - y).
+Proof.
+  intros F d r x y Hsr [cx [Hcx Hx]] [cy [Hcy Hy]].
+  exists (fun i => cx i - cy i). split.
+  - intros i Hi. apply subring_sub; [exact Hsr | apply Hcx; lia | apply Hcy; lia].
+  - subst. rewrite <- fsum_minus. apply fsum_ext. intros i Hi. ring.
+Qed.
+
+Lemma PolyF_scal : forall F d r a x, is_subring F -> F a ->
+  PolyF F d r x -> PolyF F d r (a * x).
+Proof.
+  intros F d r a x Hsr Ha [c [Hc Hx]].
+  exists (fun i => a * c i). split.
+  - intros i Hi. apply subring_mul; [exact Hsr | exact Ha | apply Hc; lia].
+  - subst. rewrite <- fsum_scale. apply fsum_ext. intros i Hi. ring.
+Qed.
+
+(** Multiplication by the root, reduced through the monic relation. *)
+Lemma PolyF_mulr : forall F d r (crel : nat -> R), is_subring F -> (1 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  forall x, PolyF F d r x -> PolyF F d r (x * r).
+Proof.
+  intros F d r crel Hsr Hd Hcrel Hrel x [c [Hc Hx]].
+  exists (fun j => (if Nat.eqb j 0 then 0 else c (j - 1)%nat) - c (d - 1)%nat * crel j).
+  split.
+  - intros i Hi. apply subring_sub; [exact Hsr | |].
+    + destruct (Nat.eqb i 0); [apply subring_0; exact Hsr | apply Hc; lia].
+    + apply subring_mul; [exact Hsr | apply Hc; lia | apply Hcrel; lia].
+  - subst x.
+    transitivity (fsum d (fun i => c i * r ^ S i)).
+    { rewrite (Rmult_comm (fsum d (fun i => c i * r ^ i)) r).
+      rewrite <- fsum_scale. apply fsum_ext. intros i Hi. cbn [pow]. ring. }
+    transitivity (fsum (S d) (fun j => (if Nat.eqb j 0 then 0 else c (j - 1)%nat) * r ^ j)).
+    { rewrite fsum_S_shift.
+      rewrite (fsum_ext d
+                 (fun i => (if Nat.eqb (S i) 0 then 0 else c (S i - 1)%nat) * r ^ S i)
+                 (fun i => c i * r ^ S i)).
+      - cbn [Nat.eqb pow]. ring.
+      - intros i Hi. replace (S i - 1)%nat with i by lia.
+        cbn [Nat.eqb]. reflexivity. }
+    rewrite fsum_S.
+    assert (Hd0 : Nat.eqb d 0 = false) by (apply Nat.eqb_neq; lia).
+    rewrite Hd0.
+    rewrite (fsum_ext d
+               (fun j => ((if Nat.eqb j 0 then 0 else c (j - 1)%nat) - c (d - 1)%nat * crel j) * r ^ j)
+               (fun j => (if Nat.eqb j 0 then 0 else c (j - 1)%nat) * r ^ j
+                         - c (d - 1)%nat * (crel j * r ^ j)))
+      by (intros j Hj; ring).
+    rewrite fsum_minus.
+    rewrite fsum_scale.
+    assert (HS2 : fsum d (fun j => crel j * r ^ j) = - r ^ d) by lra.
+    rewrite HS2. ring.
+Qed.
+
+Lemma PolyF_rpow : forall F d r (crel : nat -> R), is_subring F -> (1 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  forall j, PolyF F d r (r ^ j).
+Proof.
+  intros F d r crel Hsr Hd Hcrel Hrel j. induction j as [|j IH].
+  - cbn [pow]. apply PolyF_contains_sr; [exact Hsr | lia | apply subring_1; exact Hsr].
+  - replace (r ^ S j) with (r ^ j * r) by (cbn [pow]; ring).
+    apply (PolyF_mulr F d r crel); assumption.
+Qed.
+
+Lemma PolyF_fsum : forall F d r, is_subring F -> (1 <= d)%nat ->
+  forall m (f : nat -> R), (forall i, (i < m)%nat -> PolyF F d r (f i)) ->
+  PolyF F d r (fsum m f).
+Proof.
+  intros F d r Hsr Hd m f. induction m as [|m IH]; intro Hf.
+  - cbn [fsum]. apply PolyF_contains_sr; [exact Hsr | lia | apply subring_0; exact Hsr].
+  - rewrite fsum_S.
+    apply PolyF_add; [exact Hsr | apply IH; intros; apply Hf; lia | apply Hf; lia].
+Qed.
+
+Lemma PolyF_mul : forall F d r (crel : nat -> R), is_subring F -> (1 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  forall x y, PolyF F d r x -> PolyF F d r y -> PolyF F d r (x * y).
+Proof.
+  intros F d r crel Hsr Hd Hcrel Hrel x y Hx [cy [Hcy Hy]].
+  assert (Hxp : forall j, PolyF F d r (x * r ^ j)).
+  { induction j as [|j IHj].
+    - replace (x * r ^ 0) with x by (cbn [pow]; ring). exact Hx.
+    - replace (x * r ^ S j) with ((x * r ^ j) * r) by (cbn [pow]; ring).
+      apply (PolyF_mulr F d r crel); assumption. }
+  subst y. rewrite <- fsum_scale.
+  apply PolyF_fsum; [exact Hsr | exact Hd |].
+  intros i Hi.
+  replace (x * (cy i * r ^ i)) with (cy i * (x * r ^ i)) by ring.
+  apply PolyF_scal; [exact Hsr | apply Hcy; lia | apply Hxp].
+Qed.
+
+Lemma PolyF_subring : forall F d r (crel : nat -> R), is_subring F -> (1 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  is_subring (PolyF F d r).
+Proof.
+  intros F d r crel Hsr Hd Hcrel Hrel. repeat split.
+  - apply PolyF_contains_sr; [exact Hsr | lia | apply subring_0; exact Hsr].
+  - apply PolyF_contains_sr; [exact Hsr | lia | apply subring_1; exact Hsr].
+  - intros x y Hx Hy. apply PolyF_add; assumption.
+  - intros x y Hx Hy. apply PolyF_sub; assumption.
+  - intros x y Hx Hy. apply (PolyF_mul F d r crel); assumption.
+Qed.
+
+(* ===== bridges between the function form, Fcomb, and the powers list ===== *)
+
+Lemma Fcomb_map2 : forall (c f : nat -> R) (L : list nat),
+  Fcomb (map c L) (map f L) = rsum L (fun i => c i * f i).
+Proof.
+  intros c f L. induction L as [|x L IH].
+  - reflexivity.
+  - cbn [map Fcomb]. rewrite IH, rsum_consL. reflexivity.
+Qed.
+
+Lemma rsum_seq0_fsum : forall d (f : nat -> R), rsum (seq 0 d) f = fsum d f.
+Proof.
+  induction d as [|d IH]; intro f.
+  - reflexivity.
+  - rewrite seq_S, rsum_appL, rsum_singleL, IH, fsum_S. reflexivity.
+Qed.
+
+Lemma list_eta_nth : forall (cs : list R),
+  cs = map (fun i => nth i cs 0) (seq 0 (length cs)).
+Proof.
+  induction cs as [|c cs' IH].
+  - reflexivity.
+  - cbn [length seq map nth].
+    f_equal. rewrite <- seq_shift, map_map. cbn [nth].
+    exact IH.
+Qed.
+
+Lemma PolyF_spans_elt : forall F d r x, PolyF F d r x -> spans F (powers r d) x.
+Proof.
+  intros F d r x [c [Hc Hx]].
+  exists (map c (seq 0 d)). split; [| split].
+  - rewrite length_map, length_seq, powers_length. reflexivity.
+  - apply Forall_forall. intros z Hz.
+    apply in_map_iff in Hz. destruct Hz as [i [Hzi Hin]].
+    apply in_seq in Hin. subst z. apply Hc. lia.
+  - unfold powers. rewrite Fcomb_map2, rsum_seq0_fsum. symmetry. exact Hx.
+Qed.
+
+Lemma PolyF_Fcomb : forall F d r, is_subring F -> (1 <= d)%nat ->
+  forall (ds vs : list R), Forall F ds -> Forall (PolyF F d r) vs ->
+  PolyF F d r (Fcomb ds vs).
+Proof.
+  intros F d r Hsr Hd ds. induction ds as [|a ds' IH]; intros vs HFds HPvs.
+  - cbn [Fcomb]. apply PolyF_contains_sr; [exact Hsr | lia | apply subring_0; exact Hsr].
+  - destruct vs as [|v vs'].
+    + cbn [Fcomb]. apply PolyF_contains_sr; [exact Hsr | lia | apply subring_0; exact Hsr].
+    + cbn [Fcomb]. inversion HFds; subst. inversion HPvs; subst.
+      apply PolyF_add; [exact Hsr | |].
+      * apply PolyF_scal; [exact Hsr | assumption | assumption].
+      * apply IH; assumption.
+Qed.
+
+(** The inverse, via a forced dependency among d+1 powers of u in a d-spanned
+    space and inverse_from_relation. *)
+Lemma PolyF_inv : forall F d r (crel : nat -> R), is_subfield F -> (1 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  forall u, PolyF F d r u -> u <> 0 -> PolyF F d r (/ u).
+Proof.
+  intros F d r crel HF Hd Hcrel Hrel u Hu Hune.
+  assert (Hsr : is_subring F) by (apply subfield_subring; exact HF).
+  assert (Hupow : forall j, PolyF F d r (u ^ j)).
+  { induction j as [|j IHj].
+    - cbn [pow]. apply PolyF_contains_sr; [exact Hsr | lia | apply subring_1; exact Hsr].
+    - replace (u ^ S j) with (u ^ j * u) by (cbn [pow]; ring).
+      apply (PolyF_mul F d r crel); assumption. }
+  assert (Hspanned : Forall (spans F (powers r d)) (powers u (S d))).
+  { apply Forall_forall. intros z Hz.
+    unfold powers in Hz. apply in_map_iff in Hz. destruct Hz as [j [Hzj _]].
+    subst z. apply PolyF_spans_elt. apply Hupow. }
+  assert (Hlt : (length (powers r d) < length (powers u (S d)))%nat)
+    by (rewrite !powers_length; lia).
+  destruct (lin_dep_of_spanned F (powers r d) (powers u (S d)) HF Hspanned Hlt)
+    as [cs [Hlen [HFcs [Hzero Hnz]]]].
+  rewrite powers_length in Hlen.
+  destruct (inverse_from_relation F cs u HF Hune HFcs Hnz
+              ltac:(rewrite Hlen; exact Hzero)) as [ds [HFds Hinv]].
+  assert (Hinveq : / u = Fcomb ds (powers u (length ds))).
+  { apply (Rmult_eq_reg_l u); [| exact Hune]. rewrite Hinv. field. exact Hune. }
+  rewrite Hinveq.
+  apply PolyF_Fcomb; [exact Hsr | exact Hd | exact HFds |].
+  apply Forall_forall. intros z Hz.
+  unfold powers in Hz. apply in_map_iff in Hz. destruct Hz as [j [Hzj _]].
+  subst z. apply Hupow.
+Qed.
+
+Lemma PolyF_subfield : forall F d r (crel : nat -> R), is_subfield F -> (1 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  is_subfield (PolyF F d r).
+Proof.
+  intros F d r crel HF Hd Hcrel Hrel.
+  assert (Hsr : is_subring F) by (apply subfield_subring; exact HF).
+  repeat split.
+  - apply PolyF_contains_sr; [exact Hsr | lia | apply subring_0; exact Hsr].
+  - apply PolyF_contains_sr; [exact Hsr | lia | apply subring_1; exact Hsr].
+  - intros x y Hx Hy. apply PolyF_add; assumption.
+  - intros x y Hx Hy. apply PolyF_sub; assumption.
+  - intros x y Hx Hy. apply (PolyF_mul F d r crel); assumption.
+  - intros x Hx Hne. apply (PolyF_inv F d r crel); assumption.
+Qed.
+
+(* ===== the maximal independent prefix of the powers of the root ===== *)
+
+Lemma powers_snoc : forall (r : R) n, powers r (S n) = powers r n ++ (r ^ n :: nil).
+Proof.
+  intros r n. unfold powers. rewrite seq_S, map_app. reflexivity.
+Qed.
+
+Lemma Fcomb_app_same : forall cs1 vs1 cs2 vs2, length cs1 = length vs1 ->
+  Fcomb (cs1 ++ cs2) (vs1 ++ vs2) = Fcomb cs1 vs1 + Fcomb cs2 vs2.
+Proof.
+  induction cs1 as [|c cs1 IH]; intros vs1 cs2 vs2 Hlen.
+  - destruct vs1; [cbn [Fcomb app]; ring | cbn in Hlen; lia].
+  - destruct vs1 as [|v vs1]; [cbn in Hlen; lia |].
+    cbn [Fcomb app]. rewrite (IH vs1 cs2 vs2) by (cbn in Hlen; lia). ring.
+Qed.
+
+Lemma powers_indep_1 : forall (F : R -> Prop) (r : R), lin_indep F (powers r 1).
+Proof.
+  intros F r cs Hlen HFcs Hcomb.
+  rewrite powers_length in Hlen.
+  destruct cs as [|k [|? ?]]; [discriminate | | discriminate].
+  unfold powers in Hcomb. cbn in Hcomb.
+  constructor; [lra | constructor].
+Qed.
+
+Lemma not_lin_indep_witness : forall (F : R -> Prop) vs, ~ lin_indep F vs ->
+  exists cs, length cs = length vs /\ Forall F cs /\ Fcomb cs vs = 0 /\
+             ~ Forall (fun c => c = 0) cs.
+Proof.
+  intros F vs Hnot.
+  destruct (not_all_ex_not _ _ Hnot) as [cs Hcs].
+  destruct (imply_to_and _ _ Hcs) as [Hlen Hcs2].
+  destruct (imply_to_and _ _ Hcs2) as [HFcs Hcs3].
+  destruct (imply_to_and _ _ Hcs3) as [Hcomb Hnz].
+  exists cs. repeat split; assumption.
+Qed.
+
+Lemma powers_max_prefix : forall (F : R -> Prop) (r : R) d,
+  is_subfield F -> (1 <= d)%nat ->
+  exists j, (1 <= j <= d)%nat /\ lin_indep F (powers r j) /\
+    (j = d \/
+     exists c : nat -> R, (forall i, (i < j)%nat -> F (c i)) /\
+       fsum j (fun i => c i * r ^ i) + r ^ j = 0).
+Proof.
+  intros F r d HF Hd. induction d as [|d' IHd]; [lia |].
+  destruct (Nat.eq_dec d' 0) as [-> | Hd'].
+  - exists 1%nat. split; [lia | split; [apply powers_indep_1 | left; reflexivity]].
+  - assert (Hd'1 : (1 <= d')%nat) by lia.
+    destruct (IHd Hd'1) as [j [Hjle [Hjind Hjcase]]].
+    destruct Hjcase as [-> | Hrel].
+    + destruct (classic (lin_indep F (powers r (S d')))) as [Hind | Hdep].
+      * exists (S d'). split; [lia | split; [exact Hind | left; reflexivity]].
+      * destruct (not_lin_indep_witness F (powers r (S d')) Hdep)
+          as [ks [Hklen [HFks [Hkcomb Hknz]]]].
+        rewrite powers_length in Hklen.
+        destruct (exists_last (l := ks)
+                    ltac:(intro E; rewrite E in Hklen; cbn in Hklen; lia))
+          as [ks' [kj Hks]].
+        subst ks.
+        rewrite length_app in Hklen. cbn [length] in Hklen.
+        assert (Hks'len : length ks' = d') by lia.
+        rewrite powers_snoc in Hkcomb.
+        rewrite Fcomb_app_same in Hkcomb
+          by (rewrite Hks'len, powers_length; reflexivity).
+        cbn [Fcomb] in Hkcomb.
+        apply Forall_app in HFks. destruct HFks as [HFks' HFkj].
+        pose proof (Forall_inv HFkj) as Fkj.
+        destruct (Req_dec kj 0) as [Hkj0 | Hkjne].
+        { exfalso. subst kj.
+          assert (Hz : Forall (fun c => c = 0) ks').
+          { apply Hjind;
+              [rewrite Hks'len, powers_length; reflexivity | exact HFks' | lra]. }
+          apply Hknz. apply Forall_app.
+          split; [exact Hz | constructor; [reflexivity | constructor]]. }
+        exists d'. split; [lia | split; [exact Hjind | right]].
+        exists (fun i => nth i ks' 0 / kj). split.
+        { intros i Hi. apply subfield_div; [exact HF | | exact Fkj | exact Hkjne].
+          apply (proj1 (Forall_forall F ks') HFks').
+          apply nth_In. lia. }
+        { apply (Rmult_eq_reg_l kj); [| exact Hkjne].
+          rewrite Rmult_0_r, Rmult_plus_distr_l, <- fsum_scale.
+          rewrite (fsum_ext d' (fun i => kj * (nth i ks' 0 / kj * r ^ i))
+                     (fun i => nth i ks' 0 * r ^ i)) by (intros; field; exact Hkjne).
+          assert (Hbr : Fcomb ks' (powers r d') = fsum d' (fun i => nth i ks' 0 * r ^ i)).
+          { rewrite (list_eta_nth ks') at 1. rewrite Hks'len.
+            unfold powers. rewrite Fcomb_map2, rsum_seq0_fsum. reflexivity. }
+          rewrite Hbr in Hkcomb. lra. }
+    + exists j. split; [lia | split; [exact Hjind | right; exact Hrel]].
+Qed.
+
+Lemma PolyF_collapse : forall (F : R -> Prop) (r : R) j (cj : nat -> R),
+  is_subring F -> (1 <= j)%nat ->
+  (forall i, (i < j)%nat -> F (cj i)) ->
+  fsum j (fun i => cj i * r ^ i) + r ^ j = 0 ->
+  forall d x, PolyF F d r x -> PolyF F j r x.
+Proof.
+  intros F r j cj Hsr Hj Hcj Hjrel d x [c [Hc Hx]].
+  subst x. apply PolyF_fsum; [exact Hsr | exact Hj |].
+  intros i Hi.
+  apply PolyF_scal; [exact Hsr | apply Hc; lia |].
+  apply (PolyF_rpow F j r cj); assumption.
+Qed.
+
+(** The step basis: F[r] over F has a basis of size between 1 and d. *)
+Lemma PolyF_step_basis : forall (F : R -> Prop) d (r : R) (crel : nat -> R),
+  is_subfield F -> (2 <= d)%nat ->
+  (forall i, (i < d)%nat -> F (crel i)) ->
+  fsum d (fun i => crel i * r ^ i) + r ^ d = 0 ->
+  exists Be, basis F Be (PolyF F d r) /\ (1 <= length Be <= d)%nat.
+Proof.
+  intros F d r crel HF Hd Hcrel Hrel.
+  assert (Hsr : is_subring F) by (apply subfield_subring; exact HF).
+  destruct (powers_max_prefix F r d HF ltac:(lia)) as [j [Hjle [Hjind Hjcase]]].
+  assert (Hjrel : exists cj : nat -> R, (forall i, (i < j)%nat -> F (cj i)) /\
+                  fsum j (fun i => cj i * r ^ i) + r ^ j = 0).
+  { destruct Hjcase as [-> | Hex]; [exists crel; split; assumption | exact Hex]. }
+  destruct Hjrel as [cj [Hcj Hjrel]].
+  exists (powers r j). split; [| rewrite powers_length; lia].
+  split; [| split].
+  - apply Forall_forall. intros z Hz.
+    unfold powers in Hz. apply in_map_iff in Hz. destruct Hz as [i [Hzi _]]. subst z.
+    apply (PolyF_rpow F d r crel Hsr ltac:(lia) Hcrel Hrel).
+  - exact Hjind.
+  - intros y Hy. apply PolyF_spans_elt.
+    apply (PolyF_collapse F r j cj Hsr ltac:(lia) Hcj Hjrel d). exact Hy.
+Qed.
+
+(* ============================================================================
+   The list-step degree theory, part 2: the tower with quadratic and
+   arbitrary-prime-degree rungs generalizing o5tower and o7tower, the
+   OrigamiNumK-to-tower induction, and the smooth rational dimension bound.
+   ============================================================================ *)
+
+Inductive okstep : Type :=
+| OKQuad : R -> okstep
+| OKPrime : nat -> (nat -> R) -> R -> okstep.
+
+Fixpoint oktower (L : list okstep) : R -> Prop :=
+  match L with
+  | nil => is_rational
+  | OKQuad s :: L' => QF (oktower L') s
+  | OKPrime d c r :: L' => PolyF (oktower L') d r
+  end.
+
+Fixpoint okwf (kk : nat) (L : list okstep) : Prop :=
+  match L with
+  | nil => True
+  | OKQuad s :: L' => oktower L' (s * s) /\ okwf kk L'
+  | OKPrime d c r :: L' =>
+      (2 <= d)%nat /\ (d <= 2 * kk + 1)%nat /\
+      (forall i, (i < d)%nat -> oktower L' (c i)) /\
+      (fsum d (fun i => c i * r ^ i) + r ^ d = 0) /\
+      okwf kk L'
+  end.
+
+Lemma oktower_subfield : forall kk L, okwf kk L -> is_subfield (oktower L).
+Proof.
+  intros kk L. induction L as [|st L' IH]; intro W.
+  - exact is_rational_subfield.
+  - destruct st as [s | d c r]; cbn [oktower okwf] in *.
+    + destruct W as [Wss W']. apply QF_subfield; [apply IH; exact W' | exact Wss].
+    + destruct W as [Hd [Hdle [Hmem [Hrel W']]]].
+      apply (PolyF_subfield (oktower L') d r c);
+        [apply IH; exact W' | lia | exact Hmem | exact Hrel].
+Qed.
+
+Lemma oktower_subring : forall kk L, okwf kk L -> is_subring (oktower L).
+Proof.
+  intros kk L W. apply subfield_subring. apply (oktower_subfield kk L W).
+Qed.
+
+Lemma oktower_contains_rational : forall kk L, okwf kk L ->
+  forall x, is_rational x -> oktower L x.
+Proof.
+  intros kk L. induction L as [|st L' IH]; intros W x Hx.
+  - exact Hx.
+  - destruct st as [s | d c r]; cbn [oktower okwf] in *.
+    + destruct W as [_ W'].
+      apply QF_contains_sr; [apply (oktower_subring kk L' W') | apply IH; assumption].
+    + destruct W as [Hd [_ [_ [_ W']]]].
+      apply PolyF_contains_sr;
+        [apply (oktower_subring kk L' W') | lia | apply IH; assumption].
+Qed.
+
+Lemma oktower_weaken_base : forall kk L1 L2 x, okwf kk L2 ->
+  oktower L1 x -> oktower (L1 ++ L2) x.
+Proof.
+  intros kk L1. induction L1 as [|st L1' IH]; intros L2 x W2 Tx.
+  - cbn [oktower] in Tx. cbn [app].
+    apply (oktower_contains_rational kk L2 W2 x Tx).
+  - destruct st as [s | d c r]; cbn [oktower app] in *.
+    + destruct Tx as [p [q [Tp [Tq Hx]]]].
+      exists p, q.
+      repeat split; [apply IH; assumption | apply IH; assumption | exact Hx].
+    + destruct Tx as [cf [Hcf Hx]].
+      exists cf. split; [| exact Hx].
+      intros i Hi. apply IH; [exact W2 | apply Hcf; exact Hi].
+Qed.
+
+Lemma okwf_app : forall kk L1 L2, okwf kk L1 -> okwf kk L2 -> okwf kk (L1 ++ L2).
+Proof.
+  intros kk L1. induction L1 as [|st L1' IH]; intros L2 W1 W2.
+  - cbn [app]. exact W2.
+  - destruct st as [s | d c r]; cbn [okwf app] in *.
+    + destruct W1 as [Wss W1']. split.
+      * apply (oktower_weaken_base kk); [exact W2 | exact Wss].
+      * apply IH; assumption.
+    + destruct W1 as [Hd [Hdle [Hmem [Hrel W1']]]].
+      split; [exact Hd | split; [exact Hdle | split; [| split]]].
+      * intros i Hi. apply (oktower_weaken_base kk); [exact W2 | apply Hmem; exact Hi].
+      * exact Hrel.
+      * apply IH; assumption.
+Qed.
+
+Lemma oktower_weaken_top : forall kk L1 L2 x, okwf kk (L1 ++ L2) ->
+  oktower L2 x -> oktower (L1 ++ L2) x.
+Proof.
+  intros kk L1. induction L1 as [|st L1' IH]; intros L2 x W Tx.
+  - exact Tx.
+  - destruct st as [s | d c r]; cbn [oktower okwf app] in *.
+    + destruct W as [Wss W'].
+      apply QF_contains_sr;
+        [apply (oktower_subring kk (L1' ++ L2) W') | apply IH; assumption].
+    + destruct W as [Hd [_ [_ [_ W']]]].
+      apply PolyF_contains_sr;
+        [apply (oktower_subring kk (L1' ++ L2) W') | lia | apply IH; assumption].
+Qed.
+
+Lemma oktower_merge_family : forall kk m (f : nat -> R),
+  (forall i, (i < m)%nat -> exists L, okwf kk L /\ oktower L (f i)) ->
+  exists L, okwf kk L /\ (forall i, (i < m)%nat -> oktower L (f i)).
+Proof.
+  intros kk m f. induction m as [|m IH]; intro Hf.
+  - exists nil. split; [exact I | intros i Hi; lia].
+  - destruct IH as [L1 [W1 T1]]; [intros; apply Hf; lia |].
+    destruct (Hf m ltac:(lia)) as [L2 [W2 T2]].
+    exists (L2 ++ L1).
+    assert (Wapp : okwf kk (L2 ++ L1)) by (apply okwf_app; assumption).
+    split; [exact Wapp |].
+    intros i Hi. destruct (Nat.eq_dec i m) as [-> | Hne].
+    + apply (oktower_weaken_base kk); [exact W1 | exact T2].
+    + apply (oktower_weaken_top kk); [exact Wapp | apply T1; lia].
+Qed.
+
+Lemma ONK_in_oktower : forall kk, (1 <= kk)%nat -> forall x, OrigamiNumK kk x ->
+  exists L, okwf kk L /\ oktower L x.
+Proof.
+  intros kk Hkk x H.
+  induction H as [ | | x y Hx IHx Hy IHy | x y Hx IHx Hy IHy | x y Hx IHx Hy IHy
+                 | x Hx IHx Hxne | x Hx IHx Hxnn | d c r Hp Hle Hc IHc Heq ].
+  - exists nil.
+    split; [exact I | cbn [oktower]; exists 0%Z, 1%Z; split; [lia | cbn; field]].
+  - exists nil.
+    split; [exact I | cbn [oktower]; exists 1%Z, 1%Z; split; [lia | cbn; field]].
+  - destruct IHx as [L1 [W1 T1]]. destruct IHy as [L2 [W2 T2]].
+    exists (L1 ++ L2).
+    assert (Wapp : okwf kk (L1 ++ L2)) by (apply okwf_app; assumption).
+    split; [exact Wapp |].
+    apply subring_add; [apply (oktower_subring kk (L1 ++ L2) Wapp)
+      | apply (oktower_weaken_base kk); assumption
+      | apply (oktower_weaken_top kk); assumption].
+  - destruct IHx as [L1 [W1 T1]]. destruct IHy as [L2 [W2 T2]].
+    exists (L1 ++ L2).
+    assert (Wapp : okwf kk (L1 ++ L2)) by (apply okwf_app; assumption).
+    split; [exact Wapp |].
+    apply subring_sub; [apply (oktower_subring kk (L1 ++ L2) Wapp)
+      | apply (oktower_weaken_base kk); assumption
+      | apply (oktower_weaken_top kk); assumption].
+  - destruct IHx as [L1 [W1 T1]]. destruct IHy as [L2 [W2 T2]].
+    exists (L1 ++ L2).
+    assert (Wapp : okwf kk (L1 ++ L2)) by (apply okwf_app; assumption).
+    split; [exact Wapp |].
+    apply subring_mul; [apply (oktower_subring kk (L1 ++ L2) Wapp)
+      | apply (oktower_weaken_base kk); assumption
+      | apply (oktower_weaken_top kk); assumption].
+  - destruct IHx as [L [W T]]. exists L. split; [exact W |].
+    destruct (oktower_subfield kk L W) as [_ [_ [_ [_ [_ Hinv]]]]].
+    apply Hinv; assumption.
+  - destruct IHx as [L [W T]].
+    exists (OKQuad (sqrt x) :: L). cbn [okwf oktower]. split.
+    + split; [| exact W]. rewrite sqrt_sqrt by exact Hxnn. exact T.
+    + apply QF_self. apply (oktower_subfield kk L W).
+  - destruct (oktower_merge_family kk d c IHc) as [L [W T]].
+    exists (OKPrime d c r :: L). cbn [okwf oktower].
+    assert (Hd2 : (2 <= d)%nat) by (destruct Hp as [Hp1 _]; lia).
+    split.
+    + split; [exact Hd2 | split; [exact Hle | split; [exact T | split; [exact Heq | exact W]]]].
+    + apply PolyF_r; [apply (oktower_subring kk L W) | exact Hd2].
+Qed.
+
+Lemma oktower_dim : forall kk L, okwf kk L -> (1 <= kk)%nat ->
+  exists BL, basis is_rational BL (oktower L) /\
+    (1 <= length BL)%nat /\ smooth_upto (2 * kk + 1) (length BL).
+Proof.
+  intros kk L. induction L as [|st L' IH]; intros W Hkk.
+  - exists (1 :: nil). split; [| split].
+    + split; [| split].
+      * constructor; [apply (subfield_1 is_rational is_rational_subfield) | constructor].
+      * intros cs Hl Hf Hfc. destruct cs as [|c cs']; [cbn in Hl; lia|].
+        destruct cs' as [|c2 cs'']; [| cbn in Hl; lia]. cbn [Fcomb] in Hfc.
+        constructor; [lra | constructor].
+      * intros y Hy. exists (y :: nil). split; [reflexivity | split].
+        -- constructor; [exact Hy | constructor].
+        -- cbn [Fcomb]. ring.
+    + cbn [length]. lia.
+    + cbn [length]. apply smooth_upto_1.
+  - destruct st as [s | d c r]; cbn [okwf oktower] in *.
+    + destruct W as [Wss W'].
+      destruct (IH W' Hkk) as [BL' [HbBL' [Hlen' Hsm']]].
+      assert (HsfL' : is_subfield (oktower L')) by (apply (oktower_subfield kk); exact W').
+      destruct (QF_step_basis (oktower L') s HsfL' Wss) as [Be [HbBe Hbecard]].
+      assert (HsfL : is_subfield (QF (oktower L') s)) by (apply QF_subfield; assumption).
+      exists (flat_map (fun ee => map (Rmult ee) BL') Be). split; [| split].
+      * apply (product_basis BL' Be (oktower L') (QF (oktower L') s));
+          [exact HsfL' | exact HsfL
+          | intros z Hz; apply subfield_contains_rational; [exact HsfL' | exact Hz]
+          | intros z Hz; apply QF_contains; [exact HsfL' | exact Hz]
+          | exact HbBL' | exact HbBe].
+      * rewrite product_length. destruct Hbecard as [E|E]; rewrite E; lia.
+      * rewrite product_length. apply smooth_upto_mul; [| exact Hsm'].
+        destruct Hbecard as [E|E]; rewrite E; apply smooth_upto_of_le; lia.
+    + destruct W as [Hd2 [Hdle [Hmem [Hrel W']]]].
+      destruct (IH W' Hkk) as [BL' [HbBL' [Hlen' Hsm']]].
+      assert (HsfL' : is_subfield (oktower L')) by (apply (oktower_subfield kk); exact W').
+      destruct (PolyF_step_basis (oktower L') d r c HsfL' Hd2 Hmem Hrel)
+        as [Be [HbBe Hbecard]].
+      assert (HsfL : is_subfield (PolyF (oktower L') d r))
+        by (apply (PolyF_subfield (oktower L') d r c);
+            [exact HsfL' | lia | exact Hmem | exact Hrel]).
+      exists (flat_map (fun ee => map (Rmult ee) BL') Be). split; [| split].
+      * apply (product_basis BL' Be (oktower L') (PolyF (oktower L') d r));
+          [exact HsfL' | exact HsfL
+          | intros z Hz; apply subfield_contains_rational; [exact HsfL' | exact Hz]
+          | intros z Hz; apply PolyF_contains_sr;
+              [apply subfield_subring; exact HsfL' | lia | exact Hz]
+          | exact HbBL' | exact HbBe].
+      * rewrite product_length. nia.
+      * rewrite product_length. apply smooth_upto_mul; [| exact Hsm'].
+        apply smooth_upto_of_le; lia.
+Qed.
+
+(** THE SMOOTH DEGREE BOUND: every OrigamiNumK k number has algebraic degree
+    over Q whose prime factors are all at most 2k+1. *)
+Theorem OrigamiNumK_field_degree_smooth : forall kk, (1 <= kk)%nat ->
+  forall x, OrigamiNumK kk x ->
+  exists d, basis is_rational (powers x d) (Qx x) /\ smooth_upto (2 * kk + 1) d.
+Proof.
+  intros kk Hkk x Hx.
+  destruct (ONK_in_oktower kk Hkk x Hx) as [L [W T]].
+  destruct (oktower_dim kk L W Hkk) as [BL [HbBL [Hlen Hsm]]].
+  destruct (tower_law_div x (oktower L) BL (oktower_subfield kk L W) T HbBL)
+    as [dd [Hbasis Hdiv]].
+  exists dd. split; [exact Hbasis |].
+  apply (smooth_upto_divisor (2 * kk + 1) (length BL)); assumption.
+Qed.
