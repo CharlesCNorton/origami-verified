@@ -1726,3 +1726,214 @@ Proof.
   exists dd. split; [exact Hbasis |].
   apply (smooth_upto_divisor (2 * kk + 1) (length BL)); assumption.
 Qed.
+
+(* ============================================================================
+   THE k-FOLD n-GON THEOREM.  For every fold budget k >= 1 and every n >= 3,
+   cos(2*PI/n) lies in OrigamiNumK k exactly when every prime factor of phi(n)
+   is at most 2k+1.  Constructive direction: prime case by the parametric
+   Gaussian-period tower over primitive_root_gen with step_prime_K rungs solved
+   by ONK_proot; prime powers by the Chebyshev rung; composites by CRT.
+   Necessity: the smooth degree bound against the exact cosine degree phi(n)/2.
+   ============================================================================ *)
+
+Lemma sin_ONK_of_cos : forall kk n, (2 <= n)%nat ->
+  OrigamiNumK kk (cos (2 * PI / INR n)) -> OrigamiNumK kk (sin (2 * PI / INR n)).
+Proof.
+  intros kk n Hn Hc.
+  pose proof PI_RGT_0 as HPI.
+  assert (HnR : INR n <> 0) by (apply not_0_INR; lia).
+  assert (HnPos : 0 < INR n) by (apply lt_0_INR; lia).
+  assert (Hn2 : 2 <= INR n) by (replace 2 with (INR 2) by (simpl; ring); apply le_INR; lia).
+  set (t := 2 * PI / INR n) in *.
+  assert (Ht0 : 0 <= t).
+  { unfold t, Rdiv. apply Rmult_le_pos; [lra | left; apply Rinv_0_lt_compat; exact HnPos]. }
+  assert (Htpi : t <= PI).
+  { unfold t. apply Rmult_le_reg_r with (INR n); [exact HnPos |].
+    unfold Rdiv. rewrite Rmult_assoc. rewrite Rinv_l by exact HnR.
+    rewrite Rmult_1_r. nra. }
+  assert (Hsnn : 0 <= sin t) by (apply sin_ge_0; [exact Ht0 | exact Htpi]).
+  assert (Hsq : sin t = sqrt (1 - cos t * cos t)).
+  { rewrite <- (sqrt_Rsqr (sin t) Hsnn). f_equal. unfold Rsqr.
+    pose proof (sin2_cos2 t) as H. unfold Rsqr in H. lra. }
+  rewrite Hsq. apply ONK_sqrt.
+  - apply ONK_sub; [apply ONK_1 | apply ONK_mul; exact Hc].
+  - pose proof (COS_bound t) as [Hlo Hhi]. nra.
+Qed.
+
+Lemma vertex_coords_ONK : forall kk theta,
+  OrigamiNumK kk (cos theta) -> OrigamiNumK kk (sin theta) ->
+  forall k : nat, OrigamiNumK kk (cos (INR k * theta)) /\ OrigamiNumK kk (sin (INR k * theta)).
+Proof.
+  intros kk theta Hc Hs k. induction k as [|k [IHc IHs]].
+  - replace (INR 0) with 0 by reflexivity.
+    rewrite Rmult_0_l, cos_0, sin_0. split; [apply ONK_1 | apply ONK_0].
+  - replace (INR (S k) * theta) with (INR k * theta + theta) by (rewrite S_INR; ring).
+    rewrite cos_plus, sin_plus. split.
+    + apply ONK_sub; apply ONK_mul; assumption.
+    + apply ONK_add; apply ONK_mul; assumption.
+Qed.
+
+Lemma cos_sin_ONK_mul : forall kk m k,
+  (1 <= m)%nat -> (1 <= k)%nat -> Nat.gcd m k = 1%nat ->
+  OrigamiNumK kk (cos (2 * PI / INR m)) -> OrigamiNumK kk (sin (2 * PI / INR m)) ->
+  OrigamiNumK kk (cos (2 * PI / INR k)) -> OrigamiNumK kk (sin (2 * PI / INR k)) ->
+  OrigamiNumK kk (cos (2 * PI / INR (m * k))) /\
+  OrigamiNumK kk (sin (2 * PI / INR (m * k))).
+Proof.
+  intros kk m k Hm Hk Hgcd Hcm Hsm Hck Hsk.
+  destruct (bezout_coprime m k ltac:(lia) Hgcd) as [u [v Huv]].
+  assert (HmR : INR m <> 0) by (apply not_0_INR; lia).
+  assert (HkR : INR k <> 0) by (apply not_0_INR; lia).
+  assert (HuvR : INR u * INR m = 1 + INR v * INR k).
+  { rewrite <- !mult_INR. replace (1:R) with (INR 1) by (simpl; ring).
+    rewrite <- plus_INR. apply f_equal. exact Huv. }
+  assert (Hone : INR u * INR m - INR v * INR k = 1) by lra.
+  assert (Hangle : 2 * PI / INR (m * k)
+                   = INR u * (2 * PI / INR k) - INR v * (2 * PI / INR m)).
+  { rewrite mult_INR.
+    transitivity (2 * PI * (INR u * INR m - INR v * INR k) / (INR m * INR k)).
+    - rewrite Hone. field. split; assumption.
+    - field. split; assumption. }
+  destruct (vertex_coords_ONK kk (2 * PI / INR k) Hck Hsk u) as [Hcuk Hsuk].
+  destruct (vertex_coords_ONK kk (2 * PI / INR m) Hcm Hsm v) as [Hcvm Hsvm].
+  rewrite Hangle. split.
+  - rewrite cos_minus. apply ONK_add; apply ONK_mul; assumption.
+  - rewrite sin_minus. apply ONK_sub; apply ONK_mul; assumption.
+Qed.
+
+(** The prime case: small primes through the Chebyshev rung at exponent one,
+    primes >= 5 through the parametric Gaussian-period tower over the
+    unconditional primitive root, every rung solved by ONK_proot. *)
+Lemma Hcore_ONK : forall kk, (1 <= kk)%nat -> forall p,
+  Znumtheory.prime (Z.of_nat p) -> smooth_upto (2 * kk + 1) (euler_phi p) ->
+  OrigamiNumK kk (cos (2 * PI / INR p)).
+Proof.
+  intros kk Hkk p Hp Hsm.
+  destruct (le_lt_dec 5 p) as [Hge | Hlt].
+  - destruct (primitive_root_gen p Hp Hge) as [g [Hgr [Hper Hgord]]].
+    apply (tower_cos_prime_rungs p g Hp Hge Hper Hgord Hgr
+             (OrigamiNumK kk) (onk_tower_ops kk Hkk)).
+    intros rho Hrho Hrhodiv c r Hc Heq.
+    apply (ONK_proot kk rho c r Hrho); [| exact Hc | exact Heq].
+    rewrite <- (euler_phi_prime p Hp) in Hrhodiv.
+    exact (Hsm rho Hrho Hrhodiv).
+  - pose proof (is_prime_of_Z p Hp) as [Hp1 _].
+    assert (Hp4 : p <> 4%nat).
+    { intro E. subst p. pose proof (is_prime_of_Z 4 Hp) as [_ Hdd].
+      destruct (Hdd 2%nat ltac:(lia) ltac:(exists 2%nat; reflexivity)) as [E'|E']; lia. }
+    assert (Hple : (p <= 2 * kk + 1)%nat) by lia.
+    pose proof (cos_2pi_qe_ONK kk p Hkk Hp Hple 1) as H1.
+    rewrite Nat.pow_1_r in H1. exact H1.
+Qed.
+
+(** Constructive direction, all n, by prime-power split and CRT. *)
+Theorem cos_sin_smoothK : forall kk, (1 <= kk)%nat ->
+  forall n, (1 <= n)%nat -> smooth_upto (2 * kk + 1) (euler_phi n) ->
+  OrigamiNumK kk (cos (2 * PI / INR n)) /\ OrigamiNumK kk (sin (2 * PI / INR n)).
+Proof.
+  intros kk Hkk n.
+  induction n as [n IH] using (well_founded_induction lt_wf). intros Hn Hsm.
+  destruct (le_lt_dec n 2) as [Hle | Hgt].
+  - assert (E : n = 1%nat \/ n = 2%nat) by lia. destruct E as [E|E]; subst n.
+    + replace (2 * PI / INR 1) with (2 * PI) by (simpl; field).
+      rewrite cos_2PI, sin_2PI. split; [apply ONK_1 | apply ONK_0].
+    + replace (2 * PI / INR 2) with PI by (simpl; field).
+      rewrite cos_PI, sin_PI. split; [apply ONK_neg; apply ONK_1 | apply ONK_0].
+  - assert (Hn2 : (2 <= n)%nat) by lia.
+    destruct (prime_factor_nat n ltac:(lia)) as [p [Hp Hpn]].
+    assert (Hp2 : (2 <= p)%nat) by (pose proof (is_prime_of_Z p Hp) as [Hp1 _]; lia).
+    destruct (ppart_exists p n Hp2 ltac:(lia)) as [e [k [Hnk Hpk]]].
+    assert (He1 : (1 <= e)%nat).
+    { destruct e as [|e']; [|lia]. exfalso. rewrite Nat.pow_0_r, Nat.mul_1_l in Hnk.
+      subst k. apply Hpk; exact Hpn. }
+    set (q := (p ^ e)%nat) in *.
+    assert (Hple : (p <= q)%nat).
+    { unfold q. rewrite <- (Nat.pow_1_r p) at 1. apply Nat.pow_le_mono_r; lia. }
+    assert (Hq2 : (2 <= q)%nat) by lia.
+    assert (Hgcd : Nat.gcd q k = 1%nat) by (unfold q; apply coprime_pp; assumption).
+    assert (Hk1 : (1 <= k)%nat).
+    { destruct k as [|k']; [|lia]. rewrite Nat.mul_0_r in Hnk. lia. }
+    destruct (le_lt_dec k 1) as [Hkle | Hkgt].
+    + assert (Ek : k = 1%nat) by lia. subst k. rewrite Nat.mul_1_r in Hnk.
+      assert (Hcosn : OrigamiNumK kk (cos (2 * PI / INR n))).
+      { destruct (Nat.eq_dec e 1) as [-> | Hee].
+        - unfold q in Hnk. rewrite Nat.pow_1_r in Hnk. subst n.
+          apply Hcore_ONK; assumption.
+        - assert (Hpphi : Nat.divide p (euler_phi n)).
+          { rewrite Hnk. unfold q. apply p_dvd_phi_pp; [exact Hp | lia]. }
+          assert (Hpb : (p <= 2 * kk + 1)%nat) by (apply Hsm; assumption).
+          rewrite Hnk. unfold q. apply cos_2pi_qe_ONK; assumption. }
+      split; [exact Hcosn | apply sin_ONK_of_cos; [exact Hn2 | exact Hcosn]].
+    + assert (Hk2 : (2 <= k)%nat) by lia.
+      assert (Hqlt : (q < n)%nat) by (rewrite Hnk; nia).
+      assert (Hklt : (k < n)%nat) by (rewrite Hnk; nia).
+      assert (Hphi_eq : euler_phi n = (euler_phi q * euler_phi k)%nat).
+      { rewrite Hnk. apply euler_phi_mult; [lia | lia | exact Hgcd]. }
+      assert (Hsmq : smooth_upto (2 * kk + 1) (euler_phi q)).
+      { apply (smooth_upto_divisor (2 * kk + 1) (euler_phi n)); [| exact Hsm].
+        rewrite Hphi_eq. exists (euler_phi k). ring. }
+      assert (Hsmk : smooth_upto (2 * kk + 1) (euler_phi k)).
+      { apply (smooth_upto_divisor (2 * kk + 1) (euler_phi n)); [| exact Hsm].
+        rewrite Hphi_eq. exists (euler_phi q). ring. }
+      destruct (IH q Hqlt ltac:(lia) Hsmq) as [Hcq Hsq].
+      destruct (IH k Hklt ltac:(lia) Hsmk) as [Hck Hsk].
+      rewrite Hnk.
+      apply cos_sin_ONK_mul;
+        [lia | lia | exact Hgcd | exact Hcq | exact Hsq | exact Hck | exact Hsk].
+Qed.
+
+(** Necessity: non-smooth phi(n) rules out k-fold constructibility, by the
+    smooth degree bound against the exact cosine degree. *)
+Theorem cos_2pi_n_not_k_fold : forall kk, (1 <= kk)%nat -> forall n m, (3 <= n)%nat ->
+  (euler_phi n = 2 * m)%nat -> ~ smooth_upto (2 * kk + 1) m ->
+  ~ OrigamiNumK kk (cos (2 * PI / INR n)).
+Proof.
+  intros kk Hkk n m Hn Hphi Hns HO.
+  set (delta := 2 * cos (2 * PI / INR n)).
+  assert (Hdelta : OrigamiNumK kk delta).
+  { unfold delta.
+    replace (2 * cos (2 * PI / INR n))
+      with (cos (2 * PI / INR n) + cos (2 * PI / INR n)) by ring.
+    apply ONK_add; exact HO. }
+  destruct (OrigamiNumK_field_degree_smooth kk Hkk delta Hdelta) as [d [Hbasis Hsmooth]].
+  pose proof (cos_2pi_n_degree_exactly n m Hn Hphi) as Hbasism. fold delta in Hbasism.
+  destruct Hbasis as [HBd [Hlid Hspd]].
+  destruct Hbasism as [HBm [Hlim Hspm]].
+  assert (Hdm : (d <= m)%nat).
+  { pose proof (indep_le_span is_rational (powers delta d) (powers delta m) (Qx delta)
+                  is_rational_subfield Hlid HBd Hspm) as Hle.
+    rewrite !powers_length in Hle. exact Hle. }
+  assert (Hmd : (m <= d)%nat).
+  { pose proof (indep_le_span is_rational (powers delta m) (powers delta d) (Qx delta)
+                  is_rational_subfield Hlim HBm Hspd) as Hle.
+    rewrite !powers_length in Hle. exact Hle. }
+  assert (Hdeq : d = m) by lia. subst d. exact (Hns Hsmooth).
+Qed.
+
+Theorem cos_2pi_n_not_k_fold_clean : forall kk, (1 <= kk)%nat -> forall n, (3 <= n)%nat ->
+  ~ smooth_upto (2 * kk + 1) (euler_phi n) -> ~ OrigamiNumK kk (cos (2 * PI / INR n)).
+Proof.
+  intros kk Hkk n Hn Hns HO.
+  destruct (euler_phi_even n Hn) as [m Hm].
+  assert (Hmk : smooth_upto (2 * kk + 1) m).
+  { destruct (classic (smooth_upto (2 * kk + 1) m)) as [Hs|Hns2]; [exact Hs|].
+    exfalso. exact (cos_2pi_n_not_k_fold kk Hkk n m Hn Hm Hns2 HO). }
+  apply Hns. rewrite Hm.
+  apply smooth_upto_mul; [| exact Hmk].
+  apply smooth_upto_of_le; lia.
+Qed.
+
+(** THE k-FOLD n-GON THEOREM: for every fold budget k >= 1 and every n >= 3,
+    cos(2*PI/n) is k-fold-origami constructible exactly when every prime
+    factor of phi(n) is at most 2k+1.  ngon_origami_iff, ngon_two_fold_iff,
+    and ngon_three_fold_iff are the instances k = 1, 2, 3 through
+    OrigamiNumK_1_iff, OrigamiNumK_2_iff, OrigamiNumK_3_iff. *)
+Theorem ngon_k_fold_iff : forall kk, (1 <= kk)%nat -> forall n, (3 <= n)%nat ->
+  (OrigamiNumK kk (cos (2 * PI / INR n)) <-> smooth_upto (2 * kk + 1) (euler_phi n)).
+Proof.
+  intros kk Hkk n Hn. split.
+  - intro HO. destruct (classic (smooth_upto (2 * kk + 1) (euler_phi n))) as [Hs|Hns].
+    + exact Hs.
+    + exfalso. exact (cos_2pi_n_not_k_fold_clean kk Hkk n Hn Hns HO).
+  - intro Hs. apply (cos_sin_smoothK kk Hkk n); [lia | exact Hs].
+Qed.
