@@ -1937,3 +1937,455 @@ Proof.
     + exfalso. exact (cos_2pi_n_not_k_fold_clean kk Hkk n Hn Hns HO).
   - intro Hs. apply (cos_sin_smoothK kk Hkk n); [lia | exact Hs].
 Qed.
+
+(* ============================================================================
+   The simultaneous k-fold Lill system.  k creases coupled by k-1 middle bounce
+   segments solve the degree-(2k+1) Bring-Jerrard trinomial: the shooting path
+   leaves the origin, alternates between the coefficient lines x = 1 and y = 0
+   (k bounce pairs, segment i running (xv i, 0) -> (1, yv i)), and lands on
+   ((-1)^k p + 1, (-1)^k q).  k = 1 is the Beloch fold, k = 2 and k = 3 are the
+   two- and three-fold systems.
+   ============================================================================ *)
+
+Definition k_fold_lill (k : nat) (p q : R) (gs : nat -> Line) : Prop :=
+  exists (yv xv : nat -> R),
+    xv 0%nat = 0 /\
+    (forall i, (i < k)%nat -> line_wf (gs i)) /\
+    (forall i, (i < k)%nat ->
+       on_line (1, yv i) (gs i) /\ on_line (xv (S i), 0) (gs i)) /\
+    (forall i, (i < k)%nat ->
+       line_perp (line_through (xv i, 0) (1, yv i)) (gs i)) /\
+    (forall i, (1 <= i < k)%nat ->
+       line_perp (line_through (xv i, 0) (1, yv i)) (gs (i - 1)%nat)) /\
+    line_perp (line_through (xv k, 0) ((-1) ^ k * p + 1, (-1) ^ k * q))
+      (gs (k - 1)%nat).
+
+(** Soundness: every simultaneous k-fold Lill manipulation solves the
+    Bring-Jerrard trinomial of degree 2k+1. *)
+Theorem k_fold_lill_solves : forall k p q gs, (1 <= k)%nat ->
+  k_fold_lill k p q gs ->
+  exists t, t ^ (2 * k + 1) + p * t + q = 0.
+Proof.
+  intros k p q gs Hk [yv [xv [Hx0 [Hwf [Hmem [Hperp [Hcpl Hfin]]]]]]].
+  set (u := yv 0%nat).
+  assert (HP : forall j, (j < k)%nat ->
+    yv j = (-1) ^ j * u ^ (2 * j + 1) /\
+    xv (S j) = 1 + (-1) ^ j * u ^ (2 * j + 2) /\
+    B (gs j) = u * A (gs j) /\
+    A (gs j) <> 0 /\
+    ((1 <= j)%nat -> u <> 0)).
+  { induction j as [|j IHj]; intro Hjk.
+    - pose proof (Hperp 0%nat Hjk) as HP0.
+      unfold line_perp, line_through in HP0. rewrite Hx0 in HP0.
+      destruct (Req_EM_T 0 1) as [E01 | _]; [lra |].
+      cbn [A B] in HP0.
+      assert (EB : B (gs 0%nat) = u * A (gs 0%nat)) by (unfold u; lra).
+      assert (HA : A (gs 0%nat) <> 0).
+      { intro H0. destruct (Hwf 0%nat Hjk) as [HA'|HB']; [exact (HA' H0)|].
+        apply HB'. rewrite EB, H0. ring. }
+      destruct (Hmem 0%nat Hjk) as [Hm1 Hm2]. unfold on_line in Hm1, Hm2.
+      fold u in Hm1. rewrite EB in Hm1.
+      assert (Ex : xv 1%nat = 1 + u * u)
+        by (apply (Rmult_eq_reg_l (A (gs 0%nat))); [nra | exact HA]).
+      split; [unfold u; cbn; ring |].
+      split; [rewrite Ex; cbn; ring |].
+      split; [exact EB |].
+      split; [exact HA |].
+      intro Hc. exfalso. lia.
+    - assert (Hjk' : (j < k)%nat) by lia.
+      destruct (IHj Hjk') as [Hyj [Hxj [HBj [HAj _]]]].
+      pose proof (Hcpl (S j) ltac:(lia)) as Hc.
+      replace (S j - 1)%nat with j in Hc by lia.
+      pose proof (Hperp (S j) Hjk) as Hp'.
+      unfold line_perp, line_through in Hc, Hp'.
+      rewrite Hxj in Hc, Hp'.
+      destruct (Req_EM_T (1 + (-1) ^ j * u ^ (2 * j + 2)) 1) as [Edeg | Hne].
+      { exfalso. cbn [A B] in Hc. apply HAj. lra. }
+      assert (Hu : u <> 0).
+      { intro Hu0. apply Hne. rewrite Hu0.
+        rewrite pow_ne_zero by lia. ring. }
+      cbn [A B] in Hc, Hp'.
+      rewrite HBj in Hc.
+      assert (HYl : yv (S j) = - ((-1) ^ j * u ^ (2 * j + 2) * u))
+        by (apply (Rmult_eq_reg_l (A (gs j))); [nra | exact HAj]).
+      rewrite HYl in Hp'.
+      assert (Hfac : (-1) ^ j * u ^ (2 * j + 2)
+                     * (u * A (gs (S j)) - B (gs (S j))) = 0) by nra.
+      assert (HBSj : B (gs (S j)) = u * A (gs (S j))).
+      { destruct (Rmult_integral _ _ Hfac) as [Hf1 | Hf2]; [| lra].
+        exfalso. destruct (Rmult_integral _ _ Hf1) as [Hm | Hpz].
+        - exact (pow_nonzero (-1) j ltac:(lra) Hm).
+        - exact (pow_nonzero u (2*j+2) Hu Hpz). }
+      assert (HASj : A (gs (S j)) <> 0).
+      { intro H0. destruct (Hwf (S j) Hjk) as [HA'|HB']; [exact (HA' H0)|].
+        apply HB'. rewrite HBSj, H0. ring. }
+      destruct (Hmem (S j) Hjk) as [Hm1 Hm2]. unfold on_line in Hm1, Hm2.
+      rewrite HBSj in Hm1. rewrite HYl in Hm1.
+      assert (HxSSj : xv (S (S j)) = 1 + (-1) ^ S j * u ^ (2 * S j + 2)).
+      { replace (2 * S j + 2)%nat with ((2 * j + 2) + 2)%nat by lia.
+        rewrite pow_add. cbn [pow].
+        replace ((-1) ^ S j) with (- (-1) ^ j) by (cbn [pow]; ring).
+        apply (Rmult_eq_reg_l (A (gs (S j)))); [nra | exact HASj]. }
+      split.
+      { rewrite HYl.
+        replace (2 * S j + 1)%nat with ((2 * j + 2) + 1)%nat by lia.
+        replace ((-1) ^ S j) with (- (-1) ^ j) by (cbn [pow]; ring).
+        rewrite !pow_add. cbn [pow].
+        generalize (u ^ (2 * j)). intro T.
+        generalize ((-1) ^ j). intro M. ring. }
+      split; [exact HxSSj |].
+      split; [exact HBSj |].
+      split; [exact HASj |].
+      intros _. exact Hu. }
+  assert (Hk1 : (k - 1 < k)%nat) by lia.
+  destruct (HP (k - 1)%nat Hk1) as [Hyk [Hxk [HBk [HAk _]]]].
+  replace (S (k - 1))%nat with k in Hxk by lia.
+  unfold line_perp, line_through in Hfin.
+  rewrite Hxk in Hfin.
+  destruct (Req_EM_T (1 + (-1) ^ (k - 1) * u ^ (2 * (k - 1) + 2))
+              ((-1) ^ k * p + 1)) as [Edeg | Hne].
+  { exfalso. cbn [A B] in Hfin. apply HAk. lra. }
+  cbn [A B] in Hfin.
+  rewrite HBk in Hfin.
+  assert (Hsig : (-1) ^ k = - (-1) ^ (k - 1)).
+  { destruct k as [|k']; [lia |].
+    replace (S k' - 1)%nat with k' by lia. cbn [pow]. ring. }
+  rewrite Hsig in Hfin.
+  assert (Hq : q = u * p + u * u ^ (2 * (k - 1) + 2)).
+  { apply (Rmult_eq_reg_l ((-1) ^ (k - 1) * A (gs (k - 1)%nat))).
+    - nra.
+    - apply Rmult_integral_contrapositive_currified;
+        [apply pow_nonzero; lra | exact HAk]. }
+  exists (- u).
+  replace ((- u) ^ (2 * k + 1)) with (- (u * u ^ (2 * (k - 1) + 2))).
+  - lra.
+  - replace (- u) with (-1 * u) by ring.
+    rewrite Rpow_mult_distr.
+    replace (2 * k + 1)%nat with (S (2 * k))%nat by lia.
+    rewrite pow_1_odd.
+    replace (S (2 * k))%nat with (S (2 * (k - 1) + 2))%nat by lia.
+    cbn [pow]. generalize (u ^ (2 * (k - 1) + 2)). intro T. ring.
+Qed.
+
+(** Realizability: every root with q <> 0 is produced by the explicit k-crease
+    system whose mirrors all have normal (1, -t). *)
+Theorem k_fold_lill_realizable : forall k p q t, (1 <= k)%nat ->
+  t ^ (2 * k + 1) + p * t + q = 0 -> q <> 0 ->
+  k_fold_lill k p q
+    (fun i => {| A := 1; B := - t; C := - (1 + (-1) ^ i * t ^ (2 * i + 2)) |}).
+Proof.
+  intros k p q t Hk Hroot Hq0.
+  assert (Ht : t <> 0).
+  { intro Ht0. apply Hq0. rewrite Ht0 in Hroot.
+    rewrite pow_ne_zero in Hroot by lia. lra. }
+  exists (fun i => - ((-1) ^ i * t ^ (2 * i + 1))),
+         (fun i => match i with
+                   | O => 0
+                   | S i' => 1 + (-1) ^ i' * t ^ (2 * i' + 2)
+                   end).
+  split; [reflexivity |].
+  split. { intros i Hi. left. cbn [A]. lra. }
+  split.
+  { intros i Hi. unfold on_line. cbn [A B C]. split.
+    - rewrite !pow_add. cbn [pow].
+      generalize (t ^ (2 * i)). intro T.
+      generalize ((-1) ^ i). intro M. ring.
+    - rewrite !pow_add. cbn [pow].
+      generalize (t ^ (2 * i)). intro T.
+      generalize ((-1) ^ i). intro M. ring. }
+  split.
+  { intros i Hi. unfold line_perp, line_through.
+    destruct i as [|i'].
+    - destruct (Req_EM_T 0 1) as [E|_]; [lra |].
+      cbn. ring.
+    - destruct (Req_EM_T (1 + (-1) ^ i' * t ^ (2 * i' + 2)) 1) as [E | _].
+      { exfalso.
+        assert (HX : (-1) ^ i' * t ^ (2 * i' + 2) = 0) by lra.
+        destruct (Rmult_integral _ _ HX) as [Hm|Hp'];
+          [exact (pow_nonzero (-1) i' ltac:(lra) Hm)
+          | exact (pow_nonzero t (2*i'+2) Ht Hp')]. }
+      cbn [A B].
+      replace (2 * S i' + 1)%nat with ((2 * i' + 2) + 1)%nat by lia.
+      replace ((-1) ^ S i') with (- (-1) ^ i') by (cbn [pow]; ring).
+      rewrite !pow_add. cbn [pow].
+      generalize (t ^ (2 * i')). intro T.
+      generalize ((-1) ^ i'). intro M. ring. }
+  split.
+  { intros i [Hi1 Hik]. destruct i as [|i']; [lia |].
+    replace (S i' - 1)%nat with i' by lia.
+    unfold line_perp, line_through.
+    destruct (Req_EM_T (1 + (-1) ^ i' * t ^ (2 * i' + 2)) 1) as [E | _].
+    { exfalso.
+      assert (HX : (-1) ^ i' * t ^ (2 * i' + 2) = 0) by lra.
+      destruct (Rmult_integral _ _ HX) as [Hm|Hp'];
+        [exact (pow_nonzero (-1) i' ltac:(lra) Hm)
+        | exact (pow_nonzero t (2*i'+2) Ht Hp')]. }
+    cbn [A B].
+    replace (2 * S i' + 1)%nat with ((2 * i' + 2) + 1)%nat by lia.
+    replace ((-1) ^ S i') with (- (-1) ^ i') by (cbn [pow]; ring).
+    rewrite !pow_add. cbn [pow].
+    generalize (t ^ (2 * i')). intro T.
+    generalize ((-1) ^ i'). intro M. ring. }
+  { destruct k as [|k']; [lia |].
+    unfold line_perp, line_through.
+    replace (2 * S k' + 1)%nat with ((2 * k' + 2) + 1)%nat in Hroot by lia.
+    rewrite pow_add in Hroot. cbn [pow] in Hroot.
+    destruct (Req_EM_T (1 + (-1) ^ k' * t ^ (2 * k' + 2))
+                ((-1) ^ S k' * p + 1)) as [E | _].
+    { exfalso. apply Hq0.
+      cbn [pow] in E.
+      assert (HE : (-1) ^ k' * (t ^ (2 * k' + 2) + p) = 0) by nra.
+      destruct (Rmult_integral _ _ HE) as [Hm | Hsum];
+        [exfalso; exact (pow_nonzero (-1) k' ltac:(lra) Hm) | nra]. }
+    cbn [A B]. cbn [pow].
+    assert (Hq' : q = - (p * t + t ^ (2 * k' + 2) * (t * 1))) by lra.
+    rewrite Hq'.
+    generalize (t ^ (2 * k' + 2)). intro T.
+    generalize ((-1) ^ k'). intro M. ring. }
+Qed.
+
+(** The general Bring-Jerrard crease {t, -1, -t^2k}: k = 1 is the Beloch
+    crease, k = 2 the two-fold quintic crease, k = 3 the septic crease. *)
+Definition bj_crease (kk : nat) (t : R) : Line :=
+  {| A := t; B := -1; C := - t ^ (2 * kk) |}.
+
+Lemma bj_crease_reflects : forall kk p q t, (1 <= kk)%nat ->
+  t ^ (2 * kk + 1) + p * t + q = 0 ->
+  on_line (reflect_point (q, p) (bj_crease kk t)) {| A := 1; B := 0; C := q |}.
+Proof.
+  intros kk p q t Hk Hroot.
+  replace (2 * kk + 1)%nat with ((2 * kk) + 1)%nat in Hroot by lia.
+  rewrite pow_add in Hroot. cbn [pow] in Hroot.
+  assert (Hq' : q = - (t ^ (2 * kk) * (t * 1) + p * t)) by lra.
+  unfold reflect_point, bj_crease, on_line; simpl.
+  assert (Ht2 : 0 <= t * t) by apply Rle_0_sqr.
+  assert (Hd : t * t + (-1) * (-1) <> 0) by lra.
+  rewrite Hq'.
+  replace (kk + (kk + 0))%nat with (2 * kk)%nat by lia.
+  generalize (t ^ (2 * kk)). intro T.
+  field. lra.
+Qed.
+
+(** Every k-fold Lill manipulation yields a Bring-Jerrard root whose general
+    crease carries the incidence. *)
+Theorem k_fold_axiom_grounds_crease : forall k p q gs, (1 <= k)%nat ->
+  k_fold_lill k p q gs ->
+  exists t, t ^ (2 * k + 1) + p * t + q = 0 /\
+    on_line (reflect_point (q, p) (bj_crease k t)) {| A := 1; B := 0; C := q |}.
+Proof.
+  intros k p q gs Hk H.
+  destruct (k_fold_lill_solves k p q gs Hk H) as [t Ht].
+  exists t. split; [exact Ht |].
+  apply bj_crease_reflects; assumption.
+Qed.
+
+(* ============================================================================
+   The general-coefficient Lill chain.  For an arbitrary monic polynomial
+   sum a_i x^i of odd degree n = 2k+1, the bounce lines sit at the alternating
+   partial sums lill_X / lill_Y of the coefficients, and the same k coupled
+   mirrors force the Horner value lill_B at -u to vanish: general Lill removes
+   the Bring-Jerrard trinomial restriction.
+   ============================================================================ *)
+
+(** Horner prefix values of the monic polynomial at -u *)
+Fixpoint lill_B (a : nat -> R) (n : nat) (u : R) (m : nat) : R :=
+  match m with
+  | O => 1
+  | S m' => a (n - 1 - m')%nat + (- u) * lill_B a n u m'
+  end.
+
+Lemma lill_B_S : forall a n u m,
+  lill_B a n u (S m) = a (n - 1 - m)%nat + (- u) * lill_B a n u m.
+Proof. reflexivity. Qed.
+
+(** Horner correctness: the full prefix is the polynomial value at -u. *)
+Lemma lill_B_fsum : forall (a : nat -> R) n u m, (m <= n)%nat -> a n = 1 ->
+  lill_B a n u m = fsum (S m) (fun j => a (n - m + j)%nat * (- u) ^ j).
+Proof.
+  intros a n u m. induction m as [|m IH]; intros Hm Han.
+  - cbn [lill_B]. rewrite fsum_S. cbn [fsum].
+    replace (n - 0 + 0)%nat with n by lia. rewrite Han. cbn [pow]. ring.
+  - rewrite lill_B_S, (IH ltac:(lia) Han).
+    rewrite (fsum_S_shift (S m)).
+    replace (n - S m + 0)%nat with (n - 1 - m)%nat by lia.
+    rewrite (fsum_ext (S m)
+               (fun i => a (n - S m + S i)%nat * (- u) ^ S i)
+               (fun i => (- u) * (a (n - m + i)%nat * (- u) ^ i))).
+    + rewrite fsum_scale. cbn [pow]. ring.
+    + intros i Hi. replace (n - S m + S i)%nat with (n - m + i)%nat by lia.
+      cbn [pow]. ring.
+Qed.
+
+(** The alternating partial sums giving the bounce-line positions. *)
+Definition lill_X (a : nat -> R) (n s : nat) : R :=
+  fsum (S s) (fun m => (-1) ^ m * a (n - 2 * m)%nat).
+Definition lill_Y (a : nat -> R) (n s : nat) : R :=
+  fsum (S s) (fun m => (-1) ^ m * a (n - 1 - 2 * m)%nat).
+Definition lill_Yp (a : nat -> R) (n : nat) (i : nat) : R :=
+  match i with O => 0 | S i' => lill_Y a n i' end.
+
+Lemma lill_X_S : forall a n s,
+  lill_X a n (S s) = lill_X a n s + (-1) ^ S s * a (n - 2 * S s)%nat.
+Proof. intros. unfold lill_X. rewrite (fsum_S (S s)). reflexivity. Qed.
+
+Lemma lill_Y_S : forall a n s,
+  lill_Y a n (S s) = lill_Y a n s + (-1) ^ S s * a (n - 1 - 2 * S s)%nat.
+Proof. intros. unfold lill_Y. rewrite (fsum_S (S s)). reflexivity. Qed.
+
+(** The general Lill system: k coupled mirrors over the coefficient lines of
+    an arbitrary monic degree-(2k+1) polynomial. *)
+Definition general_lill (k : nat) (a : nat -> R) (gs : nat -> Line) : Prop :=
+  exists (yv xv : nat -> R),
+    xv 0%nat = 0 /\
+    (forall i, (i < k)%nat -> line_wf (gs i)) /\
+    (forall i, (i < k)%nat ->
+       on_line (lill_X a (2*k+1) i, yv i) (gs i) /\
+       on_line (xv (S i), lill_Y a (2*k+1) i) (gs i)) /\
+    (forall i, (i < k)%nat ->
+       line_perp (line_through (xv i, lill_Yp a (2*k+1) i)
+                    (lill_X a (2*k+1) i, yv i)) (gs i)) /\
+    (forall i, (1 <= i < k)%nat ->
+       line_perp (line_through (xv i, lill_Yp a (2*k+1) i)
+                    (lill_X a (2*k+1) i, yv i)) (gs (i - 1)%nat)) /\
+    line_perp (line_through (xv k, lill_Yp a (2*k+1) k)
+                 (lill_X a (2*k+1) k, lill_Y a (2*k+1) k)) (gs (k - 1)%nat).
+
+(** GENERAL LILL SOUNDNESS: the k coupled mirrors solve the arbitrary monic
+    polynomial of degree 2k+1 -- no trinomial restriction. *)
+Theorem general_lill_solves : forall k (a : nat -> R) gs, (1 <= k)%nat ->
+  a (2 * k + 1)%nat = 1 ->
+  general_lill k a gs ->
+  exists t, fsum (S (2 * k + 1)) (fun i => a i * t ^ i) = 0.
+Proof.
+  intros k a gs Hk Hmon Hsys.
+  destruct k as [|k']; [lia |].
+  destruct Hsys as [yv [xv [Hx0 [Hwf [Hmem [Hperp [Hcpl Hfin]]]]]]].
+  set (n := (2 * S k' + 1)%nat) in *.
+  set (u := yv 0%nat).
+  assert (HP : forall j, (j < S k')%nat ->
+    yv j = lill_Y a n j + (-1) ^ S j * lill_B a n u (2 * j + 1) /\
+    xv (S j) = lill_X a n j + u * ((-1) ^ S j * lill_B a n u (2 * j + 1)) /\
+    B (gs j) = u * A (gs j) /\
+    A (gs j) <> 0).
+  { induction j as [|j IHj]; intro Hjk.
+    - pose proof (Hperp 0%nat Hjk) as HP0.
+      unfold line_perp, line_through in HP0. rewrite Hx0 in HP0.
+      cbn [lill_Yp] in HP0.
+      assert (HX0 : lill_X a n 0%nat = 1).
+      { unfold lill_X. cbn [fsum].
+        replace (n - 2 * 0)%nat with n by lia.
+        rewrite Hmon. cbn [pow]. ring. }
+      rewrite HX0 in HP0.
+      destruct (Req_EM_T 0 1) as [E01 | _]; [lra |].
+      cbn [A B] in HP0.
+      assert (EB : B (gs 0%nat) = u * A (gs 0%nat)) by (unfold u; lra).
+      assert (HA : A (gs 0%nat) <> 0).
+      { intro H0. destruct (Hwf 0%nat Hjk) as [HA'|HB']; [exact (HA' H0)|].
+        apply HB'. rewrite EB, H0. ring. }
+      destruct (Hmem 0%nat Hjk) as [Hm1 Hm2]. unfold on_line in Hm1, Hm2.
+      fold u in Hm1. rewrite HX0 in Hm1. rewrite EB in Hm1, Hm2.
+      assert (HY0 : lill_Y a n 0%nat = a (n - 1 - 0)%nat).
+      { unfold lill_Y. cbn [fsum].
+        replace (n - 1 - 2 * 0)%nat with (n - 1 - 0)%nat by lia.
+        cbn [pow]. ring. }
+      split.
+      { replace (2 * 0 + 1)%nat with 1%nat by lia.
+        rewrite lill_B_S. cbn [lill_B]. rewrite HY0.
+        replace (n - 1 - 0)%nat with (n - 1 - 0)%nat by lia.
+        cbn [pow]. unfold u. lra. }
+      split.
+      { replace (2 * 0 + 1)%nat with 1%nat by lia.
+        rewrite lill_B_S. cbn [lill_B]. rewrite HX0.
+        rewrite HY0 in Hm2. cbn [pow].
+        apply (Rmult_eq_reg_l (A (gs 0%nat))); [| exact HA].
+        nra. }
+      split; [exact EB | exact HA].
+    - assert (Hjk' : (j < S k')%nat) by lia.
+      destruct (IHj Hjk') as [Hyj [Hxj [HBj HAj]]].
+      pose proof (Hcpl (S j) ltac:(lia)) as Hc.
+      replace (S j - 1)%nat with j in Hc by lia.
+      pose proof (Hperp (S j) Hjk) as Hp'.
+      unfold line_perp, line_through in Hc, Hp'.
+      cbn [lill_Yp] in Hc, Hp'.
+      destruct (Req_EM_T (xv (S j)) (lill_X a n (S j))) as [Edeg | Hne].
+      { exfalso. cbn [A B] in Hc. apply HAj. lra. }
+      cbn [A B] in Hc, Hp'.
+      rewrite HBj in Hc.
+      assert (HY : yv (S j) = lill_Y a n j
+                   + u * (lill_X a n (S j) - xv (S j)))
+        by (apply (Rmult_eq_reg_l (A (gs j))); [nra | exact HAj]).
+      assert (Hfac : (lill_X a n (S j) - xv (S j))
+                     * (u * A (gs (S j)) - B (gs (S j))) = 0).
+      { rewrite HY in Hp'. nra. }
+      assert (HBSj : B (gs (S j)) = u * A (gs (S j))).
+      { destruct (Rmult_integral _ _ Hfac) as [Hf1 | Hf2]; [lra | lra]. }
+      assert (HASj : A (gs (S j)) <> 0).
+      { intro H0. destruct (Hwf (S j) Hjk) as [HA'|HB']; [exact (HA' H0)|].
+        apply HB'. rewrite HBSj, H0. ring. }
+      destruct (Hmem (S j) Hjk) as [Hm1 Hm2]. unfold on_line in Hm1, Hm2.
+      rewrite HBSj in Hm1, Hm2.
+      assert (HrS : (-1) ^ S (S j) * lill_B a n u (2 * S j + 1)
+                    = (lill_Y a n j - lill_Y a n (S j))
+                      + u * (lill_X a n (S j) - lill_X a n j)
+                      - u * (u * ((-1) ^ S j * lill_B a n u (2 * j + 1)))).
+      { replace (2 * S j + 1)%nat with (S (S (2 * j + 1)))%nat by lia.
+        rewrite !lill_B_S.
+        rewrite lill_X_S, lill_Y_S.
+        replace (n - 1 - S (2 * j + 1))%nat with (n - 1 - 2 * S j)%nat by lia.
+        replace (n - 1 - (2 * j + 1))%nat with (n - 2 * S j)%nat by lia.
+        replace ((-1) ^ S (S j)) with (- (-1) ^ S j) by (cbn [pow]; ring).
+        generalize (lill_B a n u (2 * j + 1)). intro Bv.
+        generalize ((-1) ^ S j). intro M.
+        generalize (a (n - 1 - 2 * S j)%nat). intro a0.
+        generalize (a (n - 2 * S j)%nat). intro a1.
+        ring. }
+      split.
+      { rewrite HY, Hxj, HrS.
+        generalize ((-1) ^ S j * lill_B a n u (2 * j + 1)). intro rv. ring. }
+      split.
+      { assert (Hxx : xv (S (S j)) = lill_X a n (S j)
+                      + u * (yv (S j) - lill_Y a n (S j)))
+          by (apply (Rmult_eq_reg_l (A (gs (S j)))); [nra | exact HASj]).
+        rewrite Hxx, HY, Hxj, HrS.
+        generalize ((-1) ^ S j * lill_B a n u (2 * j + 1)). intro rv. ring. }
+      split; [exact HBSj | exact HASj]. }
+  assert (Hk1 : (k' < S k')%nat) by lia.
+  destruct (HP k' Hk1) as [Hyk [Hxk [HBk HAk]]].
+  unfold line_perp, line_through in Hfin.
+  cbn [lill_Yp] in Hfin.
+  replace (S k' - 1)%nat with k' in Hfin by lia.
+  destruct (Req_EM_T (xv (S k')) (lill_X a n (S k'))) as [Edeg | Hne].
+  { exfalso. cbn [A B] in Hfin. apply HAk. lra. }
+  cbn [A B] in Hfin.
+  rewrite HBk in Hfin.
+  assert (HBn : lill_B a n u n = 0).
+  { assert (Hlin : (lill_Y a n k' - lill_Y a n (S k'))
+                   + u * (lill_X a n (S k') - xv (S k')) = 0)
+      by (apply (Rmult_eq_reg_l (A (gs k'))); [nra | exact HAk]).
+    assert (Hneq : n = S (S (2 * k' + 1))) by (unfold n; lia).
+    rewrite Hneq at 2.
+    rewrite !lill_B_S.
+    rewrite lill_X_S, lill_Y_S in Hlin.
+    rewrite Hxk in Hlin.
+    replace (n - 1 - S (2 * k' + 1))%nat with (n - 1 - 2 * S k')%nat by lia.
+    replace (n - 1 - (2 * k' + 1))%nat with (n - 2 * S k')%nat by lia.
+    assert (HMM : (-1) ^ S k' * (-1) ^ S k' = 1)
+      by (rewrite <- Rpow_mult_distr; replace (-1 * -1) with 1 by ring; apply pow1).
+    revert Hlin HMM.
+    generalize (lill_B a n u (2 * k' + 1)). intro Bv.
+    generalize ((-1) ^ S k'). intro M.
+    generalize (a (n - 1 - 2 * S k')%nat). intro a0.
+    generalize (a (n - 2 * S k')%nat). intro a1.
+    intros Hlin HMM.
+    assert (HM0 : M <> 0) by (intro E; rewrite E in HMM; lra).
+    assert (Hlin' : a0 - u * a1 + u * (u * Bv) = 0).
+    { apply (Rmult_eq_reg_l M); [| exact HM0].
+      rewrite Rmult_0_r. nra. }
+    nra. }
+  exists (- u).
+  pose proof (lill_B_fsum a n u n (Nat.le_refl n) Hmon) as Hbr.
+  rewrite (fsum_ext (S n) (fun j => a (n - n + j)%nat * (- u) ^ j)
+             (fun j => a j * (- u) ^ j)) in Hbr
+    by (intros j Hj; replace (n - n + j)%nat with j by lia; reflexivity).
+  rewrite <- Hbr. exact HBn.
+Qed.
