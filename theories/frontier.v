@@ -2395,3 +2395,312 @@ Proof.
     by (intros j Hj; replace (n - n + j)%nat with j by lia; reflexivity).
   rewrite <- Hbr. exact HBn.
 Qed.
+
+(* ============================================================================
+   The coupled-catalog elimination core, part 1: polynomial multiplication on
+   coefficient lists, its evaluation homomorphism, and OrigamiNum2 closure of
+   the list operations -- the elimination arithmetic for coupled crease pairs.
+   ============================================================================ *)
+
+Fixpoint pmulR (ps qs : list R) : list R :=
+  match ps with
+  | nil => nil
+  | p :: ps' => paddR (pscaleR p qs) (0 :: pmulR ps' qs)
+  end.
+
+Lemma pevalR_pmul : forall ps qs x,
+  pevalR (pmulR ps qs) x = pevalR ps x * pevalR qs x.
+Proof.
+  induction ps as [|p ps' IH]; intros qs x.
+  - cbn [pmulR pevalR]. ring.
+  - cbn [pmulR pevalR]. rewrite pevalR_padd, pevalR_pscale.
+    cbn [pevalR]. rewrite IH. ring.
+Qed.
+
+Lemma Forall_paddR : forall (P : R -> Prop) ps qs,
+  (forall x y, P x -> P y -> P (x + y)) ->
+  Forall P ps -> Forall P qs -> Forall P (paddR ps qs).
+Proof.
+  intros P ps. induction ps as [|p ps' IH]; intros qs Hadd Hps Hqs.
+  - exact Hqs.
+  - destruct qs as [|q qs'].
+    + exact Hps.
+    + cbn [paddR]. inversion Hps; subst. inversion Hqs; subst.
+      constructor; [apply Hadd; assumption | apply IH; assumption].
+Qed.
+
+Lemma Forall_pscaleR : forall (P : R -> Prop) a ps,
+  (forall x y, P x -> P y -> P (x * y)) ->
+  P a -> Forall P ps -> Forall P (pscaleR a ps).
+Proof.
+  intros P a ps Hmul Ha Hps. induction Hps as [|p ps' Hp Hps' IH].
+  - constructor.
+  - cbn [pscaleR map]. constructor; [apply Hmul; assumption | exact IH].
+Qed.
+
+Lemma Forall_pmulR : forall (P : R -> Prop) ps qs,
+  (forall x y, P x -> P y -> P (x + y)) ->
+  (forall x y, P x -> P y -> P (x * y)) ->
+  P 0 -> Forall P ps -> Forall P qs -> Forall P (pmulR ps qs).
+Proof.
+  intros P ps. induction ps as [|p ps' IH]; intros qs Hadd Hmul H0 Hps Hqs.
+  - constructor.
+  - cbn [pmulR]. inversion Hps; subst.
+    apply Forall_paddR; [exact Hadd | |].
+    + apply Forall_pscaleR; assumption.
+    + constructor; [exact H0 | apply IH; assumption].
+Qed.
+
+Lemma pevalR_ON2 : forall ps s,
+  Forall OrigamiNum2 ps -> OrigamiNum2 s -> OrigamiNum2 (pevalR ps s).
+Proof.
+  intros ps s Hps Hs. induction Hps as [|p ps' Hp Hps' IH].
+  - cbn [pevalR]. apply ON2_0.
+  - cbn [pevalR]. apply ON2_add; [exact Hp | apply ON2_mul; [exact Hs | exact IH]].
+Qed.
+
+Lemma nth_Forall_ON2 : forall ps i,
+  Forall OrigamiNum2 ps -> OrigamiNum2 (nth i ps 0).
+Proof.
+  intros ps i Hps.
+  destruct (le_lt_dec (length ps) i) as [Hge | Hlt].
+  - rewrite nth_overflow by exact Hge. apply ON2_0.
+  - apply (proj1 (Forall_forall OrigamiNum2 ps) Hps).
+    apply nth_In. exact Hlt.
+Qed.
+
+(* ============================================================================
+   The coupled-catalog elimination core, part 2.  The mutually coupled two-fold
+   alignment -- crease 1 through P1 carrying Q1 onto crease 2, crease 2 through
+   P2 carrying Q2 onto crease 1 -- is the genuinely coupled shape of the
+   Alperin-Lang two-fold catalog: neither crease is determined without the
+   other.  Because carrying a point onto a crease is linear in the receiving
+   crease, eliminating one slope is a substitution, and the elimination
+   polynomial mpG has degree exactly 5 in the remaining slope: in general
+   position both creases lie in OrigamiNum2.
+   ============================================================================ *)
+
+(** The pencil of lines through (px, py), parametrized by slope. *)
+Definition pencil (px py s : R) : Line := {| A := s; B := -1; C := py - s * px |}.
+
+Lemma pencil_wf : forall px py s, line_wf (pencil px py s).
+Proof. intros. right. cbn [B pencil]. lra. Qed.
+
+Lemma pencil_through : forall px py s, on_line (px, py) (pencil px py s).
+Proof. intros. unfold on_line, pencil. cbn [A B C]. ring. Qed.
+
+(** The cleared transfer polynomials: w * mpD(s) = mpN(s) expresses that the
+    g1-image of Q1 lies on the slope-w pencil through P2. *)
+Definition mpN (p1x p1y q1x q1y p2y : R) : list R :=
+  (q1y - 2 * (q1y - p1y) - p2y) :: (2 * (q1x - p1x)) :: (q1y - p2y) :: nil.
+Definition mpD (p1x p1y q1x q1y p2x : R) : list R :=
+  (q1x - p2x) :: (2 * (q1y - p1y)) :: (2 * p1x - q1x - p2x) :: nil.
+
+(** The degree-5 elimination polynomial of the mutually coupled system. *)
+Definition mpG (p1x p1y q1x q1y p2x p2y q2x q2y : R) : list R :=
+  psubR
+    (0 :: paddR (pscaleR (nth 2 (mpD p2x p2y q2x q2y p1x) 0)
+                   (pmulR (mpN p1x p1y q1x q1y p2y) (mpN p1x p1y q1x q1y p2y)))
+            (paddR (pscaleR (nth 1 (mpD p2x p2y q2x q2y p1x) 0)
+                      (pmulR (mpN p1x p1y q1x q1y p2y) (mpD p1x p1y q1x q1y p2x)))
+               (pscaleR (nth 0 (mpD p2x p2y q2x q2y p1x) 0)
+                  (pmulR (mpD p1x p1y q1x q1y p2x) (mpD p1x p1y q1x q1y p2x)))))
+    (paddR (pscaleR (nth 2 (mpN p2x p2y q2x q2y p1y) 0)
+              (pmulR (mpN p1x p1y q1x q1y p2y) (mpN p1x p1y q1x q1y p2y)))
+       (paddR (pscaleR (nth 1 (mpN p2x p2y q2x q2y p1y) 0)
+                 (pmulR (mpN p1x p1y q1x q1y p2y) (mpD p1x p1y q1x q1y p2x)))
+          (pscaleR (nth 0 (mpN p2x p2y q2x q2y p1y) 0)
+             (pmulR (mpD p1x p1y q1x q1y p2x) (mpD p1x p1y q1x q1y p2x))))).
+
+Lemma mpG_length : forall p1x p1y q1x q1y p2x p2y q2x q2y,
+  length (mpG p1x p1y q1x q1y p2x p2y q2x q2y) = 6%nat.
+Proof. reflexivity. Qed.
+
+Lemma mpN_ON2 : forall p1x p1y q1x q1y p2y,
+  OrigamiNum2 p1x -> OrigamiNum2 p1y -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 p2y -> Forall OrigamiNum2 (mpN p1x p1y q1x q1y p2y).
+Proof.
+  intros. unfold mpN.
+  assert (Htwo2 : OrigamiNum2 2)
+    by (replace 2 with (1 + 1) by ring; apply ON2_add; apply ON2_1).
+  repeat constructor;
+    repeat (apply ON2_sub || apply ON2_add || apply ON2_mul); assumption.
+Qed.
+
+Lemma mpD_ON2 : forall p1x p1y q1x q1y p2x,
+  OrigamiNum2 p1x -> OrigamiNum2 p1y -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 p2x -> Forall OrigamiNum2 (mpD p1x p1y q1x q1y p2x).
+Proof.
+  intros. unfold mpD.
+  assert (Htwo2 : OrigamiNum2 2)
+    by (replace 2 with (1 + 1) by ring; apply ON2_add; apply ON2_1).
+  repeat constructor;
+    repeat (apply ON2_sub || apply ON2_add || apply ON2_mul); assumption.
+Qed.
+
+Lemma mpG_ON2 : forall p1x p1y q1x q1y p2x p2y q2x q2y,
+  OrigamiNum2 p1x -> OrigamiNum2 p1y -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 p2x -> OrigamiNum2 p2y -> OrigamiNum2 q2x -> OrigamiNum2 q2y ->
+  Forall OrigamiNum2 (mpG p1x p1y q1x q1y p2x p2y q2x q2y).
+Proof.
+  intros.
+  assert (HN1 : Forall OrigamiNum2 (mpN p1x p1y q1x q1y p2y))
+    by (apply mpN_ON2; assumption).
+  assert (HD1 : Forall OrigamiNum2 (mpD p1x p1y q1x q1y p2x))
+    by (apply mpD_ON2; assumption).
+  assert (HN2 : Forall OrigamiNum2 (mpN p2x p2y q2x q2y p1y))
+    by (apply mpN_ON2; assumption).
+  assert (HD2 : Forall OrigamiNum2 (mpD p2x p2y q2x q2y p1x))
+    by (apply mpD_ON2; assumption).
+  unfold mpG, psubR.
+  apply Forall_paddR; [exact ON2_add | |].
+  - constructor; [apply ON2_0 |].
+    apply Forall_paddR; [exact ON2_add | |].
+    + apply Forall_pscaleR; [exact ON2_mul | apply nth_Forall_ON2; exact HD2 |].
+      apply Forall_pmulR;
+        [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HN1 | exact HN1].
+    + apply Forall_paddR; [exact ON2_add | |].
+      * apply Forall_pscaleR; [exact ON2_mul | apply nth_Forall_ON2; exact HD2 |].
+        apply Forall_pmulR;
+          [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HN1 | exact HD1].
+      * apply Forall_pscaleR; [exact ON2_mul | apply nth_Forall_ON2; exact HD2 |].
+        apply Forall_pmulR;
+          [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HD1 | exact HD1].
+  - apply Forall_pscaleR; [exact ON2_mul | |].
+    + apply ON2_neg, ON2_1.
+    + apply Forall_paddR; [exact ON2_add | |].
+      * apply Forall_pscaleR; [exact ON2_mul | apply nth_Forall_ON2; exact HN2 |].
+        apply Forall_pmulR;
+          [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HN1 | exact HN1].
+      * apply Forall_paddR; [exact ON2_add | |].
+        -- apply Forall_pscaleR; [exact ON2_mul | apply nth_Forall_ON2; exact HN2 |].
+           apply Forall_pmulR;
+             [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HN1 | exact HD1].
+        -- apply Forall_pscaleR; [exact ON2_mul | apply nth_Forall_ON2; exact HN2 |].
+           apply Forall_pmulR;
+             [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HD1 | exact HD1].
+Qed.
+
+(** THE COUPLED ELIMINATION-DEGREE BOUND: in general position (the linear
+    transfer solvable, the elimination exactly quintic) the mutually coupled
+    two-fold alignment forces both slopes -- hence both creases -- into
+    OrigamiNum2, through the degree-5 elimination polynomial mpG solved by the
+    two-fold quintic fold. *)
+Theorem mutual_pencil_two_fold_ON2 :
+  forall p1x p1y q1x q1y p2x p2y q2x q2y s w,
+  OrigamiNum2 p1x -> OrigamiNum2 p1y -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 p2x -> OrigamiNum2 p2y -> OrigamiNum2 q2x -> OrigamiNum2 q2y ->
+  on_line (reflect_point (q1x, q1y) (pencil p1x p1y s)) (pencil p2x p2y w) ->
+  on_line (reflect_point (q2x, q2y) (pencil p2x p2y w)) (pencil p1x p1y s) ->
+  pevalR (mpD p1x p1y q1x q1y p2x) s <> 0 ->
+  nth 5 (mpG p1x p1y q1x q1y p2x p2y q2x q2y) 0 <> 0 ->
+  OrigamiNum2 s /\ OrigamiNum2 w.
+Proof.
+  intros p1x p1y q1x q1y p2x p2y q2x q2y s w
+         HP1x HP1y HQ1x HQ1y HP2x HP2y HQ2x HQ2y Hon1 Hon2 HED Hlead.
+  unfold on_line, reflect_point, pencil in Hon1, Hon2.
+  cbn [fst snd A B C] in Hon1, Hon2.
+  match type of Hon1 with
+  | context [?num / ?den] =>
+      set (v1 := num / den) in Hon1;
+      assert (Hv1 : v1 * den = num)
+        by (unfold v1; field;
+            assert (Hsq : 0 <= s * s) by apply Rle_0_sqr; lra)
+  end.
+  match type of Hon2 with
+  | context [?num / ?den] =>
+      set (v2 := num / den) in Hon2;
+      assert (Hv2 : v2 * den = num)
+        by (unfold v2; field;
+            assert (Hsq : 0 <= w * w) by apply Rle_0_sqr; lra)
+  end.
+  pose proof (f_equal (Rmult s) Hv1) as Hv1s.
+  pose proof (f_equal (Rmult w) Hv1) as Hv1w.
+  pose proof (f_equal (Rmult (w * s)) Hv1) as Hv1ws.
+  pose proof (f_equal (Rmult (s * s)) Hon1) as Hon1s2.
+  pose proof (f_equal (Rmult w) Hv2) as Hv2w.
+  pose proof (f_equal (Rmult s) Hv2) as Hv2s.
+  pose proof (f_equal (Rmult (s * w)) Hv2) as Hv2sw.
+  pose proof (f_equal (Rmult (w * w)) Hon2) as Hon2w2.
+  assert (HT1 : w * pevalR (mpD p1x p1y q1x q1y p2x) s
+              = pevalR (mpN p1x p1y q1x q1y p2y) s).
+  { cbn [pevalR mpD mpN]. nra. }
+  assert (HT2 : s * pevalR (mpD p2x p2y q2x q2y p1x) w
+              = pevalR (mpN p2x p2y q2x q2y p1y) w).
+  { cbn [pevalR mpD mpN]. nra. }
+  set (EN := pevalR (mpN p1x p1y q1x q1y p2y) s) in *.
+  set (ED := pevalR (mpD p1x p1y q1x q1y p2x) s) in *.
+  assert (Hroot : pevalR (mpG p1x p1y q1x q1y p2x p2y q2x q2y) s = 0).
+  { unfold mpG, psubR.
+    rewrite pevalR_padd, pevalR_pscale.
+    cbn [pevalR].
+    rewrite !pevalR_padd, !pevalR_pscale, !pevalR_pmul.
+    fold EN ED.
+    cbn [pevalR mpD mpN] in HT2.
+    cbn [mpD mpN nth].
+    pose proof (f_equal (Rmult (ED * ED)) HT2) as HT2c.
+    rewrite <- HT1.
+    nra. }
+  set (G := mpG p1x p1y q1x q1y p2x p2y q2x q2y) in *.
+  assert (HGON2 : Forall OrigamiNum2 G) by (unfold G; apply mpG_ON2; assumption).
+  assert (HlenG : length G = 6%nat) by reflexivity.
+  rewrite pevalR_nth_sum, HlenG in Hroot.
+  cbn [fsum] in Hroot.
+  set (c0 := nth 0 G 0) in *. set (c1 := nth 1 G 0) in *.
+  set (c2 := nth 2 G 0) in *. set (c3 := nth 3 G 0) in *.
+  set (c4 := nth 4 G 0) in *. set (c5 := nth 5 G 0) in *.
+  assert (Hc0 : OrigamiNum2 c0) by (unfold c0; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc1 : OrigamiNum2 c1) by (unfold c1; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc2 : OrigamiNum2 c2) by (unfold c2; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc3 : OrigamiNum2 c3) by (unfold c3; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc4 : OrigamiNum2 c4) by (unfold c4; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc5 : OrigamiNum2 c5) by (unfold c5; apply nth_Forall_ON2; exact HGON2).
+  assert (HsON : OrigamiNum2 s).
+  { apply (ON2_quint (c4 / c5) (c3 / c5) (c2 / c5) (c1 / c5) (c0 / c5) s).
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply (Rmult_eq_reg_l c5); [| exact Hlead].
+      rewrite Rmult_0_r.
+      transitivity (c0 * s ^ 0 + c1 * s ^ 1 + c2 * s ^ 2
+                    + c3 * s ^ 3 + c4 * s ^ 4 + c5 * s ^ 5).
+      + field. exact Hlead.
+      + lra. }
+  assert (HwON : OrigamiNum2 w).
+  { assert (Hweq : w = EN / ED).
+    { apply (Rmult_eq_reg_r ED); [| exact HED].
+      transitivity EN; [exact HT1 | field; exact HED]. }
+    rewrite Hweq. apply ON2_div.
+    - unfold EN. apply pevalR_ON2; [apply mpN_ON2; assumption | exact HsON].
+    - unfold ED. apply pevalR_ON2; [apply mpD_ON2; assumption | exact HsON].
+    - exact HED. }
+  exact (conj HsON HwON).
+Qed.
+
+(** The catalog-facing form: the coupled creases themselves have OrigamiNum2
+    coordinates. *)
+Corollary mutual_pencil_creases_ON2 :
+  forall p1x p1y q1x q1y p2x p2y q2x q2y s w,
+  OrigamiNum2 p1x -> OrigamiNum2 p1y -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 p2x -> OrigamiNum2 p2y -> OrigamiNum2 q2x -> OrigamiNum2 q2y ->
+  on_line (reflect_point (q1x, q1y) (pencil p1x p1y s)) (pencil p2x p2y w) ->
+  on_line (reflect_point (q2x, q2y) (pencil p2x p2y w)) (pencil p1x p1y s) ->
+  pevalR (mpD p1x p1y q1x q1y p2x) s <> 0 ->
+  nth 5 (mpG p1x p1y q1x q1y p2x p2y q2x q2y) 0 <> 0 ->
+  (OrigamiNum2 (A (pencil p1x p1y s)) /\ OrigamiNum2 (B (pencil p1x p1y s)) /\
+   OrigamiNum2 (C (pencil p1x p1y s))) /\
+  (OrigamiNum2 (A (pencil p2x p2y w)) /\ OrigamiNum2 (B (pencil p2x p2y w)) /\
+   OrigamiNum2 (C (pencil p2x p2y w))).
+Proof.
+  intros p1x p1y q1x q1y p2x p2y q2x q2y s w
+         HP1x HP1y HQ1x HQ1y HP2x HP2y HQ2x HQ2y Hon1 Hon2 HED Hlead.
+  destruct (mutual_pencil_two_fold_ON2 p1x p1y q1x q1y p2x p2y q2x q2y s w
+              HP1x HP1y HQ1x HQ1y HP2x HP2y HQ2x HQ2y Hon1 Hon2 HED Hlead)
+    as [HsON HwON].
+  assert (Hm1 : OrigamiNum2 (-1))
+    by (replace (-1) with (0 - 1) by ring; apply ON2_sub; [apply ON2_0 | apply ON2_1]).
+  cbn [A B C pencil]. repeat split;
+    repeat (apply ON2_sub || apply ON2_mul); assumption.
+Qed.
