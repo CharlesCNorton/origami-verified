@@ -2727,7 +2727,13 @@ Qed.
 
    mutual_pencil_two_fold_ON2 above proves the pencil x pencil case inside
    OrigamiNum2 through the degree-5 polynomial mpG (which factors 2 x 3, the
-   quadratic factor being the isotropic s^2+1).
+   quadratic factor being the isotropic s^2+1).  The remaining positive cases
+   are proved below: mutual_translate_two_fold_ON2 (translate x translate, the
+   2 x 2 linear solve), pencil_translate_two_fold_ON2 (the cubic ptG), and
+   translate_tangent_two_fold_ON2 (the quartic ttG, solved by the Ferrari
+   closure ON2_general_quartic).  Every solvable cell of the classification
+   table is machine-checked; only the S6 and A10 cells below remain, and those
+   are exactly the negative side.
 
    THE CONJECTURE THAT THE COUPLED CATALOG STAYS INSIDE OrigamiNum2 IS FALSE.
    For random rational inputs, the sextic factor of the pencil x tangent
@@ -2755,3 +2761,588 @@ Qed.
    composition factors) that the development does not yet contain; the
    computation is reproducible from the transfer equations exactly as encoded
    in mpN/mpD, by resultant, factorization, and reduction mod p. *)
+
+(* ============================================================================
+   Quartic closure of OrigamiNum2 (Ferrari).  A real root of a monic quartic
+   with OrigamiNum2 coefficients is in OrigamiNum2: pick a real root y of the
+   resolvent cubic y^3 - p y^2 - 4 r y + (4 p r - q^2); the depressed quartic
+   then splits as a difference of squares over sqrt(y - p), reducing to two
+   quadratics, with the y = p and y < p degeneracies collapsing to biquadratic
+   and rational cases.
+   ============================================================================ *)
+
+Lemma ON2_two : OrigamiNum2 2.
+Proof. replace 2 with (1 + 1) by ring. apply ON2_add; apply ON2_1. Qed.
+
+Lemma ON2_four : OrigamiNum2 4.
+Proof. replace 4 with (2 + 2) by ring. apply ON2_add; apply ON2_two. Qed.
+
+Lemma ON2_depressed_quartic : forall p q r t,
+  OrigamiNum2 p -> OrigamiNum2 q -> OrigamiNum2 r ->
+  t ^ 4 + p * t ^ 2 + q * t + r = 0 ->
+  OrigamiNum2 t.
+Proof.
+  intros p q r t Hp Hq Hr Hroot.
+  destruct (general_cubic_root_exists 1 (- p) (- (4 * r)) (4 * p * r - q * q)
+              ltac:(lra)) as [y Hy].
+  assert (HyON : OrigamiNum2 y).
+  { apply (ON2_general_cubic (- p) (- (4 * r)) (4 * p * r - q * q) y).
+    - apply ON2_neg; exact Hp.
+    - apply ON2_neg. apply ON2_mul; [exact ON2_four | exact Hr].
+    - apply ON2_sub; [| apply ON2_mul; exact Hq].
+      apply ON2_mul; [apply ON2_mul; [exact ON2_four | exact Hp] | exact Hr].
+    - nra. }
+  destruct (Req_dec (y - p) 0) as [Hyp0 | Hypne].
+  - assert (Hq0 : q = 0) by nra.
+    set (z := t * t).
+    assert (HzON : OrigamiNum2 z).
+    { apply (ON2_general_quadratic p r z); [exact Hp | exact Hr |].
+      unfold z. nra. }
+    assert (Hznn : 0 <= z) by (unfold z; nra).
+    destruct (Rle_dec 0 t) as [Ht0 | Ht0].
+    + replace t with (sqrt z)
+        by (unfold z; rewrite sqrt_square by exact Ht0; reflexivity).
+      apply ON2_sqrt; assumption.
+    + replace t with (- sqrt z).
+      * apply ON2_neg. apply ON2_sqrt; assumption.
+      * unfold z. replace (t * t) with ((- t) * (- t)) by ring.
+        rewrite sqrt_square by lra. ring.
+  - set (c := q / (2 * (y - p))).
+    assert (HcON : OrigamiNum2 c).
+    { unfold c. apply ON2_div; [exact Hq | | lra].
+      apply ON2_mul; [exact ON2_two |].
+      apply ON2_sub; [exact HyON | exact Hp]. }
+    assert (Hc2 : 2 * (y - p) * c = q) by (unfold c; field; lra).
+    assert (Hkey : (y - p) * (c * c) = y * y / 4 - r).
+    { apply (Rmult_eq_reg_l (4 * (y - p))); [| lra].
+      transitivity (q * q); [| nra].
+      transitivity ((2 * (y - p) * c) * (2 * (y - p) * c)); [ring |].
+      rewrite Hc2. ring. }
+    assert (Hident : (t * t + y / 2) ^ 2 = (y - p) * ((t - c) ^ 2)).
+    { transitivity ((y - p) * (t * t) - q * t + (y * y / 4 - r)); [nra |].
+      rewrite <- Hkey. nra. }
+    destruct (Rtotal_order (y - p) 0) as [Hneg | [Hzero | Hpos]]; [| lra |].
+    + pose proof (pow2_ge_0 (t - c)) as Hs1.
+      pose proof (pow2_ge_0 (t * t + y / 2)) as Hs2.
+      assert (Htc : (t - c) ^ 2 = 0) by nra.
+      assert (Htc0 : t - c = 0) by (apply Rsqr_0_uniq; unfold Rsqr; nra).
+      replace t with c by lra. exact HcON.
+    + set (sq := sqrt (y - p)).
+      assert (HsqON : OrigamiNum2 sq).
+      { unfold sq. apply ON2_sqrt; [apply ON2_sub; [exact HyON | exact Hp] | lra]. }
+      assert (Hsq2 : sq * sq = y - p) by (unfold sq; apply sqrt_sqrt; lra).
+      assert (Hfac : (t * t + y / 2 - sq * (t - c)) * (t * t + y / 2 + sq * (t - c)) = 0).
+      { transitivity ((t * t + y / 2) ^ 2 - (sq * sq) * ((t - c) ^ 2)); [ring |].
+        rewrite Hsq2, Hident. ring. }
+      assert (Hy2ON : OrigamiNum2 (y / 2))
+        by (apply ON2_div; [exact HyON | exact ON2_two | lra]).
+      destruct (Rmult_integral _ _ Hfac) as [Hf | Hf].
+      * apply (ON2_general_quadratic (- sq) (y / 2 + sq * c) t).
+        -- apply ON2_neg; exact HsqON.
+        -- apply ON2_add; [exact Hy2ON | apply ON2_mul; [exact HsqON | exact HcON]].
+        -- nra.
+      * apply (ON2_general_quadratic sq (y / 2 - sq * c) t).
+        -- exact HsqON.
+        -- apply ON2_sub; [exact Hy2ON | apply ON2_mul; [exact HsqON | exact HcON]].
+        -- nra.
+Qed.
+
+(** FERRARI QUARTIC CLOSURE: OrigamiNum2 contains every real root of a monic
+    quartic with OrigamiNum2 coefficients. *)
+Theorem ON2_general_quartic : forall a b c d t,
+  OrigamiNum2 a -> OrigamiNum2 b -> OrigamiNum2 c -> OrigamiNum2 d ->
+  t ^ 4 + a * t ^ 3 + b * t ^ 2 + c * t + d = 0 ->
+  OrigamiNum2 t.
+Proof.
+  intros a b c d t Ha Hb Hc Hd Hroot.
+  set (u := t + a / 4).
+  set (P := b - 3 * (a * a) / 8).
+  set (Q := c - a * b / 2 + (a * a * a) / 8).
+  set (RR := d - a * c / 4 + (a * a) * b / 16 - 3 * (a * a * (a * a)) / 256).
+  assert (HPON : OrigamiNum2 P).
+  { unfold P. apply ON2_sub; [exact Hb |].
+    apply ON2_div; [| | lra].
+    - apply ON2_mul; [| apply ON2_mul; exact Ha].
+      replace 3 with (2 + 1) by ring. apply ON2_add; [exact ON2_two | apply ON2_1].
+    - replace 8 with (4 + 4) by ring. apply ON2_add; apply ON2_four. }
+  assert (H8 : OrigamiNum2 8)
+    by (replace 8 with (4 + 4) by ring; apply ON2_add; apply ON2_four).
+  assert (H16 : OrigamiNum2 16)
+    by (replace 16 with (8 + 8) by ring; apply ON2_add; exact H8).
+  assert (HQON : OrigamiNum2 Q).
+  { unfold Q. apply ON2_add.
+    - apply ON2_sub; [exact Hc |].
+      apply ON2_div; [apply ON2_mul; [exact Ha | exact Hb] | exact ON2_two | lra].
+    - apply ON2_div; [| exact H8 | lra].
+      apply ON2_mul; [apply ON2_mul; exact Ha | exact Ha]. }
+  assert (HRON : OrigamiNum2 RR).
+  { unfold RR. apply ON2_sub.
+    - apply ON2_add.
+      + apply ON2_sub; [exact Hd |].
+        apply ON2_div; [apply ON2_mul; [exact Ha | exact Hc] | exact ON2_four | lra].
+      + apply ON2_div; [| exact H16 | lra].
+        apply ON2_mul; [apply ON2_mul; exact Ha | exact Hb].
+    - apply ON2_div; [| | lra].
+      + apply ON2_mul.
+        * replace 3 with (2 + 1) by ring. apply ON2_add; [exact ON2_two | apply ON2_1].
+        * apply ON2_mul; apply ON2_mul; exact Ha.
+      + replace 256 with (16 * 16) by ring. apply ON2_mul; exact H16. }
+  assert (Hdep : u ^ 4 + P * u ^ 2 + Q * u + RR = 0).
+  { unfold u, P, Q, RR.
+    transitivity (t ^ 4 + a * t ^ 3 + b * t ^ 2 + c * t + d); [field | exact Hroot]. }
+  assert (HuON : OrigamiNum2 u) by (apply (ON2_depressed_quartic P Q RR u); assumption).
+  replace t with (u - a / 4) by (unfold u; ring).
+  apply ON2_sub; [exact HuON |].
+  apply ON2_div; [exact Ha | exact ON2_four | lra].
+Qed.
+
+(* ============================================================================
+   The translate-receiver mutual couplings.  When each crease ranges over the
+   translate family of a fixed input direction (parallel mirrors), carrying a
+   point onto a crease is linear in both offsets, so the mutually coupled
+   system is a 2 x 2 linear solve: elimination degree 1.
+   ============================================================================ *)
+
+Theorem mutual_translate_two_fold_ON2 :
+  forall a1 b1 q1x q1y a2 b2 q2x q2y s w,
+  OrigamiNum2 a1 -> OrigamiNum2 b1 -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 a2 -> OrigamiNum2 b2 -> OrigamiNum2 q2x -> OrigamiNum2 q2y ->
+  a1 * a1 + b1 * b1 <> 0 -> a2 * a2 + b2 * b2 <> 0 ->
+  on_line (reflect_point (q1x, q1y) {| A := a1; B := b1; C := s |})
+          {| A := a2; B := b2; C := w |} ->
+  on_line (reflect_point (q2x, q2y) {| A := a2; B := b2; C := w |})
+          {| A := a1; B := b1; C := s |} ->
+  4 * (a1 * a2 + b1 * b2) * (a1 * a2 + b1 * b2)
+    - (a1 * a1 + b1 * b1) * (a2 * a2 + b2 * b2) <> 0 ->
+  OrigamiNum2 s /\ OrigamiNum2 w.
+Proof.
+  intros a1 b1 q1x q1y a2 b2 q2x q2y s w
+         Ha1 Hb1 Hq1x Hq1y Ha2 Hb2 Hq2x Hq2y HD1 HD2 Hon1 Hon2 Hdel.
+  unfold on_line, reflect_point in Hon1, Hon2.
+  cbn [fst snd A B C] in Hon1, Hon2.
+  match type of Hon1 with
+  | context [?num / ?den] =>
+      set (v1 := num / den) in Hon1;
+      assert (Hv1 : v1 * den = num) by (unfold v1; field; exact HD1)
+  end.
+  match type of Hon2 with
+  | context [?num / ?den] =>
+      set (v2 := num / den) in Hon2;
+      assert (Hv2 : v2 * den = num) by (unfold v2; field; exact HD2)
+  end.
+  pose proof (f_equal (Rmult (a1 * a1 + b1 * b1)) Hon1) as Hon1c.
+  pose proof (f_equal (Rmult (2 * (a1 * a2 + b1 * b2))) Hv1) as Hv1c.
+  pose proof (f_equal (Rmult (a2 * a2 + b2 * b2)) Hon2) as Hon2c.
+  pose proof (f_equal (Rmult (2 * (a1 * a2 + b1 * b2))) Hv2) as Hv2c.
+  assert (HT1 : (a1 * a1 + b1 * b1) * w
+                = 2 * (a1 * a2 + b1 * b2) * s
+                  + (2 * (a1 * a2 + b1 * b2) * (a1 * q1x + b1 * q1y)
+                     - (a1 * a1 + b1 * b1) * (a2 * q1x + b2 * q1y))) by nra.
+  assert (HT2 : (a2 * a2 + b2 * b2) * s
+                = 2 * (a1 * a2 + b1 * b2) * w
+                  + (2 * (a1 * a2 + b1 * b2) * (a2 * q2x + b2 * q2y)
+                     - (a2 * a2 + b2 * b2) * (a1 * q2x + b1 * q2y))) by nra.
+  pose proof (f_equal (Rmult (a1 * a1 + b1 * b1)) HT2) as HT2c.
+  pose proof (f_equal (Rmult (2 * (a1 * a2 + b1 * b2))) HT1) as HT1c.
+  set (SE := 2 * (a1 * a2 + b1 * b2)
+               * (2 * (a1 * a2 + b1 * b2) * (a1 * q1x + b1 * q1y)
+                  - (a1 * a1 + b1 * b1) * (a2 * q1x + b2 * q1y))
+             + (a1 * a1 + b1 * b1)
+               * (2 * (a1 * a2 + b1 * b2) * (a2 * q2x + b2 * q2y)
+                  - (a2 * a2 + b2 * b2) * (a1 * q2x + b1 * q2y))).
+  set (DE := (a1 * a1 + b1 * b1) * (a2 * a2 + b2 * b2)
+             - 4 * (a1 * a2 + b1 * b2) * (a1 * a2 + b1 * b2)).
+  assert (HDE : DE <> 0) by (unfold DE; lra).
+  assert (HsD : DE * s = SE) by (unfold DE, SE; nra).
+  assert (Htwo : OrigamiNum2 2) by exact ON2_two.
+  assert (HSEon : OrigamiNum2 SE).
+  { unfold SE.
+    repeat (apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1). }
+  assert (HDEon : OrigamiNum2 DE).
+  { unfold DE.
+    repeat (apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1). }
+  assert (HsON : OrigamiNum2 s).
+  { replace s with (SE / DE)
+      by (apply (Rmult_eq_reg_l DE); [rewrite <- HsD; field; exact HDE | exact HDE]).
+    apply ON2_div; assumption. }
+  split; [exact HsON |].
+  assert (HwE : w = (2 * (a1 * a2 + b1 * b2) * s
+                     + (2 * (a1 * a2 + b1 * b2) * (a1 * q1x + b1 * q1y)
+                        - (a1 * a1 + b1 * b1) * (a2 * q1x + b2 * q1y)))
+                    / (a1 * a1 + b1 * b1)).
+  { apply (Rmult_eq_reg_l (a1 * a1 + b1 * b1)); [| exact HD1].
+    rewrite HT1. field. exact HD1. }
+  rewrite HwE.
+  apply ON2_div; [| | exact HD1].
+  - repeat (apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1).
+  - repeat (apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1).
+Qed.
+
+(* ============================================================================
+   The pencil x translate mutual coupling.  Crease 1 ranges over the pencil
+   through P1, crease 2 over the translate family of direction (a2, b2); each
+   carries a point onto the other.  The transfer onto the translate crease is
+   linear in the offset w, so elimination is a substitution and the elimination
+   polynomial ptG is a cubic in the pencil slope: single-fold strength.
+   ============================================================================ *)
+
+Definition ptU (a2 b2 : R) : list R := (2 * b2) :: (- (2 * a2)) :: nil.
+
+Definition ptV (p1x p1y q2x q2y a2 b2 : R) : list R :=
+  (2 * b2 * (a2 * q2x + b2 * q2y) - (a2 * a2 + b2 * b2) * q2y
+     + (a2 * a2 + b2 * b2) * p1y)
+  :: ((a2 * a2 + b2 * b2) * q2x - 2 * a2 * (a2 * q2x + b2 * q2y)
+     - (a2 * a2 + b2 * b2) * p1x) :: nil.
+
+Definition ptWN (p1x p1y q1x q1y a2 b2 : R) : list R :=
+  pscaleR (-1) (paddR (pscaleR a2 (mpD p1x p1y q1x q1y 0))
+                      (pscaleR b2 (mpN p1x p1y q1x q1y 0))).
+
+(** The degree-3 elimination polynomial of the pencil x translate system. *)
+Definition ptG (p1x p1y q1x q1y a2 b2 q2x q2y : R) : list R :=
+  paddR (pmulR (ptU a2 b2) (ptWN p1x p1y q1x q1y a2 b2))
+        (pmulR (ptV p1x p1y q2x q2y a2 b2) (1 :: 0 :: 1 :: nil)).
+
+Theorem pencil_translate_two_fold_ON2 :
+  forall p1x p1y q1x q1y a2 b2 q2x q2y s w,
+  OrigamiNum2 p1x -> OrigamiNum2 p1y -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 a2 -> OrigamiNum2 b2 -> OrigamiNum2 q2x -> OrigamiNum2 q2y ->
+  a2 * a2 + b2 * b2 <> 0 ->
+  on_line (reflect_point (q1x, q1y) (pencil p1x p1y s))
+          {| A := a2; B := b2; C := w |} ->
+  on_line (reflect_point (q2x, q2y) {| A := a2; B := b2; C := w |})
+          (pencil p1x p1y s) ->
+  nth 3 (ptG p1x p1y q1x q1y a2 b2 q2x q2y) 0 <> 0 ->
+  OrigamiNum2 s /\ OrigamiNum2 w.
+Proof.
+  intros p1x p1y q1x q1y a2 b2 q2x q2y s w
+         HP1x HP1y HQ1x HQ1y Ha2 Hb2 HQ2x HQ2y HD2 Hon1 Hon2 Hlead.
+  unfold on_line, reflect_point, pencil in Hon1, Hon2.
+  cbn [fst snd A B C] in Hon1, Hon2.
+  assert (Hden1 : s * s + -1 * -1 <> 0)
+    by (assert (Hsq : 0 <= s * s) by apply Rle_0_sqr; lra).
+  match type of Hon1 with
+  | context [?num / ?den] =>
+      set (v1 := num / den) in Hon1;
+      assert (Hv1 : v1 * den = num)
+        by (unfold v1; field;
+            assert (Hsq : 0 <= s * s) by apply Rle_0_sqr; lra)
+  end.
+  match type of Hon2 with
+  | context [?num / ?den] =>
+      set (v2 := num / den) in Hon2;
+      assert (Hv2 : v2 * den = num) by (unfold v2; field; exact HD2)
+  end.
+  pose proof (f_equal (Rmult (s * s)) Hon1) as C1.
+  pose proof (f_equal (Rmult (2 * a2 * s)) Hv1) as C2.
+  pose proof (f_equal (Rmult (2 * b2)) Hv1) as C3.
+  pose proof (f_equal (Rmult (a2 * a2 + b2 * b2)) Hon2) as C4.
+  pose proof (f_equal (Rmult (2 * a2 * s)) Hv2) as C5.
+  pose proof (f_equal (Rmult (2 * b2)) Hv2) as C6.
+  assert (HT1 : w * (s * s + -1 * -1)
+              = pevalR (ptWN p1x p1y q1x q1y a2 b2) s).
+  { unfold ptWN. rewrite pevalR_pscale, pevalR_padd, !pevalR_pscale.
+    cbn [pevalR mpD mpN]. nra. }
+  assert (HT2 : pevalR (ptU a2 b2) s * w
+                + pevalR (ptV p1x p1y q2x q2y a2 b2) s = 0).
+  { cbn [pevalR ptU ptV]. nra. }
+  assert (Hroot : pevalR (ptG p1x p1y q1x q1y a2 b2 q2x q2y) s = 0).
+  { unfold ptG. rewrite pevalR_padd, !pevalR_pmul.
+    rewrite <- HT1.
+    pose proof (f_equal (Rmult (s * s)) HT2) as C7.
+    cbn [pevalR]. nra. }
+  set (G := ptG p1x p1y q1x q1y a2 b2 q2x q2y) in *.
+  assert (HGON2 : Forall OrigamiNum2 G).
+  { unfold G, ptG.
+    assert (HUon : Forall OrigamiNum2 (ptU a2 b2)).
+    { unfold ptU. repeat constructor;
+        repeat (apply ON2_neg || apply ON2_sub || apply ON2_add || apply ON2_mul);
+        (assumption || exact ON2_1). }
+    assert (HVon : Forall OrigamiNum2 (ptV p1x p1y q2x q2y a2 b2)).
+    { unfold ptV. repeat constructor;
+        repeat (apply ON2_neg || apply ON2_sub || apply ON2_add || apply ON2_mul);
+        (assumption || exact ON2_1). }
+    assert (HWNon : Forall OrigamiNum2 (ptWN p1x p1y q1x q1y a2 b2)).
+    { unfold ptWN.
+      apply Forall_pscaleR; [exact ON2_mul | apply ON2_neg, ON2_1 |].
+      apply Forall_paddR; [exact ON2_add | |].
+      - apply Forall_pscaleR; [exact ON2_mul | exact Ha2 |].
+        apply mpD_ON2; (assumption || exact ON2_0).
+      - apply Forall_pscaleR; [exact ON2_mul | exact Hb2 |].
+        apply mpN_ON2; (assumption || exact ON2_0). }
+    apply Forall_paddR; [exact ON2_add | |].
+    - apply Forall_pmulR;
+        [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HUon | exact HWNon].
+    - apply Forall_pmulR;
+        [exact ON2_add | exact ON2_mul | apply ON2_0 | exact HVon |].
+      repeat constructor; (exact ON2_1 || exact ON2_0). }
+  assert (HlenG : length G = 4%nat) by reflexivity.
+  rewrite pevalR_nth_sum, HlenG in Hroot.
+  cbn [fsum] in Hroot.
+  set (c0 := nth 0 G 0) in *. set (c1 := nth 1 G 0) in *.
+  set (c2 := nth 2 G 0) in *. set (c3 := nth 3 G 0) in *.
+  assert (Hc0 : OrigamiNum2 c0) by (unfold c0; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc1 : OrigamiNum2 c1) by (unfold c1; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc2 : OrigamiNum2 c2) by (unfold c2; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc3 : OrigamiNum2 c3) by (unfold c3; apply nth_Forall_ON2; exact HGON2).
+  assert (HsON : OrigamiNum2 s).
+  { apply (ON2_general_cubic (c2 / c3) (c1 / c3) (c0 / c3) s).
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply (Rmult_eq_reg_l c3); [| exact Hlead].
+      rewrite Rmult_0_r.
+      transitivity (c0 * s ^ 0 + c1 * s ^ 1 + c2 * s ^ 2 + c3 * s ^ 3).
+      + field. exact Hlead.
+      + lra. }
+  split; [exact HsON |].
+  assert (HwE : w = pevalR (ptWN p1x p1y q1x q1y a2 b2) s / (s * s + -1 * -1)).
+  { apply (Rmult_eq_reg_r (s * s + -1 * -1)); [| exact Hden1].
+    rewrite HT1. field.
+    assert (Hsq : 0 <= s * s) by apply Rle_0_sqr. lra. }
+  rewrite HwE. apply ON2_div; [| | exact Hden1].
+  - apply pevalR_ON2; [| exact HsON].
+    unfold ptWN.
+    apply Forall_pscaleR; [exact ON2_mul | apply ON2_neg, ON2_1 |].
+    apply Forall_paddR; [exact ON2_add | |].
+    + apply Forall_pscaleR; [exact ON2_mul | exact Ha2 |].
+      apply mpD_ON2; (assumption || exact ON2_0).
+    + apply Forall_pscaleR; [exact ON2_mul | exact Hb2 |].
+      apply mpN_ON2; (assumption || exact ON2_0).
+  - repeat (apply ON2_neg || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1).
+Qed.
+
+(* ============================================================================
+   The translate x tangent mutual coupling.  Crease 1 ranges over the translate
+   family of direction (a1, b1); crease 2 over the tangent family folding P2
+   onto the parameter-w point (x02 + lb w, y02 - la w) of the base line with
+   normal (la, lb) -- the generic branch of perp_bisector.  The transfer onto
+   the translate crease is linear in its offset s, so elimination is a
+   substitution and the elimination polynomial ttG is a quartic in w, solved
+   inside OrigamiNum2 by the Ferrari closure.
+   ============================================================================ *)
+
+Definition tangent_line (p2x p2y x02 y02 la lb w : R) : Line :=
+  {| A := 2 * (x02 + lb * w - p2x);
+     B := 2 * (y02 - la * w - p2y);
+     C := p2x * p2x + p2y * p2y - (x02 + lb * w) * (x02 + lb * w)
+          - (y02 - la * w) * (y02 - la * w) |}.
+
+Definition ttA2 (p2x x02 lb : R) : list R :=
+  (2 * (x02 - p2x)) :: (2 * lb) :: nil.
+Definition ttB2 (p2y y02 la : R) : list R :=
+  (2 * (y02 - p2y)) :: (- (2 * la)) :: nil.
+Definition ttC2 (p2x p2y x02 y02 la lb : R) : list R :=
+  (p2x * p2x + p2y * p2y - x02 * x02 - y02 * y02)
+  :: (2 * (y02 * la - x02 * lb)) :: (- (la * la + lb * lb)) :: nil.
+
+Definition ttD2 (p2x p2y x02 y02 la lb : R) : list R :=
+  paddR (pmulR (ttA2 p2x x02 lb) (ttA2 p2x x02 lb))
+        (pmulR (ttB2 p2y y02 la) (ttB2 p2y y02 la)).
+
+Definition ttF2 (p2x p2y x02 y02 la lb q2x q2y : R) : list R :=
+  paddR (pscaleR q2x (ttA2 p2x x02 lb))
+        (paddR (pscaleR q2y (ttB2 p2y y02 la)) (ttC2 p2x p2y x02 y02 la lb)).
+
+Definition ttN (a1 b1 p2x p2y x02 y02 la lb q2x q2y : R) : list R :=
+  paddR (pscaleR (- (a1 * q2x + b1 * q2y)) (ttD2 p2x p2y x02 y02 la lb))
+        (pscaleR 2 (paddR
+           (pmulR (pscaleR a1 (ttA2 p2x x02 lb))
+                  (ttF2 p2x p2y x02 y02 la lb q2x q2y))
+           (pmulR (pscaleR b1 (ttB2 p2y y02 la))
+                  (ttF2 p2x p2y x02 y02 la lb q2x q2y)))).
+
+Definition ttAl (a1 b1 q1x q1y p2x p2y x02 y02 la lb : R) : list R :=
+  paddR (pscaleR ((a1 * a1 + b1 * b1) * q1x - 2 * a1 * (a1 * q1x + b1 * q1y))
+                 (ttA2 p2x x02 lb))
+        (paddR (pscaleR ((a1 * a1 + b1 * b1) * q1y - 2 * b1 * (a1 * q1x + b1 * q1y))
+                        (ttB2 p2y y02 la))
+               (pscaleR (a1 * a1 + b1 * b1) (ttC2 p2x p2y x02 y02 la lb))).
+
+Definition ttBe (a1 b1 p2x p2y x02 y02 la lb : R) : list R :=
+  pscaleR (- 2) (paddR (pscaleR a1 (ttA2 p2x x02 lb))
+                       (pscaleR b1 (ttB2 p2y y02 la))).
+
+(** The degree-4 elimination polynomial of the translate x tangent system. *)
+Definition ttG (a1 b1 q1x q1y p2x p2y x02 y02 la lb q2x q2y : R) : list R :=
+  paddR (pmulR (ttAl a1 b1 q1x q1y p2x p2y x02 y02 la lb)
+               (ttD2 p2x p2y x02 y02 la lb))
+        (pmulR (ttBe a1 b1 p2x p2y x02 y02 la lb)
+               (ttN a1 b1 p2x p2y x02 y02 la lb q2x q2y)).
+
+Theorem translate_tangent_two_fold_ON2 :
+  forall a1 b1 q1x q1y p2x p2y x02 y02 la lb q2x q2y s w,
+  OrigamiNum2 a1 -> OrigamiNum2 b1 -> OrigamiNum2 q1x -> OrigamiNum2 q1y ->
+  OrigamiNum2 p2x -> OrigamiNum2 p2y -> OrigamiNum2 x02 -> OrigamiNum2 y02 ->
+  OrigamiNum2 la -> OrigamiNum2 lb -> OrigamiNum2 q2x -> OrigamiNum2 q2y ->
+  a1 * a1 + b1 * b1 <> 0 ->
+  A (tangent_line p2x p2y x02 y02 la lb w) * A (tangent_line p2x p2y x02 y02 la lb w)
+    + B (tangent_line p2x p2y x02 y02 la lb w) * B (tangent_line p2x p2y x02 y02 la lb w)
+    <> 0 ->
+  on_line (reflect_point (q1x, q1y) {| A := a1; B := b1; C := s |})
+          (tangent_line p2x p2y x02 y02 la lb w) ->
+  on_line (reflect_point (q2x, q2y) (tangent_line p2x p2y x02 y02 la lb w))
+          {| A := a1; B := b1; C := s |} ->
+  nth 4 (ttG a1 b1 q1x q1y p2x p2y x02 y02 la lb q2x q2y) 0 <> 0 ->
+  OrigamiNum2 w /\ OrigamiNum2 s.
+Proof.
+  intros a1 b1 q1x q1y p2x p2y x02 y02 la lb q2x q2y s w
+         Ha1 Hb1 HQ1x HQ1y HP2x HP2y HX0 HY0 Hla Hlb HQ2x HQ2y HD1 HDT
+         Hon1 Hon2 Hlead.
+  assert (HDeq : pevalR (ttD2 p2x p2y x02 y02 la lb) w
+                 = A (tangent_line p2x p2y x02 y02 la lb w)
+                   * A (tangent_line p2x p2y x02 y02 la lb w)
+                   + B (tangent_line p2x p2y x02 y02 la lb w)
+                     * B (tangent_line p2x p2y x02 y02 la lb w)).
+  { unfold ttD2, ttA2, ttB2. cbn [A B tangent_line].
+    rewrite pevalR_padd, !pevalR_pmul. cbn [pevalR]. ring. }
+  assert (HD2e : pevalR (ttD2 p2x p2y x02 y02 la lb) w <> 0)
+    by (rewrite HDeq; exact HDT).
+  unfold on_line, reflect_point, tangent_line in Hon1, Hon2.
+  cbn [fst snd A B C] in Hon1, Hon2.
+  match type of Hon1 with
+  | context [?num / ?den] =>
+      set (v1 := num / den) in Hon1;
+      assert (Hv1 : v1 * den = num)
+        by (unfold v1, Rdiv; rewrite Rmult_assoc, (Rinv_l _ HD1), Rmult_1_r;
+            reflexivity)
+  end.
+  match type of Hon2 with
+  | context [?num / ?den] =>
+      set (v2 := num / den) in Hon2;
+      assert (Hden2 : den <> 0)
+        by (intro E; apply HDT; cbn [A B tangent_line]; exact E);
+      assert (Hv2 : v2 * den = num)
+        by (unfold v2, Rdiv; rewrite Rmult_assoc, (Rinv_l _ Hden2), Rmult_1_r;
+            reflexivity)
+  end.
+  pose proof (f_equal (Rmult (a1 * a1 + b1 * b1)) Hon1) as C1.
+  pose proof (f_equal (Rmult (2 * a1 * A (tangent_line p2x p2y x02 y02 la lb w)
+                              + 2 * b1 * B (tangent_line p2x p2y x02 y02 la lb w)))
+                Hv1) as C2.
+  cbn [A B tangent_line] in C2.
+  pose proof (f_equal (Rmult (A (tangent_line p2x p2y x02 y02 la lb w)
+                              * A (tangent_line p2x p2y x02 y02 la lb w)
+                              + B (tangent_line p2x p2y x02 y02 la lb w)
+                                * B (tangent_line p2x p2y x02 y02 la lb w)))
+                Hon2) as C4.
+  cbn [A B tangent_line] in C4.
+  pose proof (f_equal (Rmult (2 * a1 * A (tangent_line p2x p2y x02 y02 la lb w)
+                              + 2 * b1 * B (tangent_line p2x p2y x02 y02 la lb w)))
+                Hv2) as C5.
+  cbn [A B tangent_line] in C5.
+  assert (HT1 : pevalR (ttAl a1 b1 q1x q1y p2x p2y x02 y02 la lb) w
+                + pevalR (ttBe a1 b1 p2x p2y x02 y02 la lb) w * s = 0).
+  { unfold ttAl, ttBe, ttA2, ttB2, ttC2.
+    repeat first [rewrite pevalR_padd | rewrite pevalR_pmul | rewrite pevalR_pscale].
+    cbn [pevalR].
+    clear C4 C5 Hon2 Hv2 Hden2 HD2e HDeq HDT Hlead Hon1 Hv1. nra. }
+  assert (HT2 : s * pevalR (ttD2 p2x p2y x02 y02 la lb) w
+                = pevalR (ttN a1 b1 p2x p2y x02 y02 la lb q2x q2y) w).
+  { unfold ttN, ttD2, ttF2, ttA2, ttB2, ttC2.
+    repeat first [rewrite pevalR_padd | rewrite pevalR_pmul | rewrite pevalR_pscale].
+    cbn [pevalR].
+    clear C1 C2 Hon1 Hv1 HT1 HD2e HDeq HDT Hlead Hon2 Hv2 Hden2. nra. }
+  assert (Hroot : pevalR (ttG a1 b1 q1x q1y p2x p2y x02 y02 la lb q2x q2y) w = 0).
+  { unfold ttG. rewrite pevalR_padd, !pevalR_pmul.
+    pose proof (f_equal (Rmult (pevalR (ttD2 p2x p2y x02 y02 la lb) w)) HT1) as C7.
+    pose proof (f_equal (Rmult (pevalR (ttBe a1 b1 p2x p2y x02 y02 la lb) w)) HT2) as C8.
+    clear C1 C2 C4 C5 Hon1 Hon2 Hv1 Hv2 Hden2 HD2e HDeq HDT Hlead HT1 HT2. nra. }
+  set (G := ttG a1 b1 q1x q1y p2x p2y x02 y02 la lb q2x q2y) in *.
+  assert (Htt2on : Forall OrigamiNum2 (ttA2 p2x x02 lb)).
+  { unfold ttA2. repeat constructor;
+      repeat (apply ON2_neg || apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1). }
+  assert (HttB2on : Forall OrigamiNum2 (ttB2 p2y y02 la)).
+  { unfold ttB2. repeat constructor;
+      repeat (apply ON2_neg || apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1). }
+  assert (HttC2on : Forall OrigamiNum2 (ttC2 p2x p2y x02 y02 la lb)).
+  { unfold ttC2. repeat constructor;
+      repeat (apply ON2_neg || apply ON2_sub || apply ON2_add || apply ON2_mul);
+      (assumption || exact ON2_1). }
+  assert (HttD2on : Forall OrigamiNum2 (ttD2 p2x p2y x02 y02 la lb)).
+  { unfold ttD2. apply Forall_paddR; [exact ON2_add | |];
+      apply Forall_pmulR;
+      (exact ON2_add || exact ON2_mul || apply ON2_0 || assumption). }
+  assert (HttF2on : Forall OrigamiNum2 (ttF2 p2x p2y x02 y02 la lb q2x q2y)).
+  { unfold ttF2.
+    apply Forall_paddR; [exact ON2_add | |].
+    - apply Forall_pscaleR; [exact ON2_mul | exact HQ2x | exact Htt2on].
+    - apply Forall_paddR; [exact ON2_add | |].
+      + apply Forall_pscaleR; [exact ON2_mul | exact HQ2y | exact HttB2on].
+      + exact HttC2on. }
+  assert (HttNon : Forall OrigamiNum2 (ttN a1 b1 p2x p2y x02 y02 la lb q2x q2y)).
+  { unfold ttN.
+    apply Forall_paddR; [exact ON2_add | |].
+    - apply Forall_pscaleR; [exact ON2_mul | | exact HttD2on].
+      apply ON2_neg.
+      repeat (apply ON2_add || apply ON2_mul); assumption.
+    - apply Forall_pscaleR; [exact ON2_mul | exact ON2_two |].
+      apply Forall_paddR; [exact ON2_add | |].
+      + apply Forall_pmulR;
+          [exact ON2_add | exact ON2_mul | apply ON2_0 | | exact HttF2on].
+        apply Forall_pscaleR; [exact ON2_mul | exact Ha1 | exact Htt2on].
+      + apply Forall_pmulR;
+          [exact ON2_add | exact ON2_mul | apply ON2_0 | | exact HttF2on].
+        apply Forall_pscaleR; [exact ON2_mul | exact Hb1 | exact HttB2on]. }
+  assert (HGON2 : Forall OrigamiNum2 G).
+  { unfold G, ttG.
+    apply Forall_paddR; [exact ON2_add | |].
+    - apply Forall_pmulR;
+        [exact ON2_add | exact ON2_mul | apply ON2_0 | | exact HttD2on].
+      unfold ttAl.
+      apply Forall_paddR; [exact ON2_add | |].
+      + apply Forall_pscaleR; [exact ON2_mul | | exact Htt2on].
+        repeat (apply ON2_sub || apply ON2_add || apply ON2_mul);
+          (assumption || exact ON2_1).
+      + apply Forall_paddR; [exact ON2_add | |].
+        * apply Forall_pscaleR; [exact ON2_mul | | exact HttB2on].
+          repeat (apply ON2_sub || apply ON2_add || apply ON2_mul);
+            (assumption || exact ON2_1).
+        * apply Forall_pscaleR; [exact ON2_mul | | exact HttC2on].
+          repeat (apply ON2_add || apply ON2_mul); assumption.
+    - apply Forall_pmulR;
+        [exact ON2_add | exact ON2_mul | apply ON2_0 | | exact HttNon].
+      unfold ttBe.
+      apply Forall_pscaleR; [exact ON2_mul | apply ON2_neg; exact ON2_two |].
+      apply Forall_paddR; [exact ON2_add | |].
+      + apply Forall_pscaleR; [exact ON2_mul | exact Ha1 | exact Htt2on].
+      + apply Forall_pscaleR; [exact ON2_mul | exact Hb1 | exact HttB2on]. }
+  assert (HlenG : length G = 5%nat) by reflexivity.
+  rewrite pevalR_nth_sum, HlenG in Hroot.
+  cbn [fsum] in Hroot.
+  set (c0 := nth 0 G 0) in *. set (c1 := nth 1 G 0) in *.
+  set (c2 := nth 2 G 0) in *. set (c3 := nth 3 G 0) in *.
+  set (c4 := nth 4 G 0) in *.
+  assert (Hc0 : OrigamiNum2 c0) by (unfold c0; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc1 : OrigamiNum2 c1) by (unfold c1; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc2 : OrigamiNum2 c2) by (unfold c2; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc3 : OrigamiNum2 c3) by (unfold c3; apply nth_Forall_ON2; exact HGON2).
+  assert (Hc4 : OrigamiNum2 c4) by (unfold c4; apply nth_Forall_ON2; exact HGON2).
+  assert (HwON : OrigamiNum2 w).
+  { apply (ON2_general_quartic (c3 / c4) (c2 / c4) (c1 / c4) (c0 / c4) w).
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply ON2_div; assumption.
+    - apply (Rmult_eq_reg_l c4); [| exact Hlead].
+      rewrite Rmult_0_r.
+      transitivity (c0 * w ^ 0 + c1 * w ^ 1 + c2 * w ^ 2 + c3 * w ^ 3 + c4 * w ^ 4).
+      + field. exact Hlead.
+      + lra. }
+  split; [exact HwON |].
+  assert (HsE : s = pevalR (ttN a1 b1 p2x p2y x02 y02 la lb q2x q2y) w
+                    / pevalR (ttD2 p2x p2y x02 y02 la lb) w).
+  { apply (Rmult_eq_reg_r (pevalR (ttD2 p2x p2y x02 y02 la lb) w)); [| exact HD2e].
+    transitivity (pevalR (ttN a1 b1 p2x p2y x02 y02 la lb q2x q2y) w);
+      [exact HT2 | field; exact HD2e]. }
+  rewrite HsE. apply ON2_div; [| | exact HD2e].
+  - apply pevalR_ON2; [exact HttNon | exact HwON].
+  - apply pevalR_ON2; [exact HttD2on | exact HwON].
+Qed.
