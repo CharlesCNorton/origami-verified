@@ -2704,3 +2704,54 @@ Proof.
   cbn [A B C pencil]. repeat split;
     repeat (apply ON2_sub || apply ON2_mul); assumption.
 Qed.
+
+(* ============================================================================
+   THE COUPLED-CATALOG CLASSIFICATION AND THE REFUTATION OF THE CLOSURE
+   CONJECTURE.
+
+   The mutually coupled two-fold systems classify by the one-parameter family
+   each crease's own alignment leaves.  The three families have coefficient
+   degree <= 2 in their parameter: pencil (crease through a point, degree 1),
+   translate (crease parallel to a line / perpendicular to a line, degree 1),
+   tangent (crease folding a point onto a line, degree 2).  Eliminating one
+   parameter from the two point-onto-crease transfer equations gives, in
+   general position, elimination polynomials whose degrees over the input
+   field are (spurious isotropic quadratic factors s^2+1 removed):
+
+       pencil    x pencil    ->  3      (cubic: single-fold strength)
+       pencil    x translate ->  3      (cubic)
+       translate x translate ->  1      (linear)
+       translate x tangent   ->  4      (quartic)
+       pencil    x tangent   ->  6      (sextic)
+       tangent   x tangent   ->  10     (decic)
+
+   mutual_pencil_two_fold_ON2 above proves the pencil x pencil case inside
+   OrigamiNum2 through the degree-5 polynomial mpG (which factors 2 x 3, the
+   quadratic factor being the isotropic s^2+1).
+
+   THE CONJECTURE THAT THE COUPLED CATALOG STAYS INSIDE OrigamiNum2 IS FALSE.
+   For random rational inputs, the sextic factor of the pencil x tangent
+   elimination is irreducible with squarefree Frobenius factorization patterns
+   mod p including (1,1,1,1,2) -- a transposition -- and (1,5) -- a 5-cycle
+   fixing a point.  A transitive sextic group with a 5-cycle is 2-transitive
+   hence primitive, and a primitive group containing a transposition is the
+   full symmetric group (Jordan), so the Galois group is S6.  Its composition
+   factor A6 is not among C2, C3, C5, A5 -- the only composition factors
+   available to towers of quadratic, cubic, and quintic steps -- so the roots
+   lie outside OrigamiNum2, while both real roots of the sextic are realized
+   by real crease pairs (numerically checked: the folds exist).  The
+   tangent x tangent decic shows patterns (1,9) and (1,2,7) -- a 9-cycle and a
+   7-cycle -- and the only primitive degree-10 groups of order divisible by 7
+   are A10 and S10, whose factor A10 is not available to prime-degree towers
+   of any bound: general-position tangent x tangent coupling escapes
+   OrigamiNumK for every k.
+
+   Consequence: simultaneous two-fold folding in general position is strictly
+   stronger than the quintic closure OrigamiNum2.  The classical two-fold
+   axioms owe their exactly-quintic power to their special alignment sets
+   (the Lill positions formalized in two_fold_lill and general_lill), not to
+   the coupling mechanism itself.  Formalizing the negative side in Rocq
+   requires Galois-theoretic machinery (splitting fields, solvable towers,
+   composition factors) that the development does not yet contain; the
+   computation is reproducible from the transfer equations exactly as encoded
+   in mpN/mpD, by resultant, factorization, and reduction mod p. *)
