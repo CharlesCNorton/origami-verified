@@ -8,11 +8,17 @@
    the other.  Never Require extraction: it rebinds sqrt to the primitive machine
    float.
 
-   Current campaign: the three-fold geometric layer and the k-fold program --
-   the septic crease {t,-1,-t^6}, the simultaneous three-fold Lill system, and
-   the first-polygon separations (29-gon, 23-gon).  These are not-yet-on-paper
-   analogues of the settled two-fold theory in geometry.v and migrate down once
-   established. *)
+   Current campaign: the k-fold program.  The three-fold geometric layer
+   (septic crease, three-fold Lill system, 29-gon/23-gon separations); the
+   parametric class OrigamiNumK with k = 1, 2, 3 exactly the settled classes;
+   the parametric prime rung step_prime_K via Newton and Vieta; the
+   unconditional primitive root; the general Chebyshev prime-power rung; the
+   arbitrary-prime-degree extension PolyF with the oktower smooth degree bound;
+   ngon_k_fold_iff, the k-fold n-gon theorem at every fold budget; k_fold_lill
+   and the general-coefficient Horner chain general_lill_solves.  All
+   not-yet-on-paper; migrates down once established.  Open: the two-fold
+   alignment-catalog upper bound (todo.md), which needs multivariate
+   elimination machinery the development does not yet have. *)
 From Stdlib Require Import Reals Lra Field R_sqr Psatz Nsatz Ring Ranalysis1 RingMicromega List ProofIrrelevance ClassicalDescription PeanoNat ZArith Classical Permutation Bool Arith.Wf_nat.
 From Stdlib Require Znumtheory.
 Import ListNotations.
