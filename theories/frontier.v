@@ -928,3 +928,147 @@ Proof.
   - exact (proj1 Hgord).
   - intros k [Hk1 Hk2] Hc. apply (proj2 Hgord k Hk2). split; [exact Hk1 | exact Hc].
 Qed.
+
+(* ============================================================================
+   The general Chebyshev prime-power rung.  cheb_coeffs n is the coefficient
+   list of T_n (lowest degree first, leading coefficient 2^(n-1)), so
+   cos(2*PI/q^e) is, by induction on e, a root of the monic-ized polynomial
+   (T_q(x) - cos(2*PI/q^(e-1))) / 2^(q-1) -- one ONK_proot instance per prime
+   q <= 2k+1, subsuming the 5^e and 7^e Chebyshev inductions.
+   ============================================================================ *)
+
+Definition psubR (ps qs : list R) : list R := paddR ps (pscaleR (-1) qs).
+
+Fixpoint cheb_coeffs (n : nat) : list R :=
+  match n with
+  | O => 1 :: nil
+  | S n' =>
+      match n' with
+      | O => 0 :: 1 :: nil
+      | S n'' => psubR (pscaleR 2 (0 :: cheb_coeffs n')) (cheb_coeffs n'')
+      end
+  end.
+
+Lemma fsum_minus : forall n f h,
+  fsum n (fun i => f i - h i) = fsum n f - fsum n h.
+Proof.
+  induction n as [|n IH]; intros f h; cbn [fsum]; [ring | rewrite IH; ring].
+Qed.
+
+Lemma fsum_S : forall n f, fsum (S n) f = fsum n f + f n.
+Proof. reflexivity. Qed.
+
+Lemma fsum_delta0 : forall m (a x : R),
+  fsum (S m) (fun i => (if Nat.eqb i 0 then a else 0) * x ^ i) = a.
+Proof.
+  intros m a x. rewrite fsum_S_shift.
+  rewrite (fsum_ext m (fun i => (if Nat.eqb (S i) 0 then a else 0) * x ^ S i)
+             (fun _ => 0)) by (intros; cbn [Nat.eqb]; ring).
+  rewrite fsum_zero. cbn [Nat.eqb pow]. ring.
+Qed.
+
+Lemma cheb_coeffs_SS : forall n,
+  cheb_coeffs (S (S n))
+  = psubR (pscaleR 2 (0 :: cheb_coeffs (S n))) (cheb_coeffs n).
+Proof. reflexivity. Qed.
+
+Lemma cheb_all : forall n,
+  length (cheb_coeffs n) = S n /\
+  (forall x, pevalR (cheb_coeffs n) x = chebyshev_T n x).
+Proof.
+  induction n as [n IH] using (well_founded_induction lt_wf).
+  destruct n as [|[|n]].
+  - split; [reflexivity |]. intro x. cbn. ring.
+  - split; [reflexivity |]. intro x. cbn. ring.
+  - destruct (IH (S n) ltac:(lia)) as [HL1 HE1].
+    destruct (IH n ltac:(lia)) as [HL0 HE0].
+    rewrite cheb_coeffs_SS. split.
+    + unfold psubR. rewrite paddR_length. unfold pscaleR.
+      rewrite !length_map. cbn [length]. rewrite HL1, HL0. lia.
+    + intro x. unfold psubR. rewrite pevalR_padd, !pevalR_pscale.
+      cbn [pevalR]. rewrite HE1, HE0, chebyshev_rec. ring.
+Qed.
+
+Lemma cheb_top : forall n, nth (S n) (cheb_coeffs (S n)) 0 = 2 ^ n.
+Proof.
+  induction n as [n IH] using (well_founded_induction lt_wf).
+  destruct n as [|n'].
+  - reflexivity.
+  - rewrite cheb_coeffs_SS. unfold psubR. rewrite nth_paddR, !nth_pscaleR.
+    rewrite (nth_overflow (cheb_coeffs n'))
+      by (rewrite (proj1 (cheb_all n')); lia).
+    cbn [nth]. rewrite (IH n' ltac:(lia)). cbn [pow]. ring.
+Qed.
+
+Lemma ON_pow2 : forall m, OrigamiNum (2 ^ m).
+Proof.
+  induction m as [|m IH]; cbn [pow].
+  - apply ON_1.
+  - apply ON_mul; [apply Origami_two | exact IH].
+Qed.
+
+Lemma cheb_coeffs_ON : forall n i, OrigamiNum (nth i (cheb_coeffs n) 0).
+Proof.
+  induction n as [n IH] using (well_founded_induction lt_wf).
+  destruct n as [|[|n]]; intro i.
+  - destruct i as [|i]; [apply ON_1 |]. cbn [nth]. destruct i; apply ON_0.
+  - destruct i as [|[|i]]; [apply ON_0 | apply ON_1 |]. cbn [nth]. destruct i; apply ON_0.
+  - rewrite cheb_coeffs_SS. unfold psubR. rewrite nth_paddR, !nth_pscaleR.
+    apply ON_add.
+    + apply ON_mul; [apply Origami_two |].
+      destruct i as [|i]; cbn [nth]; [apply ON_0 | apply IH; lia].
+    + apply ON_mul; [apply Origami_neg, ON_1 | apply IH; lia].
+Qed.
+
+(** THE PRIME-POWER RUNG: cos(2*PI/q^e) lies in OrigamiNumK k for every prime
+    q <= 2k+1, by Chebyshev induction on e. *)
+Theorem cos_2pi_qe_ONK : forall kk q, (1 <= kk)%nat ->
+  Znumtheory.prime (Z.of_nat q) -> (q <= 2 * kk + 1)%nat ->
+  forall e, OrigamiNumK kk (cos (2 * PI / INR (q ^ e))).
+Proof.
+  intros kk q Hkk Hq Hqle e.
+  pose proof (is_prime_of_Z q Hq) as [Hq1 _].
+  destruct q as [|q']; [lia |].
+  induction e as [|e IH].
+  - replace (2 * PI / INR (S q' ^ 0)) with (2 * PI)
+      by (rewrite Nat.pow_0_r, INR_1; field).
+    rewrite cos_2PI. apply ONK_1.
+  - set (t := cos (2 * PI / INR (S q' ^ S e))) in *.
+    set (cc := cos (2 * PI / INR (S q' ^ e))) in *.
+    assert (Hrel : pevalR (cheb_coeffs (S q')) t = cc).
+    { destruct (cheb_all (S q')) as [_ HE]. rewrite HE.
+      unfold t. rewrite chebyshev_cos. unfold cc. f_equal.
+      rewrite Nat.pow_succ_r', mult_INR.
+      assert (Hqe : INR (S q' ^ e) <> 0)
+        by (apply not_0_INR; apply Nat.pow_nonzero; lia).
+      assert (HqR : INR (S q') <> 0) by (apply not_0_INR; lia).
+      field. split; assumption. }
+    rewrite pevalR_nth_sum in Hrel.
+    rewrite (proj1 (cheb_all (S q'))) in Hrel.
+    rewrite fsum_S in Hrel.
+    rewrite cheb_top in Hrel.
+    assert (HL0 : 0 < 2 ^ q') by (apply pow_lt; lra).
+    apply (ONK_proot kk (S q')
+             (fun i => (nth i (cheb_coeffs (S q')) 0
+                        - (if Nat.eqb i 0 then cc else 0)) / 2 ^ q')
+             t).
+    + exact Hq.
+    + exact Hqle.
+    + intros i Hi. apply ONK_div; [| | lra].
+      * apply ONK_sub.
+        -- apply Origami_in_ONK; [exact Hkk | apply cheb_coeffs_ON].
+        -- destruct (Nat.eqb i 0); [exact IH | apply ONK_0].
+      * apply Origami_in_ONK; [exact Hkk | apply ON_pow2].
+    + apply (Rmult_eq_reg_l (2 ^ q')); [| lra].
+      rewrite Rmult_0_r, Rmult_plus_distr_l.
+      rewrite <- fsum_scale.
+      rewrite (fsum_ext (S q')
+                 (fun i => 2 ^ q'
+                    * ((nth i (cheb_coeffs (S q')) 0
+                        - (if Nat.eqb i 0 then cc else 0)) / 2 ^ q' * t ^ i))
+                 (fun i => nth i (cheb_coeffs (S q')) 0 * t ^ i
+                           - (if Nat.eqb i 0 then cc else 0) * t ^ i))
+        by (intros i Hi; field; lra).
+      rewrite fsum_minus, fsum_delta0.
+      lra.
+Qed.
