@@ -1,4 +1,4 @@
-(* Companion to "Regular Polygons by k-Fold Origami: An Exact Characterization"
+(* Companion to "Regular Polygons and a Hierarchy of Origami Numbers"
    (C. C. Norton): each numbered result restated under the paper's names and
    discharged by the development, supporting lemmas type-checked by Check, the
    axiom footprint of the main theorem printed at the end. *)
@@ -109,7 +109,7 @@ Proof.
   apply smooth_upto_of_le; lia.
 Qed.
 
-(** Corollary 4.5: k is the minimal fold budget of the n-gon iff 2k+1 is the smoothness threshold of phi(n), smooth at 2k+1 and not below. *)
+(** Corollary 4.5, threshold form: k is the minimal fold budget of the n-gon iff 2k+1 is the smoothness threshold of phi(n), smooth at 2k+1 and not below. *)
 Theorem cor_4_5_minimal_budget : forall n k, (3 <= n)%nat -> (1 <= k)%nat ->
   ( kfold_number k (cos (2 * PI / INR n)) /\
     (forall j, (1 <= j < k)%nat -> ~ kfold_number j (cos (2 * PI / INR n))) )
@@ -124,6 +124,33 @@ Proof.
   - apply (proj2 (ngon_k_fold_iff k Hk n Hn)); exact H1.
   - intros j Hj HO. apply (H2 j Hj).
     apply (ngon_k_fold_iff j ltac:(lia) n Hn); exact HO.
+Qed.
+
+(** Corollary 4.5, closed form: for P the largest prime factor of phi(n), the
+    minimal fold budget of the n-gon is floor(P/2) -- constructible at that level
+    and at none below. The arithmetic bridge from the threshold form. *)
+Theorem cor_4_5_closed_form : forall n P,
+  (3 <= n)%nat ->
+  Znumtheory.prime (Z.of_nat P) ->
+  Nat.divide P (euler_phi n) ->
+  (forall Q, Znumtheory.prime (Z.of_nat Q) -> Nat.divide Q (euler_phi n) ->
+     (Q <= P)%nat) ->
+  (1 <= P / 2)%nat /\
+  kfold_number (P / 2) (cos (2 * PI / INR n)) /\
+  (forall j, (1 <= j < P / 2)%nat -> ~ kfold_number j (cos (2 * PI / INR n))).
+Proof.
+  intros n P Hn HPp HPd HPmax.
+  destruct (is_prime_of_Z P HPp) as [HP2 _].
+  pose proof (Nat.div_mod_eq P 2) as Hdm.
+  pose proof (Nat.mod_upper_bound P 2 ltac:(lia)) as Hmod.
+  assert (Hk1 : (1 <= P / 2)%nat) by lia.
+  split; [exact Hk1 |].
+  split.
+  - apply (proj2 (ngon_k_fold_iff (P / 2) Hk1 n Hn)).
+    intros q Hq Hqd. pose proof (HPmax q Hq Hqd). lia.
+  - intros j [Hj1 Hj2] HO.
+    pose proof (proj1 (ngon_k_fold_iff j ltac:(lia) n Hn) HO) as Hs.
+    pose proof (Hs P HPp HPd). lia.
 Qed.
 
 (** Corollary 4.6 smoothness helpers for the first-polygon budgets. *)
@@ -307,7 +334,7 @@ Proof.
 Qed.
 
 (** 23-gon is the first requiring five folds: every smaller polygon is four-fold
-    constructible, and four folds reach nothing beyond three (Remark 2.4). *)
+    constructible, and four folds reach nothing beyond three (Remark 2.3). *)
 Lemma smooth_9_le : forall m, (1 <= m <= 9)%nat -> smooth_upto 9 m.
 Proof. intros m H. apply smooth_upto_of_le; lia. Qed.
 
@@ -364,7 +391,7 @@ Proof.
   - exact smooth_9_10.
 Qed.
 
-(** Remark 2.3 strictness: the p^2-gon enters at level (p-1)/2 and not below,
+(** Remark 2.5 strictness: the p^2-gon enters at level (p-1)/2 and not below,
     so the polygon sets are strict at every prime p = 2k+1 >= 5. *)
 Theorem rem_2_3_strict_25 :
   kfold_number 2 (cos (2 * PI / INR 25)) /\ ~ kfold_number 1 (cos (2 * PI / INR 25)).
