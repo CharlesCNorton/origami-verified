@@ -173,6 +173,26 @@ Proof.
   destruct (nat_prime_mult q 9 11 Hq H) as [H9|H11]; apply dvd_le_q in H9 || apply dvd_le_q in H11; lia.
 Qed.
 
+Lemma smooth_5_20 : smooth_upto 5 20.
+Proof.
+  intros q Hq Hd. change 20%nat with (4 * 5)%nat in Hd.
+  destruct (nat_prime_mult q 4 5 Hq Hd) as [H|H]; apply dvd_le_q in H; lia.
+Qed.
+
+Lemma smooth_7_42 : smooth_upto 7 42.
+Proof.
+  intros q Hq Hd. change 42%nat with (2 * (3 * 7))%nat in Hd.
+  destruct (nat_prime_mult q 2 (3 * 7) Hq Hd) as [H|H]; [apply dvd_le_q in H; lia |].
+  destruct (nat_prime_mult q 3 7 Hq H) as [H3|H7]; apply dvd_le_q in H3 || apply dvd_le_q in H7; lia.
+Qed.
+
+Lemma smooth_11_110 : smooth_upto 11 110.
+Proof.
+  intros q Hq Hd. change 110%nat with (2 * (5 * 11))%nat in Hd.
+  destruct (nat_prime_mult q 2 (5 * 11) Hq Hd) as [H|H]; [apply dvd_le_q in H; lia |].
+  destruct (nat_prime_mult q 5 11 Hq H) as [H5|H11]; apply dvd_le_q in H5 || apply dvd_le_q in H11; lia.
+Qed.
+
 Lemma smooth_3_2 : smooth_upto 3 2.
 Proof. intros q Hq Hd. apply dvd_le_q in Hd; lia. Qed.
 
@@ -342,6 +362,41 @@ Proof.
   - exact smooth_9_8.
   - exact smooth_9_12.
   - exact smooth_9_10.
+Qed.
+
+(** Remark 2.3 strictness: the p^2-gon enters at level (p-1)/2 and not below,
+    so the polygon sets are strict at every prime p = 2k+1 >= 5. *)
+Theorem rem_2_3_strict_25 :
+  kfold_number 2 (cos (2 * PI / INR 25)) /\ ~ kfold_number 1 (cos (2 * PI / INR 25)).
+Proof.
+  split.
+  - apply (proj2 (ngon_k_fold_iff 2 ltac:(lia) 25 ltac:(lia))). exact smooth_5_20.
+  - intro H.
+    pose proof (proj1 (ngon_k_fold_iff 1 ltac:(lia) 25 ltac:(lia)) H) as Hs.
+    assert (H5 : (5 <= 3)%nat) by (apply Hs; [exact prime_Z_5 | exists 4%nat; reflexivity]).
+    lia.
+Qed.
+
+Theorem rem_2_3_strict_49 :
+  kfold_number 3 (cos (2 * PI / INR 49)) /\ ~ kfold_number 2 (cos (2 * PI / INR 49)).
+Proof.
+  split.
+  - apply (proj2 (ngon_k_fold_iff 3 ltac:(lia) 49 ltac:(lia))). exact smooth_7_42.
+  - intro H.
+    pose proof (proj1 (ngon_k_fold_iff 2 ltac:(lia) 49 ltac:(lia)) H) as Hs.
+    assert (H7 : (7 <= 5)%nat) by (apply Hs; [exact prime_Z_7 | exists 6%nat; reflexivity]).
+    lia.
+Qed.
+
+Theorem rem_2_3_strict_121 :
+  kfold_number 5 (cos (2 * PI / INR 121)) /\ ~ kfold_number 4 (cos (2 * PI / INR 121)).
+Proof.
+  split.
+  - apply (proj2 (ngon_k_fold_iff 5 ltac:(lia) 121 ltac:(lia))). exact smooth_11_110.
+  - intro H.
+    pose proof (proj1 (ngon_k_fold_iff 4 ltac:(lia) 121 ltac:(lia)) H) as Hs.
+    assert (H11 : (11 <= 9)%nat) by (apply Hs; [exact prime_Z_11 | exists 10%nat; reflexivity]).
+    lia.
 Qed.
 
 (** Section 4.1 sufficiency lemmas: primitive root, Chebyshev rung, composite step, Newton-Vieta rungs. *)
